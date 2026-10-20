@@ -1,0 +1,18 @@
+# Private working notes, never published
+CLAUDE.md
+
+# Build output
+/build/
+/build-*/
+/out/
+
+# Tooling caches and editor files
+/.cache/
+compile_commands.json
+CMakeLists.txt.user*
+*.swp
+*~
+.vscode/
+.idea/
+.kdev4/
+*.kdev4
