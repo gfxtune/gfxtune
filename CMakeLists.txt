@@ -11,6 +11,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(GNUInstallDirs)
 
 option(GFXTUNE_WERROR "Treat compiler warnings as errors" OFF)
+option(GFXTUNE_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(BUILD_TESTING "Build the tests" ON)
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Quick QuickControls2 Widgets)
 qt_standard_project_setup(REQUIRES 6.8)
@@ -19,5 +21,14 @@ add_compile_options(-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conver
 if(GFXTUNE_WERROR)
     add_compile_options(-Werror)
 endif()
+if(GFXTUNE_SANITIZE)
+    add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all)
+    add_link_options(-fsanitize=address,undefined)
+endif()
 
 add_subdirectory(src)
+
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

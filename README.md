@@ -24,7 +24,12 @@ Requirements: CMake 3.24 or newer, a C++20 compiler, Qt 6.8 or newer (Quick, Qui
 ```
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
+ctest --test-dir build
 ```
+
+The tests build made-up Steam folders and programs; they never read a real Steam installation.
+
+`gfxtune --list-games` prints the Steam games gfxtune finds and what it reads about each one (how it runs, which graphics libraries it loads, FSR 3.1, current launch options). It only reads, and is meant for checking a system or attaching to a bug report.
 
 ## License
 

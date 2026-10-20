@@ -1,16 +1,61 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 gfxtune contributors
 
+#include "ListGames.h"
+
 #include <QApplication>
+#include <QCommandLineParser>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 
+#include <cstring>
+
+namespace
+{
+
+// Options that print something and exit; they must work without a display.
+bool wantsTextOnly(int argc, char *argv[])
+{
+    for (int i = 1; i < argc; ++i) {
+        for (const char *option : {"--list-games", "--help", "--help-all", "-h", "-?", "--version", "-v"}) {
+            if (std::strcmp(argv[i], option) == 0) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void setUpCommandLine(QCommandLineParser &parser)
+{
+    parser.setApplicationDescription(QStringLiteral("Per-game graphics settings and live GPU readings"));
+    parser.addHelpOption();
+    parser.addVersionOption();
+    parser.addOption({QStringLiteral("list-games"), QStringLiteral("Print the Steam games gfxtune finds, then exit.")});
+}
+
+} // namespace
+
 int main(int argc, char *argv[])
 {
+    if (wantsTextOnly(argc, argv)) {
+        QCoreApplication app(argc, argv);
+        QCoreApplication::setApplicationName(QStringLiteral("gfxtune"));
+        QCoreApplication::setApplicationVersion(QStringLiteral(PROJECT_VERSION));
+        QCommandLineParser parser;
+        setUpCommandLine(parser);
+        parser.process(app); // handles --help and --version itself
+        QTextStream out(stdout);
+        return gfxtune::listGames(out);
+    }
+
     // KDE's desktop style draws through QStyle, which needs a QApplication.
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("gfxtune"));
     QApplication::setApplicationVersion(QStringLiteral(PROJECT_VERSION));
+    QCommandLineParser parser;
+    setUpCommandLine(parser);
+    parser.process(app);
 
     // KDE's desktop style, unless the user asked for another one.
     if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE")) {
