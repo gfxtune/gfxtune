@@ -54,6 +54,11 @@ struct Game {
 
     // The launch options currently set in Steam for this game.
     QString launchOptions;
+
+    // Steam's build number of the installed version; changes with updates.
+    QString buildId;
+    // Portrait cover from Steam's own image cache; empty when Steam has none.
+    QString coverPath;
 };
 
 QString runtimeName(Runtime runtime);

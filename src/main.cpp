@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 gfxtune contributors
 
+#include "GameLibrary.h"
+#include "GameSettingsEditor.h"
 #include "ListGames.h"
 
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
+#include <QtQml/QQmlExtensionPlugin>
 
 #include <cstring>
+
+Q_IMPORT_QML_PLUGIN(Gfxtune_BackendPlugin)
+Q_IMPORT_QML_PLUGIN(GfxtunePlugin)
 
 namespace
 {
@@ -53,6 +59,7 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("gfxtune"));
     QApplication::setApplicationVersion(QStringLiteral(PROJECT_VERSION));
+    QApplication::setDesktopFileName(QStringLiteral("gfxtune"));
     QCommandLineParser parser;
     setUpCommandLine(parser);
     parser.process(app);
@@ -62,10 +69,22 @@ int main(int argc, char *argv[])
         QQuickStyle::setStyle(QStringLiteral("org.kde.desktop"));
     }
 
+    // Declared in this order so the editor, which saves on destruction, goes
+    // before the library it reads from.
+    gfxtune::settings::SettingsStore store(gfxtune::settings::SettingsStore::defaultBaseDir());
+    gfxtune::GameLibrary library(gfxtune::steam::ScanOptions::fromEnvironment(), &store);
+    gfxtune::GameSettingsEditor editor(&library, &store, gfxtune::settings::SystemInfo::detect());
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, &editor, &gfxtune::GameSettingsEditor::flush);
+
     QQmlApplicationEngine engine;
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
                      [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
+    engine.setInitialProperties({
+        {QStringLiteral("library"), QVariant::fromValue(&library)},
+        {QStringLiteral("editor"), QVariant::fromValue(&editor)},
+    });
     engine.loadFromModule("Gfxtune", "Main");
+    library.start();
 
     return QApplication::exec();
 }

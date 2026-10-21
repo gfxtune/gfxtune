@@ -4,6 +4,7 @@
 #include "SteamLibrary.h"
 
 #include "AppInfo.h"
+#include "Covers.h"
 #include "GameFiles.h"
 #include "vdf/TextVdf.h"
 
@@ -32,6 +33,7 @@ constexpr quint32 StateFullyInstalled = 4;
 struct Manifest {
     quint32 appId = 0;
     QString name;
+    QString buildId;
     QString libraryPath;
     QString installPath;
 };
@@ -118,7 +120,7 @@ QList<LibraryFolder> readLibraries(const QString &steamRoot, QStringList &warnin
 }
 
 // Installed apps of one library, split into games-or-unknown and Steam's
-// own tools (Proton, the runtimes), recognised by their toolmanifest.vdf.
+// own tools (Proton, the runtimes), recognized by their toolmanifest.vdf.
 void readManifests(const QString &library, std::vector<Manifest> &apps, QHash<quint32, Manifest> &tools, QStringList &warnings)
 {
     const QDir steamapps(library + QStringLiteral("/steamapps"));
@@ -136,6 +138,7 @@ void readManifests(const QString &library, std::vector<Manifest> &apps, QHash<qu
         Manifest app;
         app.appId = state->valueOf(u"appid").toUInt();
         app.name = state->valueOf(u"name");
+        app.buildId = state->valueOf(u"buildid");
         if (app.name.isEmpty()) {
             if (const vdf::Node *userConfig = state->child(u"UserConfig")) {
                 app.name = userConfig->valueOf(u"name");
@@ -530,12 +533,15 @@ SteamScan scanSteam(const ScanOptions &options)
         game.libraryPath = app.libraryPath;
         game.installPath = app.installPath;
         game.launchOptions = launchOptions.value(app.appId);
+        game.buildId = app.buildId;
+        game.coverPath = findCover(root, scan.accountId, app.appId);
         resolveRuntime(game, info, mapping, valveMappings, tools);
 
         if (options.inspectGameFiles) {
             const bool windows = game.runtime == Runtime::Proton;
             const QStringList executables = info ? launchExecutables(*info, windows) : QStringList();
-            const GameFileReport report = inspectGameFiles(game.installPath, executables, windows);
+            const GameFileReport report = options.inspector ? options.inspector(game, executables, windows)
+                                                            : inspectGameFiles(game.installPath, executables, windows);
             game.apis = report.apis;
             game.fsr31Dx12 = report.fsr31Dx12;
             game.fsr31Vulkan = report.fsr31Vulkan;

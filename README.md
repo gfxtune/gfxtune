@@ -17,6 +17,10 @@ Options that do not apply to a game, for example FSR 4 under a Proton build with
 
 Not planned: recording, streaming, overlays or playtime tracking. Overclocking, undervolting and fan control are not part of the first version.
 
+## Where gfxtune keeps its settings
+
+Per-game settings are plain text files in `~/.config/gfxtune/games/`, one per game, written only for games you changed. gfxtune reads Steam's files where they are and never copies them. "Remove All gfxtune Settings" in the menu deletes the `gfxtune` folder and nothing else.
+
 ## Building
 
 Requirements: CMake 3.24 or newer, a C++20 compiler, Qt 6.8 or newer (Quick, Quick Controls 2, Widgets) and KDE Kirigami.

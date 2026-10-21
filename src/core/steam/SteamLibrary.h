@@ -4,10 +4,13 @@
 #pragma once
 
 #include "Game.h"
+#include "GameFiles.h"
 
 #include <QList>
 #include <QString>
 #include <QStringList>
+
+#include <functional>
 
 namespace gfxtune::steam
 {
@@ -21,6 +24,9 @@ struct ScanOptions {
     QStringList compatToolDirs;
     // Read each game's folder for graphics libraries and FSR 3.1.
     bool inspectGameFiles = true;
+    // Replaces that reading, for example with a cached version. Called on
+    // the scanning thread. Empty means inspectGameFiles() is used.
+    std::function<GameFileReport(const Game &game, const QStringList &executables, bool windowsGame)> inspector;
 
     // Defaults for this computer: $HOME, the standard system folders and
     // STEAM_EXTRA_COMPAT_TOOLS_PATHS.

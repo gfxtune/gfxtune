@@ -14,8 +14,10 @@ option(GFXTUNE_WERROR "Treat compiler warnings as errors" OFF)
 option(GFXTUNE_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(BUILD_TESTING "Build the tests" ON)
 
-find_package(Qt6 6.8 REQUIRED COMPONENTS Quick QuickControls2 Widgets)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Concurrent Qml Quick QuickControls2 Widgets)
 qt_standard_project_setup(REQUIRES 6.8)
+# All QML modules in one folder, so build tools find each other's types.
+set(QT_QML_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/qml)
 
 add_compile_options(-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion)
 if(GFXTUNE_WERROR)
