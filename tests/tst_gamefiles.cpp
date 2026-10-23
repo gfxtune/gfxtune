@@ -56,6 +56,38 @@ private Q_SLOTS:
         QCOMPARE(report.apis, GraphicsApis(GraphicsApi::DirectX11));
     }
 
+    void readsUnityGamesAsDirectX11()
+    {
+        // Unity's player links OpenGL and loads Direct3D 11 only at run time.
+        const QString root = gameFolder(QStringLiteral("unity"));
+        QVERIFY(test::writeFile(root + QStringLiteral("/Raftlike.exe"), test::writePe(true, {QStringLiteral("UnityPlayer.dll")})));
+        QVERIFY(test::writeFile(root + QStringLiteral("/UnityPlayer.dll"), test::writePe(true, {QStringLiteral("OPENGL32.dll"), QStringLiteral("kernel32.dll")})));
+        auto report = steam::inspectGameFiles(root, {QStringLiteral("Raftlike.exe")}, true);
+        QCOMPARE(report.apis, GraphicsApis(GraphicsApi::DirectX11));
+
+        // A Unity game that links Vulkan keeps what it links.
+        QVERIFY(test::writeFile(root + QStringLiteral("/UnityPlayer.dll"), test::writePe(true, {QStringLiteral("vulkan-1.dll"), QStringLiteral("OPENGL32.dll")})));
+        report = steam::inspectGameFiles(root, {QStringLiteral("Raftlike.exe")}, true);
+        QVERIFY(report.apis & GraphicsApi::Vulkan);
+    }
+
+    void dropsOpenGlWhenAWindowsGameLinksDirectX()
+    {
+        const QString root = gameFolder(QStringLiteral("both"));
+        QVERIFY(test::writeFile(root + QStringLiteral("/Game.exe"), test::writePe(true, {QStringLiteral("d3d11.dll"), QStringLiteral("opengl32.dll")})));
+        QCOMPARE(steam::inspectGameFiles(root, {QStringLiteral("Game.exe")}, true).apis, GraphicsApis(GraphicsApi::DirectX11));
+
+        // Without DirectX or Unity, OpenGL is what it is.
+        const QString gl = gameFolder(QStringLiteral("opengl"));
+        QVERIFY(test::writeFile(gl + QStringLiteral("/Game.exe"), test::writePe(true, {QStringLiteral("opengl32.dll")})));
+        QCOMPARE(steam::inspectGameFiles(gl, {QStringLiteral("Game.exe")}, true).apis, GraphicsApis(GraphicsApi::OpenGL));
+
+        // Native games are left as found: Linux libraries are a good guide.
+        const QString native = gameFolder(QStringLiteral("native-both"));
+        QVERIFY(test::writeFile(native + QStringLiteral("/game"), test::writeElf(true, {QStringLiteral("libvulkan.so.1"), QStringLiteral("libGL.so.1")}), true));
+        QCOMPARE(steam::inspectGameFiles(native, {QStringLiteral("game")}, false).apis, GraphicsApi::Vulkan | GraphicsApi::OpenGL);
+    }
+
     void detectsFsr31Libraries()
     {
         const QString root = gameFolder(QStringLiteral("fsr"));

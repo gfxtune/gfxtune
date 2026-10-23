@@ -7,6 +7,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QRegularExpression>
 
 namespace gfxtune::test
 {
@@ -68,6 +69,61 @@ QString writeNameTable(const QString &dir)
                     "15BF,\tC2,\tAMD Radeon 780M Graphics\n"
                     "13C0,\tC1,\tAMD Radeon Graphics, with a comma\n");
     return path;
+}
+
+bool loadCardReport(const QString &reportPath, const QString &root)
+{
+    QFile report(reportPath);
+    if (!report.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return false;
+    }
+    static const QRegularExpression cardLine(QStringLiteral("^== /sys/class/drm/(card\\d+)$"));
+    static const QRegularExpression gcLine(QStringLiteral("^-- GC (major|minor): (\\S+)$"));
+    QString device;
+    QString file;       // multi-line value being collected
+    QByteArray content;
+    bool hexDump = false;
+    auto flush = [&] {
+        if (!file.isEmpty()) {
+            if (hexDump) {
+                content = QByteArray::fromHex(content.simplified().replace(' ', ""));
+            }
+            writeFile(device + QLatin1Char('/') + file, content);
+        }
+        file.clear();
+        content.clear();
+        hexDump = false;
+    };
+    while (!report.atEnd()) {
+        const QString line = QString::fromUtf8(report.readLine()).chopped(1);
+        if (const auto m = cardLine.match(line); m.hasMatch()) {
+            flush();
+            device = root + QStringLiteral("/class/drm/") + m.captured(1) + QStringLiteral("/device");
+            continue;
+        }
+        if (device.isEmpty() || !line.startsWith(QLatin1String("-- "))) {
+            if (!file.isEmpty()) {
+                content += line.toUtf8() + (hexDump ? " " : "\n");
+            }
+            continue;
+        }
+        flush();
+        if (const auto m = gcLine.match(line); m.hasMatch()) {
+            writeFile(device + QStringLiteral("/ip_discovery/die/0/GC/0/") + m.captured(1), m.captured(2).toUtf8() + '\n');
+        } else if (line.startsWith(QLatin1String("-- hwmon/"))) {
+            const qsizetype colon = line.indexOf(QLatin1String(": "));
+            const QString name = line.mid(9, (colon < 0 ? line.size() : colon) - 9);
+            const QByteArray value = colon < 0 ? QByteArray() : line.mid(colon + 2).toUtf8();
+            writeFile(device + QStringLiteral("/hwmon/hwmon0/") + name, value + '\n');
+        } else if (line.startsWith(QLatin1String("-- fan_ctrl/"))) {
+            file = QStringLiteral("gpu_od/fan_ctrl/") + line.mid(12);
+        } else {
+            file = line.mid(3);
+            hexDump = file == QLatin1String("gpu_metrics");
+        }
+    }
+    flush();
+    return !device.isEmpty();
 }
 
 } // namespace gfxtune::test

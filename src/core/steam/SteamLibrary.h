@@ -38,6 +38,13 @@ struct LibraryFolder {
     bool available = true; // false when, for example, its drive is not mounted
 };
 
+// An installed app left out of the game list, and why.
+struct SkippedApp {
+    quint32 appId = 0;
+    QString name;
+    QString reason;
+};
+
 struct SteamScan {
     bool steamFound = false;
     QString steamRoot;
@@ -47,6 +54,7 @@ struct SteamScan {
     QString localConfigPath;
     QList<LibraryFolder> libraries;
     QList<Game> games; // installed games, sorted by name
+    QList<SkippedApp> skipped;
     // Problems that did not stop the scan, such as an unreadable file.
     QStringList warnings;
     // Files and folders whose changes mean the scan is out of date.

@@ -1,0 +1,134 @@
+kernel: 7.2.9-2-cachyos
+== /sys/class/drm/card1
+-- vendor
+0x1002
+-- device
+0x744c
+-- revision
+0xcc
+-- subsystem_vendor
+0x1eae
+-- subsystem_device
+0x7905
+-- boot_vga
+1
+-- power/runtime_status
+active
+-- gpu_busy_percent
+69
+-- mem_busy_percent
+12
+-- mem_info_vram_total
+21458059264
+-- mem_info_vram_used
+4531920896
+-- mem_info_gtt_total
+16783081472
+-- mem_info_gtt_used
+4165328896
+-- power_dpm_force_performance_level
+auto
+-- pp_dpm_sclk
+0: 500Mhz 
+1: 1272Mhz *
+2: 2175Mhz 
+-- pp_dpm_mclk
+0: 96Mhz 
+1: 456Mhz 
+2: 772Mhz *
+3: 1249Mhz 
+-- pp_dpm_fclk
+0: 601Mhz 
+1: 1000Mhz 
+2: 1200Mhz 
+3: 1600Mhz 
+4: 2000Mhz 
+5: 2201Mhz 
+6: 2251Mhz 
+7: 2301Mhz *
+-- pp_dpm_socclk
+0: 500Mhz 
+1: 1500Mhz *
+-- pp_dpm_pcie
+0: 2.5GT/s, x1 78Mhz 
+1: 5.0GT/s, x4 156Mhz 
+2: 16.0GT/s, x16 623Mhz *
+-- pp_power_profile_mode
+PROFILE_INDEX(NAME) CLOCK_TYPE(NAME) FPS MinActiveFreqType MinActiveFreq BoosterFreqType BoosterFreq PD_Data_limit_c PD_Data_error_coeff PD_Data_error_rate_coeff
+ 0 BOOTUP_DEFAULT*:
+                    0(       GFXCLK)       0       1       0       4     800 4587520  -65536       0
+                    1(         FCLK)       0       3       0       1       0 3276800  -65536   -6553
+ 1 3D_FULL_SCREEN :
+                    0(       GFXCLK)       0       0    1200       4     650 5242880   -3276  -65536
+                    1(         FCLK)       0       3       0       3       0 1310720   -6553   -6553
+ 2   POWER_SAVING :
+                    0(       GFXCLK)       0       1       0       3       0 5898240  -65536       0
+                    1(         FCLK)       0       1       0       1       0 3407872  -65536   -6553
+ 3          VIDEO :
+                    0(       GFXCLK)       0       1       0       4     500 4587520  -65536       0
+                    1(         FCLK)       0       3       0       3       0 3473408  -65536   -6553
+ 4             VR :
+                    0(       GFXCLK)       0       2    1000       1       0 3276800       0       0
+                    1(         FCLK)       0       3       0       3       0 1310720   -6553   -6553
+ 5        COMPUTE :
+                    0(       GFXCLK)       0       2    1000       1       0 3932160       0       0
+                    1(         FCLK)       0       3       0       3       0 1310720   -6553   -6553
+ 6         CUSTOM :
+                    0(       GFXCLK)       0       0    1200       4       0  655360   -3276  -65536
+                    1(         FCLK)       0       3       0       3       0 1310720   -6553   -6553
+ 7      WINDOW_3D :
+                    0(       GFXCLK)       0       0    1200       4     650 5242880   -3276  -65536
+                    1(         FCLK)       0       3       0       3       0 1310720   -6553   -6553
+-- current_link_speed
+16.0 GT/s PCIe
+-- current_link_width
+16
+-- GC major: 11
+-- GC minor: 0
+-- hwmon/fan1_enable: 0
+-- hwmon/fan1_input: 592
+-- hwmon/fan1_max: 3300
+-- hwmon/fan1_min: 0
+-- hwmon/fan1_target: 592
+-- hwmon/freq1_input: 26000000
+-- hwmon/freq1_label: sclk
+-- hwmon/freq2_input: 772000000
+-- hwmon/freq2_label: mclk
+-- hwmon/in0_input: 663
+-- hwmon/in0_label: vddgfx
+-- hwmon/name: amdgpu
+-- hwmon/power1_average: 84000000
+-- hwmon/power1_cap: 282000000
+-- hwmon/power1_cap_default: 282000000
+-- hwmon/power1_cap_max: 290000000
+-- hwmon/power1_cap_min: 253000000
+-- hwmon/power1_label: PPT
+-- hwmon/pwm1: 38
+-- hwmon/pwm1_enable: 2
+-- hwmon/pwm1_max: 255
+-- hwmon/pwm1_min: 0
+-- hwmon/temp1_crit: 100000
+-- hwmon/temp1_crit_hyst: -273150
+-- hwmon/temp1_emergency: 105000
+-- hwmon/temp1_input: 62000
+-- hwmon/temp1_label: edge
+-- hwmon/temp2_crit: 110000
+-- hwmon/temp2_crit_hyst: -273150
+-- hwmon/temp2_emergency: 115000
+-- hwmon/temp2_input: 68000
+-- hwmon/temp2_label: junction
+-- hwmon/temp3_crit: 108000
+-- hwmon/temp3_crit_hyst: -273150
+-- hwmon/temp3_emergency: 113000
+-- hwmon/temp3_input: 74000
+-- hwmon/temp3_label: mem
+-- hwmon/uevent: 
+-- gpu_metrics
+ 78 00 01 03 3d 00 45 00 4a 00 39 00 3c 00 38 00
+ 24 00 04 00 41 00 56 00 ff ff ff ff ff ff ff ff
+ 0a a0 f8 f9 05 b4 01 00 24 05 ff ff 02 06 75 0b
+ 98 08 75 0b 98 08 24 05 dc 05 04 03 75 0b 98 08
+ 75 0b 98 08 00 00 00 00 50 02 10 00 a0 00 ff ff
+ ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+ ff ff ff ff ff ff ff ff 84 04 96 02 f0 02 ff ff
+ 00 00 00 00 00 00 00 00

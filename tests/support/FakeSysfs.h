@@ -26,4 +26,8 @@ void setCardFile(const QString &root, int index, const QString &relative, const 
 // A small amdgpu.ids with the 7900 cards.
 QString writeNameTable(const QString &dir);
 
+// Recreates the card files recorded in a card report (the read-only command
+// users run to share their card's sysfs files) under <root>/class/drm.
+bool loadCardReport(const QString &reportPath, const QString &root);
+
 } // namespace gfxtune::test

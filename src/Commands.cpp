@@ -53,6 +53,14 @@ int listGames(QTextStream &out)
         }
     }
 
+    if (!scan.skipped.isEmpty()) {
+        out << "\nInstalled but not listed (" << scan.skipped.size() << "):\n";
+        for (const SkippedApp &app : scan.skipped) {
+            out << "    " << app.appId << "  " << (app.name.isEmpty() ? QStringLiteral("(no name)") : app.name) << ": " << app.reason
+                << '\n';
+        }
+    }
+
     if (!scan.warnings.isEmpty()) {
         out << "\nWarnings:\n";
         for (const QString &warning : scan.warnings) {

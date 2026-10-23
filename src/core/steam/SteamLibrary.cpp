@@ -121,7 +121,8 @@ QList<LibraryFolder> readLibraries(const QString &steamRoot, QStringList &warnin
 
 // Installed apps of one library, split into games-or-unknown and Steam's
 // own tools (Proton, the runtimes), recognized by their toolmanifest.vdf.
-void readManifests(const QString &library, std::vector<Manifest> &apps, QHash<quint32, Manifest> &tools, QStringList &warnings)
+void readManifests(const QString &library, std::vector<Manifest> &apps, QHash<quint32, Manifest> &tools,
+                   QList<SkippedApp> &skipped, QStringList &warnings)
 {
     const QDir steamapps(library + QStringLiteral("/steamapps"));
     const QStringList files = steamapps.entryList({QStringLiteral("appmanifest_*.acf")}, QDir::Files, QDir::Name);
@@ -151,15 +152,18 @@ void readManifests(const QString &library, std::vector<Manifest> &apps, QHash<qu
         }
         const QString flags = state->valueOf(u"StateFlags");
         if (!flags.isEmpty() && (flags.toUInt() & StateFullyInstalled) == 0) {
-            continue; // still downloading, or uninstalled
+            skipped.append({app.appId, app.name, QStringLiteral("not fully installed (Steam state %1)").arg(flags)});
+            continue;
         }
         app.libraryPath = library;
         app.installPath = QDir::cleanPath(steamapps.filePath(QStringLiteral("common/") + installDir));
         if (!QFileInfo(app.installPath).isDir()) {
+            skipped.append({app.appId, app.name, QStringLiteral("its folder is missing: %1").arg(app.installPath)});
             continue;
         }
         if (QFileInfo::exists(app.installPath + QStringLiteral("/toolmanifest.vdf"))) {
             tools.insert(app.appId, app);
+            skipped.append({app.appId, app.name, QStringLiteral("a Steam tool (Proton or a runtime), not a game")});
         } else {
             apps.push_back(app);
         }
@@ -477,7 +481,7 @@ SteamScan scanSteam(const ScanOptions &options)
     QHash<quint32, Manifest> toolApps;
     for (const LibraryFolder &library : std::as_const(scan.libraries)) {
         if (library.available) {
-            readManifests(library.path, apps, toolApps, scan.warnings);
+            readManifests(library.path, apps, toolApps, scan.skipped, scan.warnings);
             addIfExists(scan.watchPaths, library.path + QStringLiteral("/steamapps"));
         }
     }
@@ -518,12 +522,19 @@ SteamScan scanSteam(const ScanOptions &options)
 
     QSet<quint32> listed;
     for (const Manifest &app : apps) {
-        if (app.appId == SteamworksRedistAppId || listed.contains(app.appId)) {
+        if (app.appId == SteamworksRedistAppId) {
+            scan.skipped.append({app.appId, app.name, QStringLiteral("Steam's shared redistributables, not a game")});
+            continue;
+        }
+        if (listed.contains(app.appId)) {
+            scan.skipped.append({app.appId, app.name, QStringLiteral("installed in two libraries; listed once")});
             continue;
         }
         const auto entry = appInfo.apps.constFind(app.appId);
         const vdf::Node *info = entry != appInfo.apps.constEnd() ? &*entry : nullptr;
         if (info && !isGameType(*info)) {
+            const vdf::Node *type = info->find({u"common", u"type"});
+            scan.skipped.append({app.appId, app.name, QStringLiteral("not a game (Steam type: %1)").arg(type ? type->value : QString())});
             continue;
         }
         listed.insert(app.appId);

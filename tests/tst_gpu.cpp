@@ -259,6 +259,66 @@ private Q_SLOTS:
         QCOMPARE(monitor.currentCard(), 0);
     }
 
+    // Files recorded on a real RX 7900 XT, idle and with a game running.
+    void readsARealRx7900Xt_data()
+    {
+        QTest::addColumn<QString>("report");
+        QTest::addColumn<int>("load");
+        QTest::addColumn<int>("coreClock");
+        QTest::addColumn<double>("power");
+        QTest::addColumn<double>("hotspot");
+        QTest::addColumn<int>("fanRpm");
+        QTest::addColumn<int>("voltage");
+        QTest::addColumn<QString>("videoMemory");
+        QTest::newRow("idle") << QStringLiteral("data/rx7900xt-idle.txt") << 69 << 26 << 84.0 << 68.0 << 592 << 663 << QStringLiteral("4.2 / 20.0 GB");
+        QTest::newRow("game") << QStringLiteral("data/rx7900xt-game.txt") << 32 << 1260 << 86.0 << 69.0 << 591 << 650 << QStringLiteral("4.5 / 20.0 GB");
+    }
+
+    void readsARealRx7900Xt()
+    {
+        QFETCH(QString, report);
+        QFETCH(int, load);
+        QFETCH(int, coreClock);
+        QFETCH(double, power);
+        QFETCH(double, hotspot);
+        QFETCH(int, fanRpm);
+        QFETCH(int, voltage);
+        QFETCH(QString, videoMemory);
+
+        QTemporaryDir sys;
+        QTemporaryDir data;
+        const QString path = QFINDTESTDATA(report);
+        QVERIFY2(!path.isEmpty(), "card report not found");
+        QVERIFY(test::loadCardReport(path, sys.path()));
+
+        const GpuScan scan = findGpus(sys.path(), {test::writeNameTable(data.path())});
+        QCOMPARE(scan.amd.size(), 1);
+        QCOMPARE(scan.otherCards, 0);
+        const AmdGpu &card = scan.amd.first();
+        QCOMPARE(card.name, QStringLiteral("AMD Radeon RX 7900 XT"));
+        QCOMPARE(card.vramBytes, quint64(21458059264ull));
+
+        const GpuReading r = readGpu(card);
+        QVERIFY(!r.asleep);
+        QCOMPARE(r.edgeTemp, 62.0);
+        QCOMPARE(r.hotspotTemp, hotspot);
+        QCOMPARE(r.memoryTemp, 74.0);
+        QCOMPARE(r.power, power);
+        QCOMPARE(r.powerLimit, 282.0);
+        QCOMPARE(r.load, load);
+        QCOMPARE(r.coreClock, coreClock);
+        QCOMPARE(r.memoryClock, 772);
+        QCOMPARE(r.fanRpm, fanRpm);
+        QCOMPARE(r.fanPercent, 15);
+        QCOMPARE(r.voltage, voltage);
+
+        GpuMonitor monitor(sys.path());
+        monitor.sample();
+        QCOMPARE(monitor.power(), QStringLiteral("%1 / 282 W").arg(qRound(power)));
+        QCOMPARE(monitor.fan(), QStringLiteral("%1 RPM · 15%").arg(fanRpm));
+        QCOMPARE(monitor.videoMemory(), videoMemory);
+    }
+
     void showsNothingWhileTheCardSleeps()
     {
         QTemporaryDir sys;

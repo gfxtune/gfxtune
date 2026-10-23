@@ -146,6 +146,26 @@ private Q_SLOTS:
         QVERIFY(findGame(scan, 1003)->launchOptions.isEmpty());
     }
 
+    void explainsWhyAppsAreLeftOut()
+    {
+        FakeSteam steam;
+        steam.build();
+        steam.game(steam.lib2, 1001, s("Ashfall Protocol"), s("Ashfall Copy"));
+        const SteamScan scan = scanSteam(steam.options());
+        QHash<quint32, QString> reasons;
+        for (const SkippedApp &app : scan.skipped) {
+            reasons.insert(app.appId, app.reason);
+        }
+        QVERIFY(reasons.value(1006).startsWith(s("not fully installed")));
+        QVERIFY(reasons.value(1008).contains(s("Music")));
+        QVERIFY(reasons.value(1011).startsWith(s("its folder is missing")));
+        QVERIFY(reasons.value(2805730).contains(s("Steam tool")));
+        QVERIFY(reasons.value(228980).contains(s("redistributables")));
+        QVERIFY(reasons.value(1001).contains(s("two libraries")));
+        // Every installed app is either listed or explained.
+        QCOMPARE(scan.games.size() + scan.skipped.size(), 7 + 6);
+    }
+
     void fallsBackToNewestSignInWithoutMostRecent()
     {
         FakeSteam steam;

@@ -225,6 +225,8 @@ private Q_SLOTS:
         QTest::newRow("Proton DX11 and 12") << proton << (dx11 | dx12) << true << false << true << true << true << true << true;
         QTest::newRow("native Vulkan") << native << vulkan << false << false << true << true << false << false << true;
         QTest::newRow("native OpenGL") << native << gl << false << false << false << false << false << false << false;
+        // Windows games often link OpenGL without using it: only a note.
+        QTest::newRow("Proton, OpenGL guess") << proton << gl << false << false << true << true << true << false << true;
         QTest::newRow("native OpenGL, gamescope on") << native << gl << false << true << true << false << true << false << true;
         QTest::newRow("native, FSR DLL present") << native << vulkan << true << false << true << true << false << false << true;
         QTest::newRow("unknown runtime") << int(Runtime::Unknown) << 0 << false << false << true << true << false << false << true;
@@ -256,6 +258,16 @@ private Q_SLOTS:
         for (const Option &option : {a.anisotropicFiltering, a.verticalSync, a.frameCap, a.fsr4Upgrade, a.gamescope}) {
             QVERIFY(option.available || !option.note.isEmpty());
         }
+    }
+
+    void onlyNotesAnOpenGlGuessUnderProton()
+    {
+        SystemInfo system;
+        system.gamescopeInstalled = true;
+        const Availability a = availabilityFor(game(Runtime::Proton, GraphicsApi::OpenGL), GameSettings{}, system);
+        QVERIFY(a.anisotropicFiltering.available);
+        QVERIFY(a.anisotropicFiltering.note.contains(QLatin1String("OpenGL")));
+        QVERIFY(a.verticalSync.available);
     }
 
     void respectsTheGamesOwnLaunchOptions()

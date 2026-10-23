@@ -47,16 +47,24 @@ Availability availabilityFor(const steam::Game &game, const GameSettings &settin
         return QStringLiteral("Set by %1 in this game's Steam launch options, which gfxtune leaves alone.").arg(what);
     };
 
+    // A native game's libraries are a good guide. A Windows game's are not:
+    // many link OpenGL without drawing with it, so under Proton an OpenGL
+    // guess only earns a note.
+    const bool openGl = onlyOpenGl(game.apis);
+    const Option openGlOption = game.runtime == Runtime::Proton
+        ? Option{true, QStringLiteral("If this game draws with OpenGL, this setting does not reach it.")}
+        : Option{false, openGlNote};
+
     if (own.environment.contains(QStringLiteral("RADV_TEX_ANISO"))) {
         a.anisotropicFiltering = {false, setInSteam(QStringLiteral("RADV_TEX_ANISO"))};
-    } else if (onlyOpenGl(game.apis)) {
-        a.anisotropicFiltering = {false, openGlNote};
+    } else if (openGl) {
+        a.anisotropicFiltering = openGlOption;
     }
 
     if (own.environment.contains(QStringLiteral("MESA_VK_WSI_PRESENT_MODE"))) {
         a.verticalSync = {false, setInSteam(QStringLiteral("MESA_VK_WSI_PRESENT_MODE"))};
-    } else if (onlyOpenGl(game.apis)) {
-        a.verticalSync = {false, openGlNote};
+    } else if (openGl) {
+        a.verticalSync = openGlOption;
     }
 
     const bool gamescopeUsable = system.gamescopeInstalled && !own.gamescope;
@@ -66,7 +74,7 @@ Availability availabilityFor(const steam::Game &game, const GameSettings &settin
         a.frameCap = {false, setInSteam(QStringLiteral("a frame rate variable"))};
     } else if (game.runtime == Runtime::Proton && (game.apis & ProtonApis)) {
         a.frameCap = {true, {}};
-    } else if (game.runtime == Runtime::Proton && !game.apis) {
+    } else if (game.runtime == Runtime::Proton && (!game.apis || openGl)) {
         a.frameCap = {true, QStringLiteral("Only takes effect if the game uses DirectX 9 to 12.")};
     } else if (gamescopeUsable) {
         a.frameCap = {false, QStringLiteral("Turn on gamescope to cap this game's frame rate.")};

@@ -34,6 +34,7 @@ struct FolderIndex {
     std::vector<Program> programs;
     bool fsr31Dx12 = false;
     bool fsr31Vulkan = false;
+    bool unity = false; // ships Unity's Windows player
 };
 
 bool isLinuxProgram(const QFileInfo &info)
@@ -57,6 +58,8 @@ void indexFile(const QFileInfo &info, const QString &relative, bool windowsGame,
         index.fsr31Dx12 = true;
     } else if (fileName == QLatin1String("amd_fidelityfx_vk.dll")) {
         index.fsr31Vulkan = true;
+    } else if (fileName == QLatin1String("unityplayer.dll")) {
+        index.unity = true;
     }
 
     if (windowsGame) {
@@ -140,6 +143,22 @@ GraphicsApis apisOfProgram(const QString &programPath, const FolderIndex &index,
     return apis;
 }
 
+constexpr auto DirectXApis = GraphicsApi::DirectX8 | GraphicsApi::DirectX9 | GraphicsApi::DirectX10
+    | GraphicsApi::DirectX11 | GraphicsApi::DirectX12;
+
+// Windows programs often link OpenGL without drawing with it. Seen on real
+// games: Unity's player links OpenGL and loads Direct3D 11, its Windows
+// default, only once the game runs; Unreal games link both.
+GraphicsApis refineWindowsGuess(GraphicsApis apis, const FolderIndex &index)
+{
+    if (apis & DirectXApis) {
+        apis.setFlag(GraphicsApi::OpenGL, false);
+    } else if (index.unity && !(apis & GraphicsApi::Vulkan)) {
+        apis = GraphicsApi::DirectX11;
+    }
+    return apis;
+}
+
 } // namespace
 
 GraphicsApis apisFromLibraries(const QStringList &libraries)
@@ -188,6 +207,9 @@ GameFileReport inspectGameFiles(const QString &installPath, const QStringList &e
         report.apis |= apisOfProgram(*found, index, installPath);
     }
     if (report.apis) {
+        if (windowsGame) {
+            report.apis = refineWindowsGuess(report.apis, index);
+        }
         return report;
     }
 
@@ -208,6 +230,9 @@ GameFileReport inspectGameFiles(const QString &installPath, const QStringList &e
             report.apis = apis;
             break;
         }
+    }
+    if (windowsGame) {
+        report.apis = refineWindowsGuess(report.apis, index);
     }
     return report;
 }
