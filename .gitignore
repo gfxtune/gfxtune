@@ -6,6 +6,12 @@ CLAUDE.md
 /build-*/
 /out/
 
+# What makepkg leaves next to the PKGBUILD
+/packaging/arch/src/
+/packaging/arch/pkg/
+/packaging/arch/*.pkg.tar.*
+/packaging/arch/*.log
+
 # Tooling caches and editor files
 /.cache/
 compile_commands.json

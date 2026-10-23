@@ -1,0 +1,22 @@
+#!/bin/bash
+# Run by pacman (as root) before gfxtune is removed. For every user with a
+# Steam folder, runs "gfxtune --remove-launch-lines" as that user, which
+# refuses while their Steam is open because Steam rewrites its settings on
+# exit. Any refusal stops the removal.
+
+failed=0
+while IFS=: read -r user _ uid _ _ home _; do
+    [[ "$uid" =~ ^[0-9]+$ ]] && (( uid >= 1000 && uid < 60000 )) || continue
+    [[ -e "$home/.steam/steam" || -d "$home/.local/share/Steam" ]] || continue
+    if ! output=$(runuser -u "$user" -- env HOME="$home" /usr/bin/gfxtune --remove-launch-lines 2>&1); then
+        failed=1
+    fi
+    echo "$user: $output"
+done < <(getent passwd)
+
+if (( failed )); then
+    echo "gfxtune was not removed. Close Steam, then remove gfxtune again." >&2
+    exit 1
+fi
+echo "gfxtune's own settings stay in ~/.config/gfxtune; delete that folder to remove them as well."
+exit 0

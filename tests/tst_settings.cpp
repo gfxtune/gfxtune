@@ -217,9 +217,10 @@ private Q_SLOTS:
         const int proton = int(Runtime::Proton);
         const int native = int(Runtime::Native);
         QTest::newRow("Proton DX11") << proton << dx11 << false << false << true << true << true << false << true;
-        QTest::newRow("Proton DX12 with FSR 3.1") << proton << dx12 << true << false << true << true << false << true << true;
+        QTest::newRow("Proton DX12 with FSR 3.1") << proton << dx12 << true << false << true << true << true << true << true;
         QTest::newRow("Proton DX12, gamescope on") << proton << dx12 << false << true << true << true << true << false << true;
-        QTest::newRow("Proton, gamescope on but missing") << proton << dx12 << false << true << false << true << false << false << false;
+        QTest::newRow("Proton, gamescope on but missing") << proton << dx12 << false << true << false << true << true << false << false;
+        QTest::newRow("Proton Vulkan, no gamescope") << proton << vulkan << false << false << false << true << false << false << false;
         QTest::newRow("Proton, graphics unknown") << proton << 0 << false << false << true << true << true << false << true;
         QTest::newRow("Proton DX11 and 12") << proton << (dx11 | dx12) << true << false << true << true << true << true << true;
         QTest::newRow("native Vulkan") << native << vulkan << false << false << true << true << false << false << true;
@@ -255,6 +256,45 @@ private Q_SLOTS:
         for (const Option &option : {a.anisotropicFiltering, a.verticalSync, a.frameCap, a.fsr4Upgrade, a.gamescope}) {
             QVERIFY(option.available || !option.note.isEmpty());
         }
+    }
+
+    void respectsTheGamesOwnLaunchOptions()
+    {
+        SystemInfo system;
+        system.gamescopeInstalled = true;
+        Game g = game(Runtime::Proton, GraphicsApi::DirectX12, true);
+
+        g.launchOptions = QStringLiteral("gamescope -w 1280 -h 720 -f -- %command%");
+        Availability a = availabilityFor(g, GameSettings{}, system);
+        QVERIFY(!a.gamescope.available);
+        QVERIFY(a.gamescope.note.contains(QLatin1String("already start gamescope")));
+        GameSettings withGamescope;
+        withGamescope.gamescope = true;
+        // gfxtune's gamescope would not run, so it cannot be what caps the game.
+        QCOMPARE(availabilityFor(g, withGamescope, system).frameCap.note, QString());
+
+        g.launchOptions = QStringLiteral("RADV_TEX_ANISO=4 MESA_VK_WSI_PRESENT_MODE=fifo PROTON_FSR4_UPGRADE=1 %command%");
+        a = availabilityFor(g, GameSettings{}, system);
+        QVERIFY(!a.anisotropicFiltering.available);
+        QVERIFY(!a.verticalSync.available);
+        QVERIFY(!a.fsr4Upgrade.available);
+        QVERIFY(a.fsr4Upgrade.note.contains(QLatin1String("PROTON_FSR4_UPGRADE")));
+        QVERIFY(a.gamescope.available);
+
+        g.launchOptions = QStringLiteral("VKD3D_FRAME_RATE=60 %command%");
+        QVERIFY(!availabilityFor(g, GameSettings{}, system).frameCap.available);
+
+        g.apis = GraphicsApi::DirectX11;
+        g.launchOptions = QStringLiteral("DXVK_CONFIG=\"dxgi.syncInterval = 0\" %command%");
+        a = availabilityFor(g, GameSettings{}, system);
+        QVERIFY(a.frameCap.available);
+        QVERIFY(a.frameCap.note.contains(QLatin1String("DXVK_CONFIG")));
+
+        // Arguments after %command% belong to the game, not to Steam.
+        g.launchOptions = QStringLiteral("%command% RADV_TEX_ANISO=4 gamescope");
+        a = availabilityFor(g, GameSettings{}, system);
+        QVERIFY(a.anisotropicFiltering.available);
+        QVERIFY(a.gamescope.available);
     }
 
     void findsCoversInEveryLayout()

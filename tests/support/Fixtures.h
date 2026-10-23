@@ -9,6 +9,7 @@
 #include "vdf/KeyValues.h"
 
 #include <QByteArray>
+#include <QFileDevice>
 #include <QList>
 #include <QPair>
 #include <QString>
@@ -38,6 +39,12 @@ QByteArray writePe(bool is64, const QStringList &imports, const QStringList &del
 QByteArray writeElf(bool is64, const QStringList &needed);
 
 bool writeFile(const QString &path, const QByteArray &data, bool executable = false);
+
+// The owner, group and other bits of QFileDevice::Permissions, without the
+// "current user" bits Qt adds, which depend on who runs the test.
+inline constexpr QFileDevice::Permissions FileModeBits =
+    QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner | QFileDevice::ReadGroup
+    | QFileDevice::WriteGroup | QFileDevice::ExeGroup | QFileDevice::ReadOther | QFileDevice::WriteOther | QFileDevice::ExeOther;
 
 // Damaged copies of `data` for robustness tests: flipped bytes, cuts and
 // inserted junk, from a fixed seed so failures can be reproduced.

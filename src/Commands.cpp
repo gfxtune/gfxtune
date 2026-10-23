@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 gfxtune contributors
 
-#include "ListGames.h"
+#include "Commands.h"
+
+#include "launch/LaunchLines.h"
+#include "steam/SteamProcess.h"
 
 #include "steam/RunningGames.h"
 #include "steam/SteamLibrary.h"
@@ -56,6 +59,29 @@ int listGames(QTextStream &out)
             out << "    " << warning << '\n';
         }
     }
+    return 0;
+}
+
+int removeLaunchLines(QTextStream &out)
+{
+    ScanOptions options = ScanOptions::fromEnvironment();
+    options.inspectGameFiles = false;
+    const SteamScan scan = scanSteam(options);
+    if (!scan.steamFound || scan.localConfigPath.isEmpty()) {
+        out << "No Steam account found; nothing to remove.\n";
+        return 0;
+    }
+    if (isSteamRunning()) {
+        out << "Steam is running. Close Steam, then run this again: Steam rewrites its settings when it exits.\n";
+        return 1;
+    }
+    QList<launch::LineChange> done;
+    QString error;
+    if (!launch::syncLaunchLines(scan.localConfigPath, {}, &done, &error)) {
+        out << "Could not update Steam's launch options: " << error << '\n';
+        return 1;
+    }
+    out << "Removed gfxtune-run from " << done.size() << (done.size() == 1 ? " game.\n" : " games.\n");
     return 0;
 }
 

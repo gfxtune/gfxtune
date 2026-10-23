@@ -511,7 +511,8 @@ SteamScan scanSteam(const ScanOptions &options)
     QHash<quint32, QString> launchOptions;
     if (scan.accountId != 0) {
         const QString userConfig = root + QStringLiteral("/userdata/%1/config").arg(scan.accountId);
-        launchOptions = readLaunchOptions(userConfig + QStringLiteral("/localconfig.vdf"), scan.warnings);
+        scan.localConfigPath = userConfig + QStringLiteral("/localconfig.vdf");
+        launchOptions = readLaunchOptions(scan.localConfigPath, scan.warnings);
         addIfExists(scan.watchPaths, userConfig);
     }
 

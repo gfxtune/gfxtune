@@ -3,7 +3,8 @@
 
 #include "GameLibrary.h"
 #include "GameSettingsEditor.h"
-#include "ListGames.h"
+#include "GpuMonitor.h"
+#include "Commands.h"
 
 #include <QApplication>
 #include <QCommandLineParser>
@@ -23,7 +24,7 @@ namespace
 bool wantsTextOnly(int argc, char *argv[])
 {
     for (int i = 1; i < argc; ++i) {
-        for (const char *option : {"--list-games", "--help", "--help-all", "-h", "-?", "--version", "-v"}) {
+        for (const char *option : {"--list-games", "--remove-launch-lines", "--help", "--help-all", "-h", "-?", "--version", "-v"}) {
             if (std::strcmp(argv[i], option) == 0) {
                 return true;
             }
@@ -38,6 +39,8 @@ void setUpCommandLine(QCommandLineParser &parser)
     parser.addHelpOption();
     parser.addVersionOption();
     parser.addOption({QStringLiteral("list-games"), QStringLiteral("Print the Steam games gfxtune finds, then exit.")});
+    parser.addOption({QStringLiteral("remove-launch-lines"),
+                      QStringLiteral("Take gfxtune-run out of every game's Steam launch options (Steam must be closed), then exit.")});
 }
 
 } // namespace
@@ -52,6 +55,9 @@ int main(int argc, char *argv[])
         setUpCommandLine(parser);
         parser.process(app); // handles --help and --version itself
         QTextStream out(stdout);
+        if (parser.isSet(QStringLiteral("remove-launch-lines"))) {
+            return gfxtune::removeLaunchLines(out);
+        }
         return gfxtune::listGames(out);
     }
 
@@ -75,6 +81,9 @@ int main(int argc, char *argv[])
     gfxtune::GameLibrary library(gfxtune::steam::ScanOptions::fromEnvironment(), &store);
     gfxtune::GameSettingsEditor editor(&library, &store, gfxtune::settings::SystemInfo::detect());
     QObject::connect(&app, &QCoreApplication::aboutToQuit, &editor, &gfxtune::GameSettingsEditor::flush);
+    // GFXTUNE_SYSFS_ROOT points the card panel at a saved copy of /sys, for
+    // testing and for reproducing reports.
+    gfxtune::GpuMonitor gpu(qEnvironmentVariable("GFXTUNE_SYSFS_ROOT", QStringLiteral("/sys")));
 
     QQmlApplicationEngine engine;
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
@@ -82,6 +91,7 @@ int main(int argc, char *argv[])
     engine.setInitialProperties({
         {QStringLiteral("library"), QVariant::fromValue(&library)},
         {QStringLiteral("editor"), QVariant::fromValue(&editor)},
+        {QStringLiteral("gpu"), QVariant::fromValue(&gpu)},
     });
     engine.loadFromModule("Gfxtune", "Main");
     library.start();

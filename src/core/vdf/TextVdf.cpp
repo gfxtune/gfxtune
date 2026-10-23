@@ -3,153 +3,21 @@
 
 #include "TextVdf.h"
 
+#include "TextVdfTokenizer.h"
+
 #include <QFile>
 
 namespace gfxtune::vdf
 {
 
+using detail::Token;
+using detail::TokenType;
+using detail::Tokenizer;
+
 namespace
 {
 
 constexpr int MaxDepth = 128;
-
-enum class TokenType { String, Open, Close, Conditional, End, Invalid };
-
-struct Token {
-    TokenType type = TokenType::End;
-    QByteArray text;
-};
-
-class Tokenizer
-{
-public:
-    explicit Tokenizer(QByteArrayView data)
-        : m_data(data)
-    {
-        if (m_data.startsWith("\xEF\xBB\xBF")) {
-            m_pos = 3;
-        }
-    }
-
-    Token next()
-    {
-        skipSpaceAndComments();
-        if (m_pos >= m_data.size()) {
-            return {TokenType::End, {}};
-        }
-        const char c = m_data[m_pos];
-        if (c == '{') {
-            ++m_pos;
-            return {TokenType::Open, {}};
-        }
-        if (c == '}') {
-            ++m_pos;
-            return {TokenType::Close, {}};
-        }
-        if (c == '"') {
-            return quoted();
-        }
-        if (c == '[') {
-            return conditional();
-        }
-        return unquoted();
-    }
-
-    qsizetype line() const { return m_line; }
-    const QString &problem() const { return m_problem; }
-
-private:
-    void skipSpaceAndComments()
-    {
-        while (m_pos < m_data.size()) {
-            const char c = m_data[m_pos];
-            if (c == '\n') {
-                ++m_line;
-                ++m_pos;
-            } else if (c == ' ' || c == '\t' || c == '\r' || c == '\f' || c == '\v') {
-                ++m_pos;
-            } else if (c == '/' && m_pos + 1 < m_data.size() && m_data[m_pos + 1] == '/') {
-                while (m_pos < m_data.size() && m_data[m_pos] != '\n') {
-                    ++m_pos;
-                }
-            } else {
-                break;
-            }
-        }
-    }
-
-    Token quoted()
-    {
-        const qsizetype startLine = m_line;
-        ++m_pos; // opening quote
-        QByteArray text;
-        while (m_pos < m_data.size()) {
-            const char c = m_data[m_pos++];
-            if (c == '"') {
-                return {TokenType::String, text};
-            }
-            if (c == '\n') {
-                ++m_line;
-            }
-            if (c == '\\' && m_pos < m_data.size()) {
-                const char escaped = m_data[m_pos];
-                switch (escaped) {
-                case 'n':
-                    text += '\n';
-                    ++m_pos;
-                    continue;
-                case 't':
-                    text += '\t';
-                    ++m_pos;
-                    continue;
-                case '\\':
-                case '"':
-                    text += escaped;
-                    ++m_pos;
-                    continue;
-                default:
-                    break; // keep the backslash as written
-                }
-            }
-            text += c;
-        }
-        m_problem = QStringLiteral("text in quotes that starts on line %1 never ends").arg(startLine);
-        return {TokenType::Invalid, {}};
-    }
-
-    Token conditional()
-    {
-        const qsizetype start = m_pos;
-        while (m_pos < m_data.size() && m_data[m_pos] != ']' && m_data[m_pos] != '\n') {
-            ++m_pos;
-        }
-        if (m_pos >= m_data.size() || m_data[m_pos] != ']') {
-            m_problem = QStringLiteral("unclosed [ on line %1").arg(m_line);
-            return {TokenType::Invalid, {}};
-        }
-        ++m_pos;
-        return {TokenType::Conditional, m_data.sliced(start, m_pos - start).toByteArray()};
-    }
-
-    Token unquoted()
-    {
-        const qsizetype start = m_pos;
-        while (m_pos < m_data.size()) {
-            const char c = m_data[m_pos];
-            if (c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' || c == '\v' || c == '"' || c == '{'
-                || c == '}') {
-                break;
-            }
-            ++m_pos;
-        }
-        return {TokenType::String, m_data.sliced(start, m_pos - start).toByteArray()};
-    }
-
-    QByteArrayView m_data;
-    qsizetype m_pos = 0;
-    qsizetype m_line = 1;
-    QString m_problem;
-};
 
 bool fail(QString *error, const QString &message)
 {

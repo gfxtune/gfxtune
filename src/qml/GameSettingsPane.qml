@@ -51,13 +51,56 @@ QQC2.ScrollView {
             }
         }
 
+        // Where the game stands with gfxtune-run in its Steam launch options.
+        // The numbers follow GameLibrary::LaunchState.
         Kirigami.InlineMessage {
+            id: launchMessage
+
+            readonly property int launch: pane.editor.launchState
+
             Layout.fillWidth: true
             Layout.leftMargin: Kirigami.Units.gridUnit
             Layout.rightMargin: Kirigami.Units.gridUnit
             visible: true
-            type: Kirigami.MessageType.Information
-            text: "Settings are saved for this game. Applying them when the game starts comes in the next update of gfxtune."
+            type: launch === 1 ? Kirigami.MessageType.Positive
+                : launch === 4 ? Kirigami.MessageType.Error
+                : Kirigami.MessageType.Information
+            text: {
+                switch (launch) {
+                case 1:
+                    return "gfxtune is in this game's Steam launch options. Changes apply the next time the game starts.";
+                case 2:
+                    return pane.editor.steamRunning
+                        ? "Steam is open, so gfxtune adds itself to this game's launch options once Steam closes. To use these settings sooner, paste this line into the game's launch options in Steam:"
+                        : "Adding gfxtune to this game's Steam launch options…";
+                case 3:
+                    return pane.editor.steamRunning
+                        ? "gfxtune takes itself out of this game's launch options once Steam closes. Until then the game starts with its own settings."
+                        : "Taking gfxtune out of this game's Steam launch options…";
+                case 4:
+                    return "Steam's launch options could not be updated: " + pane.editor.launchProblem;
+                default:
+                    return "The game uses its own settings. Change something below and gfxtune adds itself to the game's Steam launch options.";
+                }
+            }
+            actions: [
+                Kirigami.Action {
+                    visible: launchMessage.launch === 2 && pane.editor.steamRunning
+                    text: "Copy Line"
+                    icon.name: "edit-copy"
+                    onTriggered: pane.editor.copyLaunchLine()
+                }
+            ]
+        }
+
+        QQC2.TextField {
+            Layout.fillWidth: true
+            Layout.leftMargin: Kirigami.Units.gridUnit
+            Layout.rightMargin: Kirigami.Units.gridUnit
+            visible: launchMessage.launch === 2 && pane.editor.steamRunning
+            readOnly: true
+            text: pane.editor.launchLine
+            font.family: "monospace"
         }
 
         Kirigami.InlineMessage {
@@ -240,6 +283,46 @@ QQC2.ScrollView {
                 ]
                 value: pane.editor.scalingMode
                 onPicked: value => pane.editor.scalingMode = value
+            }
+        }
+
+        Kirigami.FormLayout {
+            Layout.fillWidth: true
+
+            Kirigami.Separator {
+                Kirigami.FormData.isSection: true
+                Kirigami.FormData.label: "Last launch"
+            }
+            QQC2.Label {
+                visible: !pane.editor.hasLastLaunch
+                text: "Not started through gfxtune yet."
+                opacity: 0.7
+            }
+            QQC2.Label {
+                Kirigami.FormData.label: "Started:"
+                visible: pane.editor.hasLastLaunch
+                text: pane.editor.lastLaunchTime
+            }
+            QQC2.Label {
+                Kirigami.FormData.label: "Applied:"
+                Layout.maximumWidth: Kirigami.Units.gridUnit * 24
+                visible: pane.editor.hasLastLaunch
+                wrapMode: Text.Wrap
+                text: pane.editor.lastLaunchApplied.length > 0 ? pane.editor.lastLaunchApplied : "Nothing"
+            }
+            QQC2.Label {
+                Kirigami.FormData.label: "Left to Steam's options:"
+                Layout.maximumWidth: Kirigami.Units.gridUnit * 24
+                visible: pane.editor.lastLaunchKept.length > 0
+                wrapMode: Text.Wrap
+                text: pane.editor.lastLaunchKept
+            }
+            QQC2.Label {
+                Kirigami.FormData.label: "Not applied:"
+                Layout.maximumWidth: Kirigami.Units.gridUnit * 24
+                visible: pane.editor.lastLaunchNotApplied.length > 0
+                wrapMode: Text.Wrap
+                text: pane.editor.lastLaunchNotApplied
             }
         }
 

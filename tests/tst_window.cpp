@@ -6,7 +6,9 @@
 
 #include "GameLibrary.h"
 #include "GameSettingsEditor.h"
+#include "GpuMonitor.h"
 #include "support/FakeSteam.h"
+#include "support/FakeSysfs.h"
 
 #include <QApplication>
 #include <QDir>
@@ -60,13 +62,14 @@ private:
         QList<QQmlError> warnings;
         QQuickWindow *window = nullptr;
 
-        Window(GameLibrary &library, GameSettingsEditor &editor)
+        Window(GameLibrary &library, GameSettingsEditor &editor, GpuMonitor &gpu)
         {
             QObject::connect(&engine, &QQmlEngine::warnings, &engine,
                              [this](const QList<QQmlError> &list) { warnings += list; });
             engine.setInitialProperties({
                 {QStringLiteral("library"), QVariant::fromValue(&library)},
                 {QStringLiteral("editor"), QVariant::fromValue(&editor)},
+                {QStringLiteral("gpu"), QVariant::fromValue(&gpu)},
             });
             engine.loadFromModule("Gfxtune", "Main");
             if (!engine.rootObjects().isEmpty()) {
@@ -105,8 +108,11 @@ private Q_SLOTS:
         settings::SettingsStore store(config.filePath(QStringLiteral("gfxtune")));
         GameLibrary library(steam.options(), &store, nullptr, proc.path());
         GameSettingsEditor editor(&library, &store, settings::SystemInfo{true});
+        QTemporaryDir sys;
+        test::addCard(sys.path(), 0);
+        GpuMonitor gpu(sys.path());
 
-        Window w(library, editor);
+        Window w(library, editor, gpu);
         QVERIFY2(w.window, qPrintable(w.describeWarnings()));
         library.start();
         QVERIFY(QTest::qWaitFor([&] { return library.loaded() && !library.scanning(); }, 10000));
@@ -134,8 +140,11 @@ private Q_SLOTS:
         settings::SettingsStore store(config.filePath(QStringLiteral("gfxtune")));
         GameLibrary library(steam.options(), &store, nullptr, proc.path());
         GameSettingsEditor editor(&library, &store, settings::SystemInfo{true});
+        QTemporaryDir sys;
+        test::addCard(sys.path(), 0);
+        GpuMonitor gpu(sys.path());
 
-        Window w(library, editor);
+        Window w(library, editor, gpu);
         QVERIFY(w.window);
         w.window->show();
         library.start();
@@ -157,6 +166,32 @@ private Q_SLOTS:
         QVERIFY(!editor.customized());
     }
 
+    void readsTheCardOnlyWhileVisible()
+    {
+        test::FakeSteam steam;
+        steam.build();
+        QTemporaryDir config;
+        QTemporaryDir proc;
+        settings::SettingsStore store(config.filePath(QStringLiteral("gfxtune")));
+        GameLibrary library(steam.options(), &store, nullptr, proc.path());
+        GameSettingsEditor editor(&library, &store, settings::SystemInfo{true});
+        QTemporaryDir sys;
+        test::addCard(sys.path(), 0);
+        GpuMonitor gpu(sys.path(), nullptr, 50);
+
+        Window w(library, editor, gpu);
+        QVERIFY2(w.window, qPrintable(w.describeWarnings()));
+        w.window->show();
+        QTRY_VERIFY(gpu.active());
+        QTRY_VERIFY(gpu.edgeHistory().size() >= 2); // the graphs fill
+        w.window->showMinimized();
+        QTRY_VERIFY(!gpu.active());
+        w.window->showNormal();
+        QTRY_VERIFY(gpu.active());
+        QTest::qWait(200);
+        QVERIFY2(w.warnings.isEmpty(), qPrintable(w.describeWarnings()));
+    }
+
     void showsWhenSteamIsMissing()
     {
         QTemporaryDir home;
@@ -166,8 +201,10 @@ private Q_SLOTS:
         options.homePath = home.path();
         GameLibrary library(options, &store);
         GameSettingsEditor editor(&library, &store, settings::SystemInfo{});
+        QTemporaryDir sys; // no graphics card at all
+        GpuMonitor gpu(sys.path());
 
-        Window w(library, editor);
+        Window w(library, editor, gpu);
         QVERIFY2(w.window, qPrintable(w.describeWarnings()));
         library.start();
         QVERIFY(QTest::qWaitFor([&] { return library.loaded() && !library.scanning(); }, 10000));

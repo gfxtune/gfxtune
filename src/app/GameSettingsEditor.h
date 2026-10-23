@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "launch/LastLaunch.h"
 #include "settings/Availability.h"
 #include "settings/GameSettings.h"
 #include "settings/SettingsStore.h"
@@ -59,6 +60,17 @@ class GameSettingsEditor : public QObject
 
     Q_PROPERTY(QString problem READ problem NOTIFY problemChanged)
 
+    // gfxtune-run in Steam's launch options, and the last start.
+    Q_PROPERTY(int launchState READ launchState NOTIFY launchChanged)
+    Q_PROPERTY(QString launchLine READ launchLine NOTIFY launchChanged)
+    Q_PROPERTY(QString launchProblem READ launchProblem NOTIFY launchChanged)
+    Q_PROPERTY(bool steamRunning READ steamRunning NOTIFY launchChanged)
+    Q_PROPERTY(bool hasLastLaunch READ hasLastLaunch NOTIFY launchChanged)
+    Q_PROPERTY(QString lastLaunchTime READ lastLaunchTime NOTIFY launchChanged)
+    Q_PROPERTY(QString lastLaunchApplied READ lastLaunchApplied NOTIFY launchChanged)
+    Q_PROPERTY(QString lastLaunchKept READ lastLaunchKept NOTIFY launchChanged)
+    Q_PROPERTY(QString lastLaunchNotApplied READ lastLaunchNotApplied NOTIFY launchChanged)
+
 public:
     GameSettingsEditor(GameLibrary *library, settings::SettingsStore *store, settings::SystemInfo system,
                        QObject *parent = nullptr, int saveDelayMs = 400);
@@ -107,6 +119,17 @@ public:
 
     QString problem() const { return m_problem; }
 
+    int launchState() const;
+    QString launchLine() const;
+    QString launchProblem() const;
+    bool steamRunning() const;
+    bool hasLastLaunch() const { return m_lastLaunch.has_value(); }
+    QString lastLaunchTime() const;
+    QString lastLaunchApplied() const { return m_lastLaunch ? m_lastLaunch->applied.join(QStringLiteral(", ")) : QString(); }
+    QString lastLaunchKept() const { return m_lastLaunch ? m_lastLaunch->keptFromSteam.join(QStringLiteral(", ")) : QString(); }
+    QString lastLaunchNotApplied() const { return m_lastLaunch ? m_lastLaunch->notApplied.join(QStringLiteral("; ")) : QString(); }
+    Q_INVOKABLE void copyLaunchLine() const;
+
     const settings::GameSettings &current() const { return m_settings; }
 
     Q_INVOKABLE void resetToDefaults();
@@ -119,12 +142,14 @@ Q_SIGNALS:
     void settingsChanged();
     void availabilityChanged();
     void problemChanged();
+    void launchChanged();
 
 private:
     void edit(const std::function<void(settings::GameSettings &)> &change);
     void load();
     void updateAvailability();
     void setProblem(const QString &problem);
+    void reloadLastLaunch();
 
     GameLibrary *m_library;
     settings::SettingsStore *m_store;
@@ -136,6 +161,7 @@ private:
     bool m_unsaved = false;
     settings::Availability m_availability;
     QString m_problem;
+    std::optional<launch::LastLaunch> m_lastLaunch;
 };
 
 } // namespace gfxtune

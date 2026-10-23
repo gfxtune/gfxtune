@@ -3,7 +3,10 @@
 
 #include "GameLibrary.h"
 
+#include "launch/LaunchLine.h"
+#include "launch/LaunchLines.h"
 #include "steam/RunningGames.h"
+#include "steam/SteamProcess.h"
 
 #include <QHash>
 #include <QMutex>
@@ -120,17 +123,70 @@ void GameLibrary::scanFinished()
     if (m_rescanPending) {
         m_rescanPending = false;
         refresh();
+        return;
     }
+    syncLaunchLines();
 }
 
 void GameLibrary::pollRunning()
 {
-    m_model.setRunning(steam::runningSteamApps(m_procRoot));
+    const QSet<quint32> running = steam::runningSteamApps(m_procRoot);
+    if (running != m_running) {
+        m_running = running;
+        m_model.setRunning(running);
+        Q_EMIT runningChanged();
+    }
+    const bool steam = steam::isSteamRunning(m_procRoot);
+    if (steam != m_steamRunning) {
+        m_steamRunning = steam;
+        Q_EMIT stateChanged();
+        if (!steam) {
+            syncLaunchLines(); // Steam just closed: catch up on waiting changes
+        }
+    }
 }
 
 void GameLibrary::settingsChanged()
 {
     m_model.setCustomized(m_store->customizedGames());
+    syncLaunchLines();
+}
+
+void GameLibrary::syncLaunchLines()
+{
+    // Steam rewrites its settings from memory on exit, so edits made while
+    // it runs would be lost. They wait instead.
+    if (!m_loaded || m_scanning || m_steamRunning || !m_scan.steamFound || m_scan.localConfigPath.isEmpty()) {
+        return;
+    }
+    QList<launch::LineChange> done;
+    QString error;
+    const bool ok = launch::syncLaunchLines(m_scan.localConfigPath, m_store->customizedGames(), &done, &error);
+    const QString problem = ok ? QString() : error;
+    if (problem != m_launchLineProblem) {
+        m_launchLineProblem = problem;
+        Q_EMIT gamesChanged();
+    }
+    if (!done.isEmpty()) {
+        refresh(); // show the new lines without waiting for the file watch
+    }
+}
+
+GameLibrary::LaunchState GameLibrary::launchState(quint32 appId) const
+{
+    const steam::Game *game = m_model.find(appId);
+    const bool lineThere = game && launch::hasHelper(game->launchOptions);
+    const bool wanted = m_store->customizedGames().contains(appId);
+    if (wanted && lineThere) {
+        return LaunchState::Added;
+    }
+    if (!wanted && !lineThere) {
+        return LaunchState::NotNeeded;
+    }
+    if (!m_launchLineProblem.isEmpty() && !m_steamRunning) {
+        return LaunchState::Problem;
+    }
+    return wanted ? LaunchState::WaitingForSteam : LaunchState::WaitingToRemove;
 }
 
 } // namespace gfxtune

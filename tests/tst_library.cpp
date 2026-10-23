@@ -3,6 +3,8 @@
 
 #include "GameLibrary.h"
 #include "GameSettingsEditor.h"
+#include "launch/LastLaunch.h"
+#include "launch/LaunchLine.h"
 #include "support/FakeSteam.h"
 #include "support/Fixtures.h"
 
@@ -11,6 +13,8 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+
+#include <unistd.h>
 
 using namespace gfxtune;
 using settings::GameSettings;
@@ -179,18 +183,19 @@ private Q_SLOTS:
         library.start();
         QVERIFY(waitUntilIdle(library));
 
-        editor.setAppId(1001); // DirectX 12 with FSR 3.1
-        QVERIFY(!editor.frameCapAvailable());
+        editor.setAppId(1001); // DirectX 12 with FSR 3.1: capped by VKD3D-Proton
+        QVERIFY(editor.frameCapAvailable());
         QVERIFY(editor.fsr4Available());
+
+        editor.setAppId(1003); // native Vulkan: only gamescope can cap it
+        QVERIFY(!editor.frameCapAvailable());
+        QVERIFY(!editor.fsr4Available());
+        QVERIFY(!editor.fsr4Note().isEmpty());
         QSignalSpy availability(&editor, &GameSettingsEditor::availabilityChanged);
         editor.setGamescope(true);
         QVERIFY(availability.count() >= 1);
         QVERIFY(editor.frameCapAvailable());
         QVERIFY(!editor.frameCapNote().isEmpty());
-
-        editor.setAppId(1003); // native Vulkan
-        QVERIFY(!editor.fsr4Available());
-        QVERIFY(!editor.fsr4Note().isEmpty());
     }
 
     void resetAndRemoveAll()
@@ -234,6 +239,83 @@ private Q_SLOTS:
         QVERIFY(!editor.problem().isEmpty());
         editor.setAppId(1002);
         QVERIFY(editor.problem().isEmpty());
+    }
+
+    void addsAndRemovesItsLaunchLine()
+    {
+        Setup setup;
+        GameLibrary library(setup.steam.options(), &setup.store, nullptr, setup.proc.path());
+        library.setPollInterval(100);
+        GameSettingsEditor editor(&library, &setup.store, SystemInfo{true}, nullptr, 50);
+        library.start();
+        QVERIFY(waitUntilIdle(library));
+        using State = GameLibrary::LaunchState;
+
+        // Steam closed: the line goes in at once, after the user's own options.
+        editor.setAppId(1001);
+        QCOMPARE(editor.launchState(), int(State::NotNeeded));
+        editor.setAnisotropicFiltering(16);
+        editor.flush();
+        QTRY_COMPARE_WITH_TIMEOUT(editor.launchState(), int(State::Added), 8000);
+        QCOMPARE(library.game(1001)->launchOptions, s("gamemoderun gfxtune-run %command% -dx12 \"quoted arg\""));
+
+        // Steam opens: a reset waits, and the line stays for now.
+        const QString pid = setup.proc.filePath(s("777"));
+        QVERIFY(test::writeFile(pid + s("/comm"), "steam\n"));
+        QVERIFY(test::writeFile(pid + s("/status"), "Uid:\t" + QByteArray::number(getuid()) + "\t0\t0\t0\n"));
+        QTRY_VERIFY_WITH_TIMEOUT(library.steamRunning(), 5000);
+        editor.resetToDefaults();
+        QCOMPARE(editor.launchState(), int(State::WaitingToRemove));
+        QTest::qWait(500);
+        QVERIFY(launch::hasHelper(library.game(1001)->launchOptions));
+
+        // Steam closes: the line comes out and the user's options are back.
+        QVERIFY(QDir(pid).removeRecursively());
+        QTRY_COMPARE_WITH_TIMEOUT(editor.launchState(), int(State::NotNeeded), 8000);
+        QCOMPARE(library.game(1001)->launchOptions, s("gamemoderun %command% -dx12 \"quoted arg\""));
+    }
+
+    void offersTheLineToCopyWhileSteamIsOpen()
+    {
+        Setup setup;
+        const QString pid = setup.proc.filePath(s("778"));
+        QVERIFY(test::writeFile(pid + s("/comm"), "steam\n"));
+        QVERIFY(test::writeFile(pid + s("/status"), "Uid:\t" + QByteArray::number(getuid()) + "\t0\t0\t0\n"));
+        GameLibrary library(setup.steam.options(), &setup.store, nullptr, setup.proc.path());
+        GameSettingsEditor editor(&library, &setup.store, SystemInfo{true}, nullptr, 50);
+        library.start();
+        QVERIFY(waitUntilIdle(library));
+        QVERIFY(library.steamRunning());
+
+        editor.setAppId(1004);
+        editor.setFsr4Upgrade(true);
+        editor.flush();
+        QCOMPARE(editor.launchState(), int(GameLibrary::LaunchState::WaitingForSteam));
+        QCOMPARE(editor.launchLine(), s("gfxtune-run %command%"));
+        QTest::qWait(300);
+        QVERIFY(library.game(1004)->launchOptions.isEmpty()); // Steam's file untouched
+    }
+
+    void showsTheLastLaunch()
+    {
+        Setup setup;
+        GameLibrary library(setup.steam.options(), &setup.store, nullptr, setup.proc.path());
+        library.setPollInterval(100);
+        GameSettingsEditor editor(&library, &setup.store, SystemInfo{true}, nullptr, 50);
+        library.start();
+        QVERIFY(waitUntilIdle(library));
+        editor.setAppId(1003);
+        QVERIFY(!editor.hasLastLaunch());
+
+        // The helper writes its report when the game starts.
+        launch::LaunchPlan plan;
+        plan.applied = {s("Anisotropic filtering 8×")};
+        QVERIFY(launch::writeLastLaunch(setup.store.baseDir(), 1003, plan, QDateTime::currentDateTime()));
+        QVERIFY(test::writeFile(setup.proc.filePath(s("4243/comm")), "reaper\n"));
+        QVERIFY(test::writeFile(setup.proc.filePath(s("4243/cmdline")), QByteArray("reaper\0SteamLaunch\0AppId=1003\0", 30)));
+        QTRY_VERIFY_WITH_TIMEOUT(editor.hasLastLaunch(), 5000);
+        QCOMPARE(editor.lastLaunchApplied(), s("Anisotropic filtering 8×"));
+        QVERIFY(!editor.lastLaunchTime().isEmpty());
     }
 
     void reportsSaveFailures()

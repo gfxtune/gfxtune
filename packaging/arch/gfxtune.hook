@@ -1,0 +1,14 @@
+# Before gfxtune is removed, take gfxtune-run out of every user's Steam
+# launch options, so no game is left pointing at a program that is gone.
+# Stops the removal if that cannot be done (Steam is open).
+
+[Trigger]
+Operation = Remove
+Type = Package
+Target = gfxtune
+
+[Action]
+Description = Taking gfxtune-run out of Steam launch options...
+When = PreTransaction
+Exec = /usr/share/gfxtune/remove-launch-lines
+AbortOnFail

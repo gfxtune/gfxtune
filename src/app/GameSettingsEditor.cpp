@@ -5,6 +5,12 @@
 
 #include "GameLibrary.h"
 
+#include "launch/LaunchLine.h"
+
+#include <QClipboard>
+#include <QGuiApplication>
+#include <QLocale>
+
 namespace gfxtune
 {
 
@@ -24,7 +30,11 @@ GameSettingsEditor::GameSettingsEditor(GameLibrary *library, settings::SettingsS
         // A rescan can change what is known about the game, or remove it.
         Q_EMIT gameChanged();
         updateAvailability();
+        Q_EMIT launchChanged();
     });
+    connect(m_library, &GameLibrary::stateChanged, this, &GameSettingsEditor::launchChanged);
+    // A game that just started has a fresh last-launch report.
+    connect(m_library, &GameLibrary::runningChanged, this, &GameSettingsEditor::reloadLastLaunch);
 }
 
 GameSettingsEditor::~GameSettingsEditor()
@@ -40,7 +50,47 @@ void GameSettingsEditor::setAppId(int appId)
     flush();
     m_appId = quint32(appId);
     load();
+    reloadLastLaunch();
     Q_EMIT gameChanged();
+}
+
+int GameSettingsEditor::launchState() const
+{
+    return int(m_library->launchState(m_appId));
+}
+
+QString GameSettingsEditor::launchLine() const
+{
+    const steam::Game *game = m_library->game(m_appId);
+    return launch::withHelper(game ? game->launchOptions : QString());
+}
+
+QString GameSettingsEditor::launchProblem() const
+{
+    return m_library->launchLineProblem();
+}
+
+bool GameSettingsEditor::steamRunning() const
+{
+    return m_library->steamRunning();
+}
+
+QString GameSettingsEditor::lastLaunchTime() const
+{
+    return m_lastLaunch ? QLocale().toString(m_lastLaunch->time.toLocalTime(), QLocale::ShortFormat) : QString();
+}
+
+void GameSettingsEditor::copyLaunchLine() const
+{
+    if (QClipboard *clipboard = QGuiApplication::clipboard()) {
+        clipboard->setText(launchLine());
+    }
+}
+
+void GameSettingsEditor::reloadLastLaunch()
+{
+    m_lastLaunch = m_appId != 0 ? launch::readLastLaunch(m_store->baseDir(), m_appId) : std::nullopt;
+    Q_EMIT launchChanged();
 }
 
 bool GameSettingsEditor::hasGame() const
@@ -165,6 +215,7 @@ bool GameSettingsEditor::removeAllSettings()
     const bool ok = m_store->removeAll(&error);
     setProblem(ok ? QString() : error);
     load();
+    reloadLastLaunch();
     Q_EMIT settingsChanged();
     updateAvailability();
     m_library->settingsChanged();

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=gfxtune
+GenericName=Graphics Settings
+Comment=Per-game graphics settings and live GPU readings
+Exec=gfxtune
+Icon=preferences-desktop-gaming
+Terminal=false
+Categories=Settings;HardwareSettings;Game;
+Keywords=gpu;graphics;amd;radeon;fsr;gamescope;proton;steam;anisotropic;vsync;

@@ -58,9 +58,10 @@ private Q_SLOTS:
 
     void readsTheRealProcWithoutErrors()
     {
-        // No game runs in the test environment; this only checks that reading
-        // the real /proc works and finds nothing.
-        QVERIFY(steam::runningSteamApps().isEmpty());
+        // A game may well be running where the tests are built (the package
+        // runs them), so this only checks that reading the real /proc works.
+        const QSet<quint32> running = steam::runningSteamApps();
+        QVERIFY(!running.contains(0));
     }
 
     void watcherReportsABurstOfChangesOnce()

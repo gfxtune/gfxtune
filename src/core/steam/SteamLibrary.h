@@ -42,6 +42,9 @@ struct SteamScan {
     bool steamFound = false;
     QString steamRoot;
     quint32 accountId = 0; // the account last signed in; 0 if unknown
+    // That account's localconfig.vdf, which holds launch options; empty when
+    // no account is known. It may not exist yet for a new account.
+    QString localConfigPath;
     QList<LibraryFolder> libraries;
     QList<Game> games; // installed games, sorted by name
     // Problems that did not stop the scan, such as an unreadable file.

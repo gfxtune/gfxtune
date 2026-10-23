@@ -32,6 +32,7 @@ class GameLibrary : public QObject
     Q_PROPERTY(bool scanning READ scanning NOTIFY stateChanged)
     Q_PROPERTY(bool steamFound READ steamFound NOTIFY stateChanged)
     Q_PROPERTY(int gameCount READ gameCount NOTIFY stateChanged)
+    Q_PROPERTY(bool steamRunning READ steamRunning NOTIFY stateChanged)
 
 public:
     GameLibrary(steam::ScanOptions options, const settings::SettingsStore *store, QObject *parent = nullptr,
@@ -55,15 +56,35 @@ public:
     // Call after gfxtune's own settings files change.
     void settingsChanged();
 
+    // How often running games and Steam itself are checked.
+    void setPollInterval(int ms) { m_runningPoll.setInterval(ms); }
+
+    bool steamRunning() const { return m_steamRunning; }
+    const settings::SettingsStore *store() const { return m_store; }
+
+    // Where a game stands with gfxtune-run in its Steam launch options.
+    enum class LaunchState {
+        NotNeeded,       // no gfxtune settings, no line
+        Added,           // settings, and the line is in place
+        WaitingForSteam, // settings, line to be added once Steam is closed
+        WaitingToRemove, // no settings, line to be removed once Steam is closed
+        Problem,         // Steam's file could not be updated
+    };
+    LaunchState launchState(quint32 appId) const;
+    QString launchLineProblem() const { return m_launchLineProblem; }
+
 Q_SIGNALS:
     void stateChanged();
     // The details of the games changed (after a scan).
     void gamesChanged();
+    // A game started or stopped.
+    void runningChanged();
 
 private:
     void runScan(bool inspect);
     void scanFinished();
     void pollRunning();
+    void syncLaunchLines();
 
     steam::ScanOptions m_options;
     const settings::SettingsStore *m_store;
@@ -77,6 +98,9 @@ private:
     QFutureWatcher<steam::SteamScan> m_future;
 
     steam::SteamScan m_scan;
+    QSet<quint32> m_running;
+    bool m_steamRunning = false;
+    QString m_launchLineProblem;
     bool m_loaded = false;
     bool m_scanning = false;
     bool m_inspecting = false;
