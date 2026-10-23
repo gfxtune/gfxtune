@@ -8,7 +8,9 @@ pkgrel=1
 pkgdesc='Per-game graphics settings and live GPU readings for AMD Radeon cards'
 arch=('x86_64')
 license=('GPL-3.0-or-later')
-options=('!debug')
+# No link-time optimisation: GCC 16 at -O3 with LTO (CachyOS's default)
+# miscompiled the Steam file readers; every test passes without it.
+options=('!debug' '!lto')
 depends=('qt6-base' 'qt6-declarative' 'qt6-graphs' 'kirigami' 'qqc2-desktop-style' 'libdrm')
 makedepends=('cmake')
 optdepends=('gamescope: run games in gamescope, with upscaling and frame caps for any game'
@@ -19,7 +21,8 @@ _source() {
 }
 
 build() {
-  cmake -S "$(_source)" -B build -DCMAKE_BUILD_TYPE=None -DCMAKE_INSTALL_PREFIX=/usr -Wno-dev
+  # --fresh: never reuse settings from an earlier build in this folder.
+  cmake --fresh -S "$(_source)" -B build -DCMAKE_BUILD_TYPE=None -DCMAKE_INSTALL_PREFIX=/usr -Wno-dev
   cmake --build build
 }
 
