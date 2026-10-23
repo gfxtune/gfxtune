@@ -1,5 +1,7 @@
-# Private working notes, never published
+# Private working notes and development helpers, never published
 CLAUDE.md
+CONTEXT.md
+/.dev/
 
 # Build output
 /build/
