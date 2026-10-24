@@ -151,6 +151,11 @@ void FakeSteam::build()
     game(root, 228980, s("Steamworks Common Redistributables"), s("Steamworks Shared"));
     game(lib2, 2805730, s("Proton 9.0"), s("Proton 9.0"));
     QVERIFY(writeFile(lib2 + s("/steamapps/common/Proton 9.0/toolmanifest.vdf"), "\"manifest\" { }"));
+    // Launch scripts as far as FSR 4 goes: Proton 9.0 knows nothing of it,
+    // GE-Proton upgrades when PROTON_FSR4_UPGRADE asks.
+    QVERIFY(writeFile(lib2 + s("/steamapps/common/Proton 9.0/proton"), "#!/usr/bin/env python3\nprint('proton')\n", true));
+    QVERIFY(writeFile(systemTools + s("/ge-proton/proton"),
+                      "#!/usr/bin/env python3\n    g_session.check_environment(\"PROTON_FSR4_UPGRADE\", \"fsr4\")\n", true));
 
     // A custom Proton build installed by a system package.
     text(systemTools + s("/ge-proton/compatibilitytool.vdf"), file({section(s("compatibilitytools"), {

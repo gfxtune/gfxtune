@@ -3,11 +3,13 @@
 
 #include "LaunchPlan.h"
 
+#include <QRegularExpression>
 #include <QtMath>
 
 namespace gfxtune::launch
 {
 
+using settings::Fsr4;
 using settings::GameSettings;
 using settings::UpscaleFilter;
 using settings::VerticalSync;
@@ -97,6 +99,28 @@ public:
         return true;
     }
 
+    // Adds a Wine DLL override to any the user set, unless they already
+    // chose one for the same library.
+    bool overrideDll(const QString &dll, const QString &mode)
+    {
+        const QString name = QStringLiteral("WINEDLLOVERRIDES");
+        const QString entry = dll + QLatin1Char('=') + mode;
+        const auto own = m_context.environment.constFind(name);
+        if (own == m_context.environment.constEnd() || own->trimmed().isEmpty()) {
+            m_plan.environment.append({name, entry});
+            return true;
+        }
+        static const QRegularExpression separators(QStringLiteral("[;,=]"));
+        if (own->split(separators).contains(dll, Qt::CaseInsensitive)) {
+            if (!m_plan.keptFromSteam.contains(name)) {
+                m_plan.keptFromSteam.append(name);
+            }
+            return false;
+        }
+        m_plan.environment.append({name, *own + QLatin1Char(';') + entry});
+        return true;
+    }
+
     const LaunchContext &m_context;
     LaunchPlan &m_plan;
 };
@@ -173,8 +197,25 @@ LaunchPlan planLaunch(const GameSettings &s, const LaunchContext &context)
         cappedByVkd3d = p.set(QStringLiteral("VKD3D_FRAME_RATE"), fps);
     }
 
-    if (s.fsr4Upgrade && p.set(QStringLiteral("PROTON_FSR4_UPGRADE"), QStringLiteral("1"))) {
-        plan.applied.append(QStringLiteral("FSR 4 upgrade"));
+    switch (s.fsr4) {
+    case Fsr4::On:
+        if (p.set(QStringLiteral("PROTON_FSR4_UPGRADE"), QStringLiteral("1"))) {
+            plan.applied.append(QStringLiteral("FSR 4 on"));
+        }
+        break;
+    case Fsr4::Off: {
+        // proton-cachyos and GE-Proton read the variable; Valve's Proton has
+        // no switch but copies AMD's FSR 4 library into the prefix, so Wine
+        // is also told not to load it. The game then keeps its FSR 3.1.
+        const bool variable = p.set(QStringLiteral("PROTON_FSR4_UPGRADE"), QStringLiteral("0"));
+        const bool library = p.overrideDll(QStringLiteral("amdxcffx64"), QStringLiteral("d"));
+        if (variable && library) {
+            plan.applied.append(QStringLiteral("FSR 4 off (the game keeps FSR 3.1)"));
+        }
+        break;
+    }
+    case Fsr4::ProtonDefault:
+        break;
     }
 
     const bool dxvkSet = !dxvk.isEmpty() && p.set(QStringLiteral("DXVK_CONFIG"), dxvk.join(QStringLiteral("; ")));

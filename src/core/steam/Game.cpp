@@ -3,6 +3,9 @@
 
 #include "Game.h"
 
+#include <QFile>
+#include <QFileInfo>
+#include <QRegularExpression>
 #include <QStringList>
 
 namespace gfxtune::steam
@@ -19,6 +22,39 @@ QString runtimeName(Runtime runtime)
         break;
     }
     return QStringLiteral("Unknown");
+}
+
+Fsr4Support readFsr4Support(const QString &toolPath)
+{
+    if (toolPath.isEmpty()) {
+        return Fsr4Support::Unknown;
+    }
+    // Valve's Proton copies this into every prefix it sets up.
+    if (QFileInfo(toolPath + QStringLiteral("/contrib/amdxcffx64.dll")).isFile()) {
+        return Fsr4Support::BuiltIn;
+    }
+
+    // The launch script is a Python file of a few hundred kilobytes.
+    constexpr qint64 MaxScriptSize = 8 * 1024 * 1024;
+    QFile script(toolPath + QStringLiteral("/proton"));
+    if (script.size() > MaxScriptSize || !script.open(QIODevice::ReadOnly)) {
+        return Fsr4Support::Unknown;
+    }
+    // proton-cachyos switches its FSR 4 option on for every game, then lets
+    // PROTON_FSR4_UPGRADE change it; GE-Proton only reads the variable.
+    static const QRegularExpression alwaysOn(QStringLiteral("compat_config\\.add\\(\\s*[\"']fsr4[\"']\\s*\\)"));
+    bool readsVariable = false;
+    while (!script.atEnd()) {
+        const QString line = QString::fromUtf8(script.readLine()).trimmed();
+        if (line.startsWith(QLatin1Char('#'))) {
+            continue;
+        }
+        if (alwaysOn.match(line).hasMatch()) {
+            return Fsr4Support::BuiltIn;
+        }
+        readsVariable = readsVariable || line.contains(QLatin1String("PROTON_FSR4_UPGRADE"));
+    }
+    return readsVariable ? Fsr4Support::OnRequest : Fsr4Support::None;
 }
 
 QString apiNames(GraphicsApis apis)

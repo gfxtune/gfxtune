@@ -29,7 +29,7 @@ GameSettings sample()
     s.frameCapEnabled = true;
     s.frameCap = 141;
     s.verticalSync = VerticalSync::Fast;
-    s.fsr4Upgrade = true;
+    s.fsr4 = Fsr4::Off;
     s.gamescope = true;
     s.upscaleFilter = UpscaleFilter::Nis;
     s.scalingMode = ScalingMode::Integer;
@@ -141,8 +141,8 @@ private Q_SLOTS:
         QCOMPARE(loaded.renderScale, defaults.renderScale);
         QCOMPARE(loaded.sharpness, defaults.sharpness);
         QCOMPARE(loaded.upscaleFilter, defaults.upscaleFilter);
-        // The good values survive.
-        QVERIFY(loaded.fsr4Upgrade);
+        // The good values survive; the old FSR 4 switch reads as On.
+        QCOMPARE(loaded.fsr4, Fsr4::On);
         QVERIFY(loaded.gamescope);
         QCOMPARE(loaded.scalingMode, ScalingMode::Fill);
         QCOMPARE(warnings.size(), 7);
@@ -262,10 +262,10 @@ private Q_SLOTS:
         QCOMPARE(a.anisotropicFiltering.available, aniso);
         QCOMPARE(a.verticalSync.available, aniso);
         QCOMPARE(a.frameCap.available, frameCap);
-        QCOMPARE(a.fsr4Upgrade.available, fsr4);
+        QCOMPARE(a.fsr4.available, fsr4);
         QCOMPARE(a.gamescope.available, gamescope);
         // Every unavailable setting says why.
-        for (const Option &option : {a.anisotropicFiltering, a.verticalSync, a.frameCap, a.fsr4Upgrade, a.gamescope}) {
+        for (const Option &option : {a.anisotropicFiltering, a.verticalSync, a.frameCap, a.fsr4, a.gamescope}) {
             QVERIFY(option.available || !option.note.isEmpty());
         }
     }
@@ -291,6 +291,67 @@ private Q_SLOTS:
         a = availabilityFor(game(Runtime::Native, GraphicsApi::Vulkan), withGamescope, system);
         QVERIFY(a.frameCap.available);
         QVERIFY(a.frameCap.note.contains(QLatin1String("vertical sync")));
+    }
+
+    void followsWhatTheProtonDoesWithFsr4()
+    {
+        SystemInfo system;
+        Game g = game(Runtime::Proton, GraphicsApi::DirectX12, true);
+
+        g.tool.fsr4 = steam::Fsr4Support::BuiltIn;
+        Availability a = availabilityFor(g, GameSettings{}, system);
+        QVERIFY(a.fsr4.available);
+        QVERIFY(a.fsr4.note.contains(QLatin1String("on by itself")));
+
+        g.tool.fsr4 = steam::Fsr4Support::OnRequest;
+        a = availabilityFor(g, GameSettings{}, system);
+        QVERIFY(a.fsr4.available);
+        QVERIFY(a.fsr4.note.contains(QLatin1String("unless FSR 4 is set to On")));
+
+        // Steam's default Proton: the files cannot be read, so all choices stay.
+        g.tool.fsr4 = steam::Fsr4Support::Unknown;
+        a = availabilityFor(g, GameSettings{}, system);
+        QVERIFY(a.fsr4.available);
+        QVERIFY(a.fsr4.note.contains(QLatin1String("cannot tell")));
+
+        g.tool.fsr4 = steam::Fsr4Support::None;
+        a = availabilityFor(g, GameSettings{}, system);
+        QVERIFY(!a.fsr4.available);
+        QVERIFY(a.fsr4.note.contains(QLatin1String("cannot use FSR 4")));
+
+        // The user's own override for AMD's library wins.
+        g.tool.fsr4 = steam::Fsr4Support::BuiltIn;
+        g.launchOptions = QStringLiteral("WINEDLLOVERRIDES=\"amdxcffx64=n\" %command%");
+        QVERIFY(!availabilityFor(g, GameSettings{}, system).fsr4.available);
+    }
+
+    void readsOldAndNewFsr4Choices()
+    {
+        QTemporaryDir dir;
+        const SettingsStore store(dir.filePath(QStringLiteral("gfxtune")));
+        const auto loadFrom = [&store](const QByteArray &contents) {
+            if (!test::writeFile(store.pathFor(9), "[frames]\nframe_cap_enabled=true\n" + contents)) {
+                return Fsr4(-1);
+            }
+            return store.load(9).fsr4;
+        };
+        QCOMPARE(loadFrom("[upscaling]\nfsr4_upgrade=false\n"), Fsr4::ProtonDefault);
+        QCOMPARE(loadFrom("[upscaling]\nfsr4_upgrade=true\n"), Fsr4::On);
+        QCOMPARE(loadFrom("[upscaling]\nfsr4=off\n"), Fsr4::Off);
+        QCOMPARE(loadFrom("[upscaling]\nfsr4=proton\n"), Fsr4::ProtonDefault);
+        // The new key wins over the old one; a damaged one falls back.
+        QCOMPARE(loadFrom("[upscaling]\nfsr4_upgrade=true\nfsr4=off\n"), Fsr4::Off);
+        QCOMPARE(loadFrom("[upscaling]\nfsr4=maybe\n"), Fsr4::ProtonDefault);
+
+        // Saving writes only the new key.
+        GameSettings s;
+        s.fsr4 = Fsr4::Off;
+        QVERIFY(store.save(9, s, {}));
+        QFile file(store.pathFor(9));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QByteArray saved = file.readAll();
+        QVERIFY(saved.contains("fsr4=off"));
+        QVERIFY(!saved.contains("fsr4_upgrade"));
     }
 
     void onlyNotesAnOpenGlGuessUnderProton()
@@ -322,8 +383,8 @@ private Q_SLOTS:
         a = availabilityFor(g, GameSettings{}, system);
         QVERIFY(!a.anisotropicFiltering.available);
         QVERIFY(!a.verticalSync.available);
-        QVERIFY(!a.fsr4Upgrade.available);
-        QVERIFY(a.fsr4Upgrade.note.contains(QLatin1String("PROTON_FSR4_UPGRADE")));
+        QVERIFY(!a.fsr4.available);
+        QVERIFY(a.fsr4.note.contains(QLatin1String("PROTON_FSR4_UPGRADE")));
         QVERIFY(a.gamescope.available);
 
         g.launchOptions = QStringLiteral("VKD3D_FRAME_RATE=60 %command%");

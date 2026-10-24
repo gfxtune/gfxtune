@@ -25,6 +25,11 @@ constexpr std::array<std::pair<VerticalSync, const char *>, 5> VerticalSyncNames
     {VerticalSync::Fast, "fast"},
     {VerticalSync::Adaptive, "adaptive"},
 }};
+constexpr std::array<std::pair<Fsr4, const char *>, 3> Fsr4Names{{
+    {Fsr4::ProtonDefault, "proton"},
+    {Fsr4::On, "on"},
+    {Fsr4::Off, "off"},
+}};
 constexpr std::array<std::pair<UpscaleFilter, const char *>, 6> UpscaleFilterNames{{
     {UpscaleFilter::Fsr, "fsr"},
     {UpscaleFilter::Nis, "nis"},
@@ -68,9 +73,11 @@ bool valueOf(const std::array<std::pair<Enum, const char *>, N> &names, const QS
 } // namespace
 
 QString toKey(VerticalSync value) { return nameOf(VerticalSyncNames, value); }
+QString toKey(Fsr4 value) { return nameOf(Fsr4Names, value); }
 QString toKey(UpscaleFilter value) { return nameOf(UpscaleFilterNames, value); }
 QString toKey(ScalingMode value) { return nameOf(ScalingModeNames, value); }
 bool fromKey(const QString &text, VerticalSync &out) { return valueOf(VerticalSyncNames, text, out); }
+bool fromKey(const QString &text, Fsr4 &out) { return valueOf(Fsr4Names, text, out); }
 bool fromKey(const QString &text, UpscaleFilter &out) { return valueOf(UpscaleFilterNames, text, out); }
 bool fromKey(const QString &text, ScalingMode &out) { return valueOf(ScalingModeNames, text, out); }
 

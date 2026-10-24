@@ -17,6 +17,10 @@ enum class VerticalSync {
     Adaptive, // wait, but tear when a frame is late (relaxed)
 };
 
+// FSR 4 for games that ship FSR 3.1. Some Protons turn it on by themselves,
+// others only when asked, so the default is whatever the game's Proton does.
+enum class Fsr4 { ProtonDefault, On, Off };
+
 // gamescope's upscaling filters (-F) and scaling modes (-S).
 enum class UpscaleFilter { Fsr, Nis, Sgsr, Linear, Nearest, Pixel };
 enum class ScalingMode { Auto, Integer, Fit, Fill, Stretch };
@@ -32,7 +36,7 @@ struct GameSettings {
 
     VerticalSync verticalSync = VerticalSync::GameDefault;
 
-    bool fsr4Upgrade = false;
+    Fsr4 fsr4 = Fsr4::ProtonDefault;
 
     bool gamescope = false;
     UpscaleFilter upscaleFilter = UpscaleFilter::Fsr;
@@ -53,9 +57,11 @@ struct GameSettings {
 };
 
 QString toKey(VerticalSync value);
+QString toKey(Fsr4 value);
 QString toKey(UpscaleFilter value);
 QString toKey(ScalingMode value);
 bool fromKey(const QString &text, VerticalSync &out);
+bool fromKey(const QString &text, Fsr4 &out);
 bool fromKey(const QString &text, UpscaleFilter &out);
 bool fromKey(const QString &text, ScalingMode &out);
 

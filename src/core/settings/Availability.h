@@ -22,7 +22,7 @@ struct Availability {
     Option anisotropicFiltering;
     Option verticalSync;
     Option frameCap;
-    Option fsr4Upgrade;
+    Option fsr4;
     Option gamescope;
 };
 

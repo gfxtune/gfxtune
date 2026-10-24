@@ -92,12 +92,30 @@ Availability availabilityFor(const steam::Game &game, const GameSettings &settin
         a.frameCap.note = QStringLiteral("DirectX 9 to 11 games: this game's Steam launch options set DXVK_CONFIG, so the cap only reaches DirectX 12.");
     }
 
+    const QString fsr4Cost = QStringLiteral("FSR 4 looks better than FSR 3.1 but costs some performance on RDNA 3 cards.");
     if (game.runtime != Runtime::Proton) {
-        a.fsr4Upgrade = {false, QStringLiteral("Only for games that run through Proton.")};
+        a.fsr4 = {false, QStringLiteral("Only for games that run through Proton.")};
     } else if (own.environment.contains(QStringLiteral("PROTON_FSR4_UPGRADE"))) {
-        a.fsr4Upgrade = {false, setInSteam(QStringLiteral("PROTON_FSR4_UPGRADE"))};
+        a.fsr4 = {false, setInSteam(QStringLiteral("PROTON_FSR4_UPGRADE"))};
+    } else if (game.launchOptions.contains(QLatin1String("amdxcffx64"), Qt::CaseInsensitive)) {
+        a.fsr4 = {false, setInSteam(QStringLiteral("a WINEDLLOVERRIDES entry for FSR 4"))};
     } else if (!game.fsr31Dx12) {
-        a.fsr4Upgrade = {false, QStringLiteral("This game does not ship FSR 3.1, which the upgrade replaces.")};
+        a.fsr4 = {false, QStringLiteral("This game does not ship FSR 3.1, which FSR 4 replaces.")};
+    } else {
+        switch (game.tool.fsr4) {
+        case steam::Fsr4Support::BuiltIn:
+            a.fsr4 = {true, QStringLiteral("This game's Proton turns FSR 4 on by itself. ") + fsr4Cost};
+            break;
+        case steam::Fsr4Support::OnRequest:
+            a.fsr4 = {true, QStringLiteral("This game's Proton keeps FSR 3.1 unless FSR 4 is set to On. ") + fsr4Cost};
+            break;
+        case steam::Fsr4Support::None:
+            a.fsr4 = {false, QStringLiteral("This game's Proton cannot use FSR 4. Proton Experimental, proton-cachyos and GE-Proton can.")};
+            break;
+        case steam::Fsr4Support::Unknown:
+            a.fsr4 = {true, QStringLiteral("gfxtune cannot tell whether Steam's default Proton turns FSR 4 on by itself. ") + fsr4Cost};
+            break;
+        }
     }
 
     if (own.gamescope) {

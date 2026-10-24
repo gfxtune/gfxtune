@@ -3,7 +3,7 @@
 # Remove with:       sudo pacman -R gfxtune
 
 pkgname=gfxtune
-pkgver=0.1.2
+pkgver=0.1.3
 pkgrel=1
 pkgdesc='Per-game graphics settings and live GPU readings for AMD Radeon cards'
 arch=('x86_64')

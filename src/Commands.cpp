@@ -14,6 +14,26 @@ namespace gfxtune
 
 using namespace steam;
 
+namespace
+{
+
+QString fsr4Words(Fsr4Support support)
+{
+    switch (support) {
+    case Fsr4Support::BuiltIn:
+        return QStringLiteral("this Proton turns it on by itself");
+    case Fsr4Support::OnRequest:
+        return QStringLiteral("this Proton turns it on when asked");
+    case Fsr4Support::None:
+        return QStringLiteral("not possible with this Proton");
+    case Fsr4Support::Unknown:
+        break;
+    }
+    return QStringLiteral("unknown (Steam's default Proton)");
+}
+
+} // namespace
+
 int listGames(QTextStream &out)
 {
     const SteamScan scan = scanSteam(ScanOptions::fromEnvironment());
@@ -48,6 +68,9 @@ int listGames(QTextStream &out)
             fsr << QStringLiteral("Vulkan");
         }
         out << "    FSR 3.1:   " << (fsr.isEmpty() ? QStringLiteral("no") : fsr.join(QStringLiteral(", "))) << '\n';
+        if (game.runtime == Runtime::Proton) {
+            out << "    FSR 4:     " << fsr4Words(game.tool.fsr4) << '\n';
+        }
         out << "    cover:     " << (game.coverPath.isEmpty() ? "none in Steam's cache" : "found") << '\n';
         if (!game.launchOptions.isEmpty()) {
             out << "    launch options: " << game.launchOptions << '\n';

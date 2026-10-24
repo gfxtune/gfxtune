@@ -163,9 +163,26 @@ void GameSettingsEditor::setVerticalSync(int mode)
     }
 }
 
-void GameSettingsEditor::setFsr4Upgrade(bool on)
+void GameSettingsEditor::setFsr4(int choice)
 {
-    edit([on](GameSettings &s) { s.fsr4Upgrade = on; });
+    if (choice >= int(settings::Fsr4::ProtonDefault) && choice <= int(settings::Fsr4::Off)) {
+        edit([choice](GameSettings &s) { s.fsr4 = settings::Fsr4(choice); });
+    }
+}
+
+QString GameSettingsEditor::fsr4ProtonChoice() const
+{
+    const steam::Game *game = m_library->game(m_appId);
+    switch (game ? game->tool.fsr4 : steam::Fsr4Support::Unknown) {
+    case steam::Fsr4Support::BuiltIn:
+        return QStringLiteral("Proton decides (on)");
+    case steam::Fsr4Support::OnRequest:
+    case steam::Fsr4Support::None:
+        return QStringLiteral("Proton decides (off)");
+    case steam::Fsr4Support::Unknown:
+        break;
+    }
+    return QStringLiteral("Proton decides");
 }
 
 void GameSettingsEditor::setGamescope(bool on)

@@ -521,6 +521,7 @@ SteamScan scanSteam(const ScanOptions &options)
     }
 
     QSet<quint32> listed;
+    QHash<QString, Fsr4Support> fsr4ByTool; // each tool's files read once
     for (const Manifest &app : apps) {
         if (app.appId == SteamworksRedistAppId) {
             scan.skipped.append({app.appId, app.name, QStringLiteral("Steam's shared redistributables, not a game")});
@@ -548,6 +549,13 @@ SteamScan scanSteam(const ScanOptions &options)
         game.buildId = app.buildId;
         game.coverPath = findCover(root, scan.accountId, app.appId, listedCovers(info));
         resolveRuntime(game, info, mapping, valveMappings, tools);
+        if (game.runtime == Runtime::Proton && !game.tool.installPath.isEmpty()) {
+            auto known = fsr4ByTool.find(game.tool.installPath);
+            if (known == fsr4ByTool.end()) {
+                known = fsr4ByTool.insert(game.tool.installPath, readFsr4Support(game.tool.installPath));
+            }
+            game.tool.fsr4 = *known;
+        }
 
         if (options.inspectGameFiles) {
             const bool windows = game.runtime == Runtime::Proton;

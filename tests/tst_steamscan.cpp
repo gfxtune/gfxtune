@@ -94,6 +94,8 @@ private Q_SLOTS:
         QCOMPARE(neon->tool.name, s("proton-9"));
         QCOMPARE(neon->tool.displayName, s("Proton 9.0")); // from the installed tool's manifest
         QCOMPARE(neon->tool.installPath, QFileInfo(steam.lib2).canonicalFilePath() + s("/steamapps/common/Proton 9.0"));
+        QCOMPARE(ashfall->tool.fsr4, Fsr4Support::OnRequest);
+        QCOMPARE(neon->tool.fsr4, Fsr4Support::None);
         // The cover file Steam's data names, under a hash folder.
         QVERIFY(neon->coverPath.endsWith(s("/appcache/librarycache/1002/") + test::NeonDriftCover));
         QVERIFY(QFileInfo(neon->coverPath).isFile());
@@ -284,6 +286,37 @@ private Q_SLOTS:
         for (const QString &path : scan.watchPaths) {
             QVERIFY2(QFileInfo::exists(path), qPrintable(path));
         }
+    }
+
+    void readsWhatAProtonDoesWithFsr4()
+    {
+        QTemporaryDir dir;
+        const auto tool = [&dir](const char *name) { return dir.filePath(QString::fromUtf8(name)); };
+        QCOMPARE(readFsr4Support({}), Fsr4Support::Unknown);
+        QCOMPARE(readFsr4Support(tool("missing")), Fsr4Support::Unknown);
+        QVERIFY(QDir().mkpath(tool("no-script")));
+        QCOMPARE(readFsr4Support(tool("no-script")), Fsr4Support::Unknown);
+
+        // Valve's Proton: AMD's library in contrib, copied into every prefix.
+        QVERIFY(test::writeFile(tool("valve") + s("/contrib/amdxcffx64.dll"), "x"));
+        QVERIFY(test::writeFile(tool("valve") + s("/proton"), "#!/usr/bin/env python3\n"));
+        QCOMPARE(readFsr4Support(tool("valve")), Fsr4Support::BuiltIn);
+
+        // proton-cachyos: the option is switched on for every game.
+        QVERIFY(test::writeFile(tool("cachyos") + s("/proton"),
+                                "    g_session.compat_config.add(\"fsr4\")\n"
+                                "    g_session.check_environment(\"PROTON_FSR4_UPGRADE\", \"fsr4\")\n"));
+        QCOMPARE(readFsr4Support(tool("cachyos")), Fsr4Support::BuiltIn);
+
+        // GE-Proton: only on request. A commented-out line does not count.
+        QVERIFY(test::writeFile(tool("ge") + s("/proton"),
+                                "    # g_session.compat_config.add('fsr4')\n"
+                                "    g_session.compat_config.add(\"mlfg\")\n"
+                                "    g_session.check_environment(\"PROTON_FSR4_UPGRADE\", \"fsr4\")\n"));
+        QCOMPARE(readFsr4Support(tool("ge")), Fsr4Support::OnRequest);
+
+        QVERIFY(test::writeFile(tool("old") + s("/proton"), "#!/usr/bin/env python3\nimport os\n"));
+        QCOMPARE(readFsr4Support(tool("old")), Fsr4Support::None);
     }
 };
 

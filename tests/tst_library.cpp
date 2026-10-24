@@ -207,7 +207,7 @@ private Q_SLOTS:
         QVERIFY(waitUntilIdle(library));
 
         editor.setAppId(1001);
-        editor.setFsr4Upgrade(true);
+        editor.setFsr4(int(settings::Fsr4::On));
         editor.flush();
         QVERIFY(QFile::exists(setup.store.pathFor(1001)));
         editor.resetToDefaults();
@@ -288,7 +288,7 @@ private Q_SLOTS:
         QVERIFY(library.steamRunning());
 
         editor.setAppId(1004);
-        editor.setFsr4Upgrade(true);
+        editor.setFsr4(int(settings::Fsr4::On));
         editor.flush();
         QCOMPARE(editor.launchState(), int(GameLibrary::LaunchState::WaitingForSteam));
         QCOMPARE(editor.launchLine(), s("gfxtune-run %command%"));
@@ -327,7 +327,7 @@ private Q_SLOTS:
         QVERIFY(waitUntilIdle(library));
         QVERIFY(test::writeFile(setup.store.baseDir() + s("/games"), "a file where a folder belongs"));
         editor.setAppId(1001);
-        editor.setFsr4Upgrade(true);
+        editor.setFsr4(int(settings::Fsr4::On));
         editor.flush();
         QVERIFY(editor.problem().startsWith(s("Could not save")));
     }

@@ -27,10 +27,19 @@ enum class Runtime {
     Proton, // the Windows version through a compatibility tool
 };
 
+// What a Proton build does with games that ship FSR 3.1.
+enum class Fsr4Support {
+    Unknown,   // the tool's files could not be read
+    BuiltIn,   // upgrades to FSR 4 by itself (Valve's Proton 11, proton-cachyos)
+    OnRequest, // upgrades when PROTON_FSR4_UPGRADE asks for it (GE-Proton)
+    None,      // cannot upgrade
+};
+
 struct CompatTool {
     QString name;        // Steam's internal name, e.g. "proton_experimental"
     QString displayName; // what Steam shows, e.g. "Proton Experimental"
     QString installPath; // empty when the tool is not installed or unknown
+    Fsr4Support fsr4 = Fsr4Support::Unknown;
 };
 
 struct Game {
@@ -62,6 +71,11 @@ struct Game {
 };
 
 QString runtimeName(Runtime runtime);
+
+// Reads a Proton build's own files: AMD's FSR 4 library in its contrib
+// folder (copied into every prefix), or its launch script switching FSR 4
+// on by itself or reading PROTON_FSR4_UPGRADE.
+Fsr4Support readFsr4Support(const QString &toolPath);
 QString apiNames(GraphicsApis apis);
 
 } // namespace gfxtune::steam

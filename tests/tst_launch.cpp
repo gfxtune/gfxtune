@@ -148,7 +148,7 @@ private Q_SLOTS:
         s.verticalSync = VerticalSync::Fast;
         s.frameCapEnabled = true;
         s.frameCap = 141;
-        s.fsr4Upgrade = true;
+        s.fsr4 = settings::Fsr4::On;
         const LaunchPlan plan = planLaunch(s, context());
         QCOMPARE(envValue(plan, QStringLiteral("RADV_TEX_ANISO")), QStringLiteral("16"));
         QCOMPARE(envValue(plan, QStringLiteral("MESA_VK_WSI_PRESENT_MODE")), QStringLiteral("mailbox"));
@@ -158,6 +158,32 @@ private Q_SLOTS:
                  QStringLiteral("d3d11.samplerAnisotropy = 16; d3d9.samplerAnisotropy = 16; dxgi.maxFrameRate = 141; d3d9.maxFrameRate = 141"));
         QVERIFY(plan.wrapper.isEmpty());
         QCOMPARE(plan.applied.size(), 4);
+    }
+
+    void turnsFsr4OffOnEveryProton()
+    {
+        GameSettings s;
+        QVERIFY(!setsEnv(planLaunch(s, context()), QStringLiteral("PROTON_FSR4_UPGRADE")));
+
+        s.fsr4 = settings::Fsr4::Off;
+        LaunchPlan plan = planLaunch(s, context());
+        QCOMPARE(envValue(plan, QStringLiteral("PROTON_FSR4_UPGRADE")), QStringLiteral("0"));
+        QCOMPARE(envValue(plan, QStringLiteral("WINEDLLOVERRIDES")), QStringLiteral("amdxcffx64=d"));
+        QVERIFY(plan.applied.contains(QStringLiteral("FSR 4 off (the game keeps FSR 3.1)")));
+
+        // The user's own overrides stay, with this one added.
+        LaunchContext c = context();
+        c.environment.insert(QStringLiteral("WINEDLLOVERRIDES"), QStringLiteral("dxgi=n,b;winmm=n"));
+        plan = planLaunch(s, c);
+        QCOMPARE(envValue(plan, QStringLiteral("WINEDLLOVERRIDES")), QStringLiteral("dxgi=n,b;winmm=n;amdxcffx64=d"));
+        QVERIFY(plan.keptFromSteam.isEmpty());
+
+        // An override of their own for the same library wins.
+        c.environment.insert(QStringLiteral("WINEDLLOVERRIDES"), QStringLiteral("dxgi=n;AMDXCFFX64=n"));
+        plan = planLaunch(s, c);
+        QVERIFY(!setsEnv(plan, QStringLiteral("WINEDLLOVERRIDES")));
+        QVERIFY(plan.keptFromSteam.contains(QStringLiteral("WINEDLLOVERRIDES")));
+        QVERIFY(!plan.applied.contains(QStringLiteral("FSR 4 off (the game keeps FSR 3.1)")));
     }
 
     void mapsEveryVerticalSyncMode()
@@ -180,7 +206,7 @@ private Q_SLOTS:
         GameSettings s;
         s.anisotropicFiltering = 4;
         s.frameCapEnabled = true;
-        s.fsr4Upgrade = true;
+        s.fsr4 = settings::Fsr4::On;
         LaunchContext c = context();
         c.environment.insert(QStringLiteral("PROTON_FSR4_UPGRADE"), QStringLiteral("4.0.2"));
         c.environment.insert(QStringLiteral("DXVK_CONFIG"), QStringLiteral("dxgi.syncInterval = 0"));
@@ -190,7 +216,7 @@ private Q_SLOTS:
         QVERIFY(setsEnv(plan, QStringLiteral("RADV_TEX_ANISO")));
         QVERIFY(setsEnv(plan, QStringLiteral("VKD3D_FRAME_RATE")));
         QCOMPARE(plan.keptFromSteam, (QStringList{QStringLiteral("PROTON_FSR4_UPGRADE"), QStringLiteral("DXVK_CONFIG")}));
-        QVERIFY(!plan.applied.contains(QStringLiteral("FSR 4 upgrade")));
+        QVERIFY(!plan.applied.contains(QStringLiteral("FSR 4 on")));
         QVERIFY(plan.applied.contains(QStringLiteral("Frame rate cap 60"))); // through VKD3D-Proton still
     }
 
@@ -338,7 +364,7 @@ private Q_SLOTS:
         QTemporaryDir dir;
         QVERIFY(!readLastLaunch(dir.path(), 7));
         LaunchPlan plan;
-        plan.applied = {QStringLiteral("Anisotropic filtering 16×"), QStringLiteral("FSR 4 upgrade")};
+        plan.applied = {QStringLiteral("Anisotropic filtering 16×"), QStringLiteral("FSR 4 on")};
         plan.keptFromSteam = {QStringLiteral("DXVK_CONFIG")};
         plan.notApplied = {QStringLiteral("gamescope: not installed")};
         const QDateTime when = QDateTime(QDate(2026, 10, 21), QTime(18, 3), QTimeZone::UTC);

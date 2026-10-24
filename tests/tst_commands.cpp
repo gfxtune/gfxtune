@@ -70,6 +70,8 @@ private Q_SLOTS:
         const QString ashfall = gameBlock(result.out, QStringLiteral("1001  Ashfall Protocol"));
         QVERIFY2(!ashfall.isEmpty(), qPrintable(result.out));
         QVERIFY(ashfall.contains(QLatin1String("cover:     none in Steam's cache")));
+        QVERIFY(ashfall.contains(QLatin1String("FSR 4:     this Proton turns it on when asked")));
+        QVERIFY(neon.contains(QLatin1String("FSR 4:     not possible with this Proton")));
         QVERIFY(ashfall.contains(QLatin1String("launch options: gamemoderun %command% -dx12 \"quoted arg\"")));
 
         QVERIFY(result.out.contains(QLatin1String("Installed but not listed")));

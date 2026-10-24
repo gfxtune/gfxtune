@@ -39,7 +39,7 @@ class GameSettingsEditor : public QObject
     Q_PROPERTY(bool frameCapEnabled READ frameCapEnabled WRITE setFrameCapEnabled NOTIFY settingsChanged)
     Q_PROPERTY(int frameCap READ frameCap WRITE setFrameCap NOTIFY settingsChanged)
     Q_PROPERTY(int verticalSync READ verticalSync WRITE setVerticalSync NOTIFY settingsChanged)
-    Q_PROPERTY(bool fsr4Upgrade READ fsr4Upgrade WRITE setFsr4Upgrade NOTIFY settingsChanged)
+    Q_PROPERTY(int fsr4 READ fsr4 WRITE setFsr4 NOTIFY settingsChanged)
     Q_PROPERTY(bool gamescope READ gamescope WRITE setGamescope NOTIFY settingsChanged)
     Q_PROPERTY(int upscaleFilter READ upscaleFilter WRITE setUpscaleFilter NOTIFY settingsChanged)
     Q_PROPERTY(int scalingMode READ scalingMode WRITE setScalingMode NOTIFY settingsChanged)
@@ -55,6 +55,8 @@ class GameSettingsEditor : public QObject
     Q_PROPERTY(QString frameCapNote READ frameCapNote NOTIFY availabilityChanged)
     Q_PROPERTY(bool fsr4Available READ fsr4Available NOTIFY availabilityChanged)
     Q_PROPERTY(QString fsr4Note READ fsr4Note NOTIFY availabilityChanged)
+    // The name of the "leave it to Proton" choice, with what Proton does.
+    Q_PROPERTY(QString fsr4ProtonChoice READ fsr4ProtonChoice NOTIFY availabilityChanged)
     Q_PROPERTY(bool gamescopeAvailable READ gamescopeAvailable NOTIFY availabilityChanged)
     Q_PROPERTY(QString gamescopeNote READ gamescopeNote NOTIFY availabilityChanged)
 
@@ -92,8 +94,8 @@ public:
     void setFrameCap(int fps);
     int verticalSync() const { return int(m_settings.verticalSync); }
     void setVerticalSync(int mode);
-    bool fsr4Upgrade() const { return m_settings.fsr4Upgrade; }
-    void setFsr4Upgrade(bool on);
+    int fsr4() const { return int(m_settings.fsr4); }
+    void setFsr4(int choice);
     bool gamescope() const { return m_settings.gamescope; }
     void setGamescope(bool on);
     int upscaleFilter() const { return int(m_settings.upscaleFilter); }
@@ -112,8 +114,9 @@ public:
     QString verticalSyncNote() const { return m_availability.verticalSync.note; }
     bool frameCapAvailable() const { return m_availability.frameCap.available; }
     QString frameCapNote() const { return m_availability.frameCap.note; }
-    bool fsr4Available() const { return m_availability.fsr4Upgrade.available; }
-    QString fsr4Note() const { return m_availability.fsr4Upgrade.note; }
+    bool fsr4Available() const { return m_availability.fsr4.available; }
+    QString fsr4Note() const { return m_availability.fsr4.note; }
+    QString fsr4ProtonChoice() const;
     bool gamescopeAvailable() const { return m_availability.gamescope.available; }
     QString gamescopeNote() const { return m_availability.gamescope.note; }
 

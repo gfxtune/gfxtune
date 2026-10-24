@@ -191,15 +191,20 @@ QQC2.ScrollView {
                 Kirigami.FormData.isSection: true
                 Kirigami.FormData.label: "Upscaling"
             }
-            SettingSwitch {
-                Kirigami.FormData.label: "FSR 4 upgrade:"
+            ValueComboBox {
+                objectName: "fsr4"
+                Kirigami.FormData.label: "FSR 4:"
                 enabled: pane.editor.fsr4Available
-                value: pane.editor.fsr4Upgrade
-                onPicked: value => pane.editor.fsr4Upgrade = value
+                model: [
+                    {text: pane.editor.fsr4ProtonChoice, value: 0},
+                    {text: "On", value: 1},
+                    {text: "Off (keep FSR 3.1)", value: 2}
+                ]
+                value: pane.editor.fsr4
+                onPicked: value => pane.editor.fsr4 = value
             }
             Note {
-                text: pane.editor.fsr4Note.length > 0 ? pane.editor.fsr4Note
-                                                     : "Replaces the game's FSR 3.1 with FSR 4. Costs some performance on RDNA 3 cards."
+                text: pane.editor.fsr4Note
             }
 
             Kirigami.Separator {

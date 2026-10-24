@@ -144,7 +144,7 @@ private Q_SLOTS:
         s.verticalSync = settings::VerticalSync::Off;
         s.frameCapEnabled = true;
         s.frameCap = 90;
-        s.fsr4Upgrade = true;
+        s.fsr4 = settings::Fsr4::On;
         QVERIFY(store().save(1001, s, {}));
         QCOMPARE(run(environment(QStringLiteral("1001")), gameCommand()), 0);
         const auto seen = gameSaw();
@@ -159,14 +159,14 @@ private Q_SLOTS:
 
         const auto last = launch::readLastLaunch(store().baseDir(), 1001);
         QVERIFY(last);
-        QVERIFY(last->applied.contains(QStringLiteral("FSR 4 upgrade")));
+        QVERIFY(last->applied.contains(QStringLiteral("FSR 4 on")));
         QVERIFY(qAbs(last->time.secsTo(QDateTime::currentDateTime())) < 60);
     }
 
     void keepsVariablesFromSteamsLaunchOptions()
     {
         GameSettings s;
-        s.fsr4Upgrade = true;
+        s.fsr4 = settings::Fsr4::On;
         QVERIFY(store().save(1001, s, {}));
         QProcessEnvironment env = environment(QStringLiteral("1001"));
         env.insert(QStringLiteral("PROTON_FSR4_UPGRADE"), QStringLiteral("4.0.2"));

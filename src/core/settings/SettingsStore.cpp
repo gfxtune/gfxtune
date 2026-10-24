@@ -135,7 +135,9 @@ GameSettings SettingsStore::load(quint32 appId, QStringList *warnings) const
     s.frameCapEnabled = in.flag(QStringLiteral("frames/frame_cap_enabled"), defaults.frameCapEnabled);
     s.frameCap = in.number(QStringLiteral("frames/frame_cap"), defaults.frameCap, GameSettings::MinFrameCap, GameSettings::MaxFrameCap);
     s.verticalSync = in.choice(QStringLiteral("frames/vertical_sync"), defaults.verticalSync);
-    s.fsr4Upgrade = in.flag(QStringLiteral("upscaling/fsr4_upgrade"), defaults.fsr4Upgrade);
+    // 0.1.2 and older wrote an on/off switch; on meant what On means now.
+    const bool oldUpgrade = in.flag(QStringLiteral("upscaling/fsr4_upgrade"), false);
+    s.fsr4 = in.choice(QStringLiteral("upscaling/fsr4"), oldUpgrade ? Fsr4::On : defaults.fsr4);
     s.gamescope = in.flag(QStringLiteral("gamescope/enabled"), defaults.gamescope);
     s.upscaleFilter = in.choice(QStringLiteral("gamescope/filter"), defaults.upscaleFilter);
     s.scalingMode = in.choice(QStringLiteral("gamescope/scaling"), defaults.scalingMode);
@@ -162,7 +164,7 @@ bool SettingsStore::save(quint32 appId, const GameSettings &s, const QString &ga
     out.setValue(QStringLiteral("frames/frame_cap_enabled"), s.frameCapEnabled);
     out.setValue(QStringLiteral("frames/frame_cap"), s.frameCap);
     out.setValue(QStringLiteral("frames/vertical_sync"), toKey(s.verticalSync));
-    out.setValue(QStringLiteral("upscaling/fsr4_upgrade"), s.fsr4Upgrade);
+    out.setValue(QStringLiteral("upscaling/fsr4"), toKey(s.fsr4));
     out.setValue(QStringLiteral("gamescope/enabled"), s.gamescope);
     out.setValue(QStringLiteral("gamescope/filter"), toKey(s.upscaleFilter));
     out.setValue(QStringLiteral("gamescope/scaling"), toKey(s.scalingMode));
