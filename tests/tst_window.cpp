@@ -16,6 +16,7 @@
 #include <QImage>
 #include <QQmlApplicationEngine>
 #include <QQmlError>
+#include <QQmlListReference>
 #include <QQuickStyle>
 #include <QQuickItem>
 #include <QQuickWindow>
@@ -48,6 +49,26 @@ QQuickItem *findItem(QQuickItem *item, const QString &name)
         }
     }
     return nullptr;
+}
+
+// The charts drawing at least `points` readings, among the visible items.
+int chartsWithData(QQuickItem *item, int points)
+{
+    if (!item || !item->isVisible()) {
+        return 0;
+    }
+    int count = 0;
+    if (QByteArray(item->metaObject()->className()) == "LineChart") {
+        const QQmlListReference sources(item, "valueSources");
+        if (sources.count() > 0 && sources.at(0)->property("array").toList().size() >= points && item->width() > 0) {
+            ++count;
+        }
+    }
+    const QList<QQuickItem *> children = item->childItems();
+    for (QQuickItem *child : children) {
+        count += chartsWithData(child, points);
+    }
+    return count;
 }
 
 } // namespace
@@ -97,12 +118,14 @@ private Q_SLOTS:
     {
         test::FakeSteam steam;
         steam.build();
-        // A real image, since the window decodes it.
+        // Real images, since the window decodes them: one in each layout.
         QImage cover(60, 90, QImage::Format_RGB32);
         cover.fill(QColor(40, 90, 160));
-        const QString coverPath = steam.root + QStringLiteral("/appcache/librarycache/1001/library_600x900.jpg");
-        QVERIFY(QDir().mkpath(QFileInfo(coverPath).path()));
-        QVERIFY(cover.save(coverPath, "JPEG"));
+        const QString cache = steam.root + QStringLiteral("/appcache/librarycache/");
+        for (const QString &coverPath : {cache + QStringLiteral("1001/library_600x900.jpg"), cache + QStringLiteral("1002/") + test::NeonDriftCover}) {
+            QVERIFY(QDir().mkpath(QFileInfo(coverPath).path()));
+            QVERIFY(cover.save(coverPath, "JPEG"));
+        }
         QTemporaryDir config;
         QTemporaryDir proc;
         settings::SettingsStore store(config.filePath(QStringLiteral("gfxtune")));
@@ -183,7 +206,9 @@ private Q_SLOTS:
         QVERIFY2(w.window, qPrintable(w.describeWarnings()));
         w.window->show();
         QTRY_VERIFY(gpu.active());
-        QTRY_VERIFY(gpu.edgeHistory().size() >= 2); // the graphs fill
+        QTRY_VERIFY(gpu.edgeHistory().size() >= 2);
+        // Temperature, hotspot and power lines draw the readings.
+        QTRY_COMPARE(chartsWithData(w.window->contentItem(), 2), 3);
         w.window->showMinimized();
         QTRY_VERIFY(!gpu.active());
         w.window->showNormal();

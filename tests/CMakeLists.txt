@@ -32,6 +32,13 @@ target_compile_definitions(tst_run PRIVATE GFXTUNE_RUN_PATH="$<TARGET_FILE:gfxtu
 add_dependencies(tst_run gfxtune-run)
 add_test(NAME run COMMAND tst_run)
 
+# The gfxtune program's text-only options.
+qt_add_executable(tst_commands tst_commands.cpp)
+target_link_libraries(tst_commands PRIVATE gfxtune_test_support)
+target_compile_definitions(tst_commands PRIVATE GFXTUNE_PATH="$<TARGET_FILE:gfxtune>")
+add_dependencies(tst_commands gfxtune)
+add_test(NAME commands COMMAND tst_commands)
+
 # The window itself, drawn off screen.
 qt_add_executable(tst_window tst_window.cpp)
 target_link_libraries(tst_window PRIVATE gfxtune_test_support gfxtune_ui gfxtune_uiplugin Qt6::Widgets)

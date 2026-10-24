@@ -6,6 +6,7 @@
 #include "steam/Covers.h"
 #include "support/Fixtures.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QTemporaryDir>
@@ -52,6 +53,15 @@ Game game(Runtime runtime, GraphicsApis apis, bool fsr31 = false)
 class SettingsTest : public QObject
 {
     Q_OBJECT
+
+private:
+    // Makes a file look written `seconds` ago, as Steam's saves would be.
+    static bool setAge(const QString &path, int seconds)
+    {
+        QFile file(path);
+        return file.open(QIODevice::ReadWrite)
+            && file.setFileTime(QDateTime::currentDateTimeUtc().addSecs(-seconds), QFileDevice::FileModificationTime);
+    }
 
 private Q_SLOTS:
     void namesRoundTrip()
@@ -319,26 +329,103 @@ private Q_SLOTS:
         QVERIFY(test::writeFile(cache + QStringLiteral("10_library_600x900.jpg"), "x"));
         QCOMPARE(steam::findCover(root, 42, 10), cache + QStringLiteral("10_library_600x900.jpg"));
 
-        const QString nested = cache + QStringLiteral("10/0123456789abcdef0123456789abcdef01234567/library_600x900.jpg");
-        QVERIFY(test::writeFile(nested, "x"));
-        QCOMPARE(steam::findCover(root, 42, 10), nested);
+        // Files in the game's own folder win over the flat layout, in either
+        // generation's name and one level deeper under a hash.
+        const QString older = cache + QStringLiteral("10/0123456789abcdef0123456789abcdef01234567/library_600x900.jpg");
+        QVERIFY(test::writeFile(older, "x"));
+        QVERIFY(setAge(older, 300));
+        QCOMPARE(steam::findCover(root, 42, 10), older);
 
-        // A second hashed copy makes the nested choice ambiguous.
-        QVERIFY(test::writeFile(cache + QStringLiteral("10/fedcba9876543210fedcba9876543210fedcba98/library_600x900.jpg"), "x"));
-        QCOMPARE(steam::findCover(root, 42, 10), cache + QStringLiteral("10_library_600x900.jpg"));
-        // Folders that are not hashes are ignored.
-        QVERIFY(test::writeFile(cache + QStringLiteral("11/not-a-hash/library_600x900.jpg"), "x"));
+        // Of several, the one Steam saved last.
+        const QString newer = cache + QStringLiteral("10/fedcba9876543210fedcba9876543210fedcba98/library_capsule.jpg");
+        QVERIFY(test::writeFile(newer, "x"));
+        QVERIFY(setAge(newer, 200));
+        QCOMPARE(steam::findCover(root, 42, 10), newer);
+        const QString direct = cache + QStringLiteral("10/library_600x900.jpg");
+        QVERIFY(test::writeFile(direct, "x"));
+        QVERIFY(setAge(direct, 100));
+        QCOMPARE(steam::findCover(root, 42, 10), direct);
+
+        // Other pictures and folders that are not hashes are ignored.
+        QVERIFY(test::writeFile(cache + QStringLiteral("11/not-a-hash/library_capsule.jpg"), "x"));
+        QVERIFY(test::writeFile(cache + QStringLiteral("11/library_hero.jpg"), "x"));
+        QVERIFY(test::writeFile(cache + QStringLiteral("11/0123456789abcdef0123456789abcdef01234567/logo.png"), "x"));
         QCOMPARE(steam::findCover(root, 42, 11), QString());
-
-        QVERIFY(test::writeFile(cache + QStringLiteral("10/library_600x900.jpg"), "x"));
-        QCOMPARE(steam::findCover(root, 42, 10), cache + QStringLiteral("10/library_600x900.jpg"));
 
         // A cover the user picked wins, but only for their account.
         const QString custom = root + QStringLiteral("/userdata/42/config/grid/10p.png");
         QVERIFY(test::writeFile(custom, "x"));
         QCOMPARE(steam::findCover(root, 42, 10), custom);
-        QCOMPARE(steam::findCover(root, 0, 10), cache + QStringLiteral("10/library_600x900.jpg"));
-        QCOMPARE(steam::findCover(root, 43, 10), cache + QStringLiteral("10/library_600x900.jpg"));
+        QCOMPARE(steam::findCover(root, 0, 10), direct);
+        QCOMPARE(steam::findCover(root, 43, 10), direct);
+    }
+
+    void prefersTheCoverSteamsDataNames()
+    {
+        QTemporaryDir dir;
+        const QString root = dir.path();
+        const QString folder = root + QStringLiteral("/appcache/librarycache/20/");
+        const QString english = QStringLiteral("1111111111111111111111111111111111111111/library_capsule.jpg");
+        const QString japanese = QStringLiteral("2222222222222222222222222222222222222222/library_capsule_japanese.jpg");
+        const QStringList listed{english, japanese};
+
+        // Listed but not saved yet: the folder is searched as before.
+        QVERIFY(test::writeFile(folder + QStringLiteral("library_600x900.jpg"), "x"));
+        QCOMPARE(steam::findCover(root, 0, 20, listed), folder + QStringLiteral("library_600x900.jpg"));
+
+        // A listed file wins over other cover files, even newer ones.
+        QVERIFY(test::writeFile(folder + english, "x"));
+        QVERIFY(setAge(folder + english, 500));
+        QCOMPARE(steam::findCover(root, 0, 20, listed), folder + english);
+
+        // Steam saves only the language it shows; after a language change
+        // both exist and the one saved last is the one Steam shows.
+        QVERIFY(test::writeFile(folder + japanese, "x"));
+        QVERIFY(setAge(folder + japanese, 100));
+        QCOMPARE(steam::findCover(root, 0, 20, listed), folder + japanese);
+        // With equal times the earlier listed name wins.
+        QVERIFY(setAge(folder + english, 100));
+        QCOMPARE(steam::findCover(root, 0, 20, listed), folder + english);
+
+        // Names that leave the game's folder are never followed, even when
+        // the folder exists and the path would resolve.
+        QVERIFY(test::writeFile(root + QStringLiteral("/appcache/librarycache/outside.jpg"), "x"));
+        QVERIFY(QDir().mkpath(root + QStringLiteral("/appcache/librarycache/21")));
+        QCOMPARE(steam::findCover(root, 0, 21, {QStringLiteral("../outside.jpg")}), QString());
+    }
+
+    void readsListedCoverNames()
+    {
+        using test::section;
+        using test::value;
+        QCOMPARE(steam::listedCovers(nullptr), QStringList());
+        const vdf::Node empty = section({}, {section(QStringLiteral("common"), {})});
+        QCOMPARE(steam::listedCovers(&empty), QStringList());
+
+        const QString hash = QStringLiteral("0123456789abcdef0123456789abcdef01234567");
+        const vdf::Node info = section({}, {section(QStringLiteral("common"), {section(QStringLiteral("library_assets_full"), {
+            section(QStringLiteral("library_capsule"), {
+                section(QStringLiteral("image"), {
+                    value(QStringLiteral("english"), hash + QStringLiteral("/library_capsule.jpg")),
+                    value(QStringLiteral("schinese"), QStringLiteral("library_600x900_schinese.jpg")),
+                    value(QStringLiteral("japanese"), QStringLiteral("../../../etc/passwd.jpg")),
+                    value(QStringLiteral("koreana"), QStringLiteral("/tmp/absolute.jpg")),
+                    value(QStringLiteral("french"), QStringLiteral("not-a-hash/library_capsule.jpg")),
+                    value(QStringLiteral("german"), hash.toUpper() + QStringLiteral("/library_capsule.jpg")),
+                    value(QStringLiteral("dutch"), QStringLiteral("library_capsule.exe")),
+                    value(QStringLiteral("polish"), QString()),
+                    section(QStringLiteral("nested"), {}),
+                }),
+                section(QStringLiteral("image2x"), {
+                    value(QStringLiteral("english"), hash + QStringLiteral("/library_capsule_2x.jpg")),
+                    value(QStringLiteral("schinese"), QStringLiteral("library_600x900_schinese.jpg")),
+                }),
+            }),
+            section(QStringLiteral("library_hero"), {section(QStringLiteral("image"), {value(QStringLiteral("english"), QStringLiteral("library_hero.jpg"))})}),
+        })})});
+        QCOMPARE(steam::listedCovers(&info), (QStringList{hash + QStringLiteral("/library_capsule.jpg"),
+                                                          QStringLiteral("library_600x900_schinese.jpg"),
+                                                          hash + QStringLiteral("/library_capsule_2x.jpg")}));
     }
 };
 

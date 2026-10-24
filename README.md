@@ -54,7 +54,7 @@ To remove it, close Steam and run `sudo pacman -R gfxtune`. Before anything is r
 
 ## Building
 
-Requirements: CMake 3.24 or newer, a C++20 compiler, Qt 6.8 or newer (Quick, Quick Controls 2, Widgets, Graphs) and KDE Kirigami. The card names come from libdrm's `amdgpu.ids`.
+Requirements: CMake 3.24 or newer, a C++20 compiler, Qt 6.8 or newer (Quick, Quick Controls 2, Widgets), KDE Kirigami and KDE's KQuickCharts, which draws the graphs and comes with every Plasma desktop. The card names come from libdrm's `amdgpu.ids`.
 
 ```
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -64,7 +64,7 @@ ctest --test-dir build
 
 The tests build made-up Steam folders and programs; they never read a real Steam installation.
 
-`gfxtune --list-games` prints the Steam games gfxtune finds and what it reads about each one (how it runs, which graphics libraries it loads, FSR 3.1, current launch options). It only reads, and is meant for checking a system or attaching to a bug report.
+`gfxtune --list-games` prints the Steam games gfxtune finds and what it reads about each one (how it runs, which graphics libraries it loads, FSR 3.1, whether Steam has saved its cover, current launch options). It only reads, and is meant for checking a system or attaching to a bug report.
 
 ## License
 

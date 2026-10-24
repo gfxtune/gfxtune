@@ -6,8 +6,8 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as QQC2
-import QtGraphs
 import org.kde.kirigami as Kirigami
+import org.kde.quickcharts as Charts
 import Gfxtune.Backend
 
 // The card's live readings, on the right of the window.
@@ -15,6 +15,13 @@ ColumnLayout {
     id: panel
 
     required property GpuMonitor monitor
+
+    // The same colour as a Kirigami.Separator.
+    readonly property color gridColor: Kirigami.ColorUtils.linearInterpolation(Kirigami.Theme.backgroundColor, Kirigami.Theme.textColor, 0.2)
+    // The accent colour. Not highlightColor: KDE dims that while the window
+    // is not focused, which is the usual case while a game runs.
+    readonly property color mainColor: Kirigami.Theme.focusColor
+    readonly property color hotspotColor: Kirigami.Theme.neutralTextColor
 
     spacing: Kirigami.Units.smallSpacing
 
@@ -102,61 +109,136 @@ ColumnLayout {
         Value { text: panel.monitor.voltage }
     }
 
-    component Chart: GraphsView {
+    // The last minute of a reading, drawn like KDE's System Monitor: grid
+    // lines at the bottom, middle and top of the range with their values on
+    // the left, the newest reading at the right edge. An optional second line
+    // is drawn without a fill, since two fills on top of each other mix.
+    component HistoryChart: Item {
         id: chart
 
-        property real low
-        property real high
+        required property string unit
+        required property real low
+        required property real high
+        // Lists of numbers, oldest first. Plain var: the chart takes a
+        // variant list, which a typed list<real> does not convert to.
+        required property var values
+        required property color lineColor
+        property var secondValues: []
+        property color secondColor
+
+        readonly property real labelWidth: labelMetrics.width + Kirigami.Units.smallSpacing
+        readonly property real plotWidth: width - labelWidth
 
         Layout.fillWidth: true
-        Layout.preferredHeight: Kirigami.Units.gridUnit * 7
-        marginLeft: 0
-        marginRight: 0
-        marginTop: Kirigami.Units.smallSpacing
-        marginBottom: Kirigami.Units.smallSpacing
-        theme: GraphsTheme {
-            backgroundVisible: false
-            plotAreaBackgroundVisible: false
-            labelTextColor: Kirigami.Theme.disabledTextColor
-            grid.mainColor: Qt.alpha(Kirigami.Theme.textColor, 0.15)
-            grid.subColor: "transparent"
-            axisX.mainColor: "transparent"
-            axisY.mainColor: "transparent"
+        Layout.preferredHeight: Kirigami.Units.gridUnit * 5
+        // Room for the halves of the top and bottom values outside the lines.
+        Layout.topMargin: Math.ceil(labelMetrics.height / 2)
+        Layout.bottomMargin: Math.ceil(labelMetrics.height / 2)
+
+        TextMetrics {
+            id: labelMetrics
+            font: Kirigami.Theme.smallFont
+            text: Math.round(chart.high) + " " + chart.unit
         }
-        axisX: ValueAxis {
-            min: 0
-            max: panel.monitor.historyLength - 1
-            visible: false
-            gridVisible: false
-            subGridVisible: false
+
+        Repeater {
+            model: 3
+            delegate: Item {
+                id: gridLine
+
+                required property int index
+
+                y: Math.round((chart.height - 1) * (1 - index / 2))
+                width: chart.width
+
+                Rectangle {
+                    x: chart.labelWidth
+                    width: chart.plotWidth
+                    height: 1
+                    color: panel.gridColor
+                }
+                QQC2.Label {
+                    x: chart.labelWidth - width - Kirigami.Units.smallSpacing
+                    y: -height / 2
+                    font: Kirigami.Theme.smallFont
+                    opacity: 0.75
+                    text: Math.round(chart.low + (chart.high - chart.low) * gridLine.index / 2) + " " + chart.unit
+                }
+            }
         }
-        axisY: ValueAxis {
-            min: chart.low
-            max: chart.high
-            tickInterval: (chart.high - chart.low) / 2
-            tickAnchor: chart.low
-            subGridVisible: false
-            lineVisible: false
-            labelDecimals: 0
+
+        // Spans only the readings there are, so the lines grow in from the
+        // right after a start instead of dropping to zero where none exist.
+        Item {
+            id: plot
+
+            readonly property int count: chart.values.length
+
+            x: chart.width - width
+            width: count > 1 ? chart.plotWidth * (count - 1) / (panel.monitor.historyLength - 1) : 0
+            height: chart.height
+            visible: count > 1
+
+            Charts.LineChart {
+                anchors.fill: parent
+                interpolate: true
+                lineWidth: 2
+                fillOpacity: 0.2
+                yRange {
+                    from: chart.low
+                    to: chart.high
+                    automatic: false
+                }
+                valueSources: Charts.ArraySource { array: chart.values }
+                colorSource: Charts.SingleValueSource { value: chart.lineColor }
+            }
+            Charts.LineChart {
+                anchors.fill: parent
+                visible: chart.secondValues.length === plot.count
+                interpolate: true
+                lineWidth: 2
+                fillOpacity: 0
+                yRange {
+                    from: chart.low
+                    to: chart.high
+                    automatic: false
+                }
+                valueSources: Charts.ArraySource { array: chart.secondValues }
+                colorSource: Charts.SingleValueSource { value: chart.secondColor }
+            }
         }
     }
 
-    // Puts a history list into a line series, newest on the right.
-    function fill(series, values) {
-        series.clear();
-        const offset = panel.monitor.historyLength - values.length;
-        for (let i = 0; i < values.length; ++i) {
-            series.append(offset + i, values[i]);
+    component LegendEntry: RowLayout {
+        id: entry
+
+        required property color swatch
+        required property string name
+        required property string value
+
+        spacing: Kirigami.Units.smallSpacing
+
+        Rectangle {
+            Layout.alignment: Qt.AlignVCenter
+            implicitWidth: Math.round(Kirigami.Units.gridUnit * 0.6)
+            implicitHeight: 3
+            radius: 1
+            color: entry.swatch
+        }
+        QQC2.Label {
+            text: entry.name
+            font: Kirigami.Theme.smallFont
+            opacity: 0.75
+        }
+        QQC2.Label {
+            text: entry.value
+            font: Kirigami.Theme.smallFont
         }
     }
 
-    Connections {
-        target: panel.monitor
-        function onReadingChanged() {
-            panel.fill(edgeLine, panel.monitor.edgeHistory);
-            panel.fill(hotspotLine, panel.monitor.hotspotHistory);
-            panel.fill(powerLine, panel.monitor.powerHistory);
-        }
+    component Caption: QQC2.Label {
+        font: Kirigami.Theme.smallFont
+        opacity: 0.75
     }
 
     ColumnLayout {
@@ -165,43 +247,49 @@ ColumnLayout {
         visible: panel.monitor.status === GpuMonitor.AmdCard && !panel.monitor.asleep
         spacing: Kirigami.Units.smallSpacing
 
-        QQC2.Label {
-            text: "Temperature, last minute (dashed: hotspot)"
-            font: Kirigami.Theme.smallFont
+        Caption {
+            text: "Temperature, last minute"
         }
-        Chart {
+        HistoryChart {
+            unit: "°C"
             low: panel.monitor.temperatureLow
             high: panel.monitor.temperatureHigh
+            values: panel.monitor.edgeHistory
+            lineColor: panel.mainColor
+            secondValues: panel.monitor.hotspotHistory
+            secondColor: panel.hotspotColor
+        }
+        Flow {
+            Layout.fillWidth: true
+            spacing: Kirigami.Units.largeSpacing
 
-            LineSeries {
-                id: edgeLine
-                color: Kirigami.Theme.highlightColor
-                width: 2
+            LegendEntry {
+                swatch: panel.mainColor
+                name: "Temperature"
+                value: panel.monitor.temperature
             }
-            LineSeries {
-                id: hotspotLine
-                color: Kirigami.Theme.highlightColor
-                width: 2
-                lineStyle: LineSeries.LineStyle.Straight
-                strokeStyle: LineSeries.StrokeStyle.DashLine
-                dashPattern: [3, 2]
+            LegendEntry {
+                swatch: panel.hotspotColor
+                name: "Hotspot"
+                value: panel.monitor.hotspot
             }
         }
 
-        QQC2.Label {
-            Layout.topMargin: Kirigami.Units.smallSpacing
+        Caption {
+            Layout.topMargin: Kirigami.Units.largeSpacing
             text: "Power, last minute"
-            font: Kirigami.Theme.smallFont
         }
-        Chart {
+        HistoryChart {
+            unit: "W"
             low: 0
             high: panel.monitor.powerHigh
-
-            LineSeries {
-                id: powerLine
-                color: Kirigami.Theme.highlightColor
-                width: 2
-            }
+            values: panel.monitor.powerHistory
+            lineColor: panel.mainColor
+        }
+        LegendEntry {
+            swatch: panel.mainColor
+            name: "Power"
+            value: panel.monitor.power
         }
     }
 

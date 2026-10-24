@@ -5,6 +5,7 @@
 
 #include "Fixtures.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QTest>
@@ -113,6 +114,14 @@ void FakeSteam::build()
     QVERIFY(writeFile(lib2 + s("/steamapps/common/NeonDrift/Game/NeonDrift.exe"),
                       writePe(true, {s("UnityPlayer.dll")}) + QByteArray(100000, '\0')));
     QVERIFY(writeFile(lib2 + s("/steamapps/common/NeonDrift/Game/UnityPlayer.dll"), writePe(true, {s("d3d11.dll")})));
+    // Its cover in the newer layout: Steam's data names a file under a hash.
+    // Another cover-named file in the folder must not win, even a newer one.
+    const QString neonCover = root + s("/appcache/librarycache/1002/") + NeonDriftCover;
+    QVERIFY(writeFile(neonCover, "x"));
+    QFile neonCoverFile(neonCover);
+    QVERIFY(neonCoverFile.open(QIODevice::ReadWrite));
+    QVERIFY(neonCoverFile.setFileTime(QDateTime::currentDateTimeUtc().addSecs(-3600), QFileDevice::FileModificationTime));
+    QVERIFY(writeFile(root + s("/appcache/librarycache/1002/library_600x900.jpg"), "x"));
 
     // 1003: has a Linux version, runs natively with Vulkan.
     game(lib2, 1003, s("Stonewake"), s("Stonewake"));
@@ -175,9 +184,14 @@ void FakeSteam::build()
         })})})}),
     })}));
 
+    Node neonDrift = appInfo(s("game"), s("windows"), {launchEntry(s("Launcher.exe"), {})});
+    neonDrift.children.front().children.push_back(section(s("library_assets_full"), {section(s("library_capsule"), {
+        section(s("image"), {value(s("english"), NeonDriftCover), value(s("japanese"), s("b2c3d4e5f60718293a4b5c6d7e8f9012345678a1/library_capsule_japanese.jpg"))}),
+        section(s("image2x"), {value(s("english"), s("a1b2c3d4e5f60718293a4b5c6d7e8f9012345678/library_capsule_2x.jpg"))}),
+    })}));
     const QList<QPair<quint32, Node>> apps{
         {1001, appInfo(s("Game"), s("windows"), {launchEntry(s("Bin\\Ashfall.exe"), s("windows"))})},
-        {1002, appInfo(s("game"), s("windows"), {launchEntry(s("Launcher.exe"), {})})},
+        {1002, neonDrift},
         {1003, appInfo(s("Game"), s("windows,linux"), {launchEntry(s("Stonewake.exe"), s("windows")), launchEntry(s("stonewake"), s("linux"))})},
         {1004, appInfo(s("Game"), s("windows"))},
         {1005, appInfo(s("Game"), s("windows,linux"))},

@@ -48,6 +48,7 @@ int listGames(QTextStream &out)
             fsr << QStringLiteral("Vulkan");
         }
         out << "    FSR 3.1:   " << (fsr.isEmpty() ? QStringLiteral("no") : fsr.join(QStringLiteral(", "))) << '\n';
+        out << "    cover:     " << (game.coverPath.isEmpty() ? "none in Steam's cache" : "found") << '\n';
         if (!game.launchOptions.isEmpty()) {
             out << "    launch options: " << game.launchOptions << '\n';
         }

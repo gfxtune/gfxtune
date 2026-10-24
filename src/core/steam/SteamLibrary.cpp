@@ -546,7 +546,7 @@ SteamScan scanSteam(const ScanOptions &options)
         game.installPath = app.installPath;
         game.launchOptions = launchOptions.value(app.appId);
         game.buildId = app.buildId;
-        game.coverPath = findCover(root, scan.accountId, app.appId);
+        game.coverPath = findCover(root, scan.accountId, app.appId, listedCovers(info));
         resolveRuntime(game, info, mapping, valveMappings, tools);
 
         if (options.inspectGameFiles) {

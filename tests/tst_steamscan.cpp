@@ -94,6 +94,9 @@ private Q_SLOTS:
         QCOMPARE(neon->tool.name, s("proton-9"));
         QCOMPARE(neon->tool.displayName, s("Proton 9.0")); // from the installed tool's manifest
         QCOMPARE(neon->tool.installPath, QFileInfo(steam.lib2).canonicalFilePath() + s("/steamapps/common/Proton 9.0"));
+        // The cover file Steam's data names, under a hash folder.
+        QVERIFY(neon->coverPath.endsWith(s("/appcache/librarycache/1002/") + test::NeonDriftCover));
+        QVERIFY(QFileInfo(neon->coverPath).isFile());
 
         const Game *stonewake = findGame(scan, 1003);
         QCOMPARE(stonewake->runtime, Runtime::Native); // Linux runtime tools are not Proton
