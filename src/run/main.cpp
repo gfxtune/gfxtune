@@ -91,6 +91,11 @@ int main(int argc, char *argv[])
         context.environment.insert(key, environment.value(key));
     }
     context.gamescopeInstalled = !QStandardPaths::findExecutable(QStringLiteral("gamescope")).isEmpty();
+    QStringList commandLine;
+    for (char *const *argument = command; *argument; ++argument) {
+        commandLine.append(QString::fromLocal8Bit(*argument));
+    }
+    context.proton = launch::runsThroughProton(commandLine);
     if (launch::needsScreen(gameSettings) && context.gamescopeInstalled
         && !context.environment.contains(QStringLiteral("GAMESCOPE_WAYLAND_DISPLAY"))) {
         context.screen = mainScreen();

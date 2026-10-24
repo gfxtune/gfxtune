@@ -67,15 +67,20 @@ Availability availabilityFor(const steam::Game &game, const GameSettings &settin
         a.verticalSync = openGlOption;
     }
 
+    // Under Proton, DXVK and VKD3D-Proton cap the frame rate inside the game,
+    // with or without gamescope. Other games only through gamescope, whose
+    // screen holds a game back only while it waits for vertical sync.
     const bool gamescopeUsable = system.gamescopeInstalled && !own.gamescope;
-    if (settings.gamescope && gamescopeUsable) {
-        a.frameCap = {true, QStringLiteral("gamescope caps the frame rate.")};
-    } else if (own.environment.contains(QStringLiteral("VKD3D_FRAME_RATE")) || own.environment.contains(QStringLiteral("DXVK_FRAME_RATE"))) {
+    if (own.environment.contains(QStringLiteral("VKD3D_FRAME_RATE")) || own.environment.contains(QStringLiteral("DXVK_FRAME_RATE"))) {
         a.frameCap = {false, setInSteam(QStringLiteral("a frame rate variable"))};
     } else if (game.runtime == Runtime::Proton && (game.apis & ProtonApis)) {
         a.frameCap = {true, {}};
     } else if (game.runtime == Runtime::Proton && (!game.apis || openGl)) {
         a.frameCap = {true, QStringLiteral("Only takes effect if the game uses DirectX 9 to 12.")};
+    } else if (game.runtime == Runtime::Proton) {
+        a.frameCap = {false, QStringLiteral("This game draws with Vulkan itself, which the cap does not reach under Proton.")};
+    } else if (settings.gamescope && gamescopeUsable) {
+        a.frameCap = {true, QStringLiteral("gamescope holds the cap only while vertical sync is on, in the game or with Vertical sync set to On here.")};
     } else if (gamescopeUsable) {
         a.frameCap = {false, QStringLiteral("Turn on gamescope to cap this game's frame rate.")};
     } else if (own.gamescope) {
@@ -83,7 +88,7 @@ Availability availabilityFor(const steam::Game &game, const GameSettings &settin
     } else {
         a.frameCap = {false, QStringLiteral("Capping this game's frame rate needs gamescope, which is not installed.")};
     }
-    if (a.frameCap.available && own.environment.contains(QStringLiteral("DXVK_CONFIG")) && !settings.gamescope) {
+    if (a.frameCap.available && own.environment.contains(QStringLiteral("DXVK_CONFIG")) && game.runtime == Runtime::Proton) {
         a.frameCap.note = QStringLiteral("DirectX 9 to 11 games: this game's Steam launch options set DXVK_CONFIG, so the cap only reaches DirectX 12.");
     }
 

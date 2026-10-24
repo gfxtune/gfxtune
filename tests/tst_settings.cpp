@@ -270,6 +270,29 @@ private Q_SLOTS:
         }
     }
 
+    void capsProtonGamesInsideTheGame()
+    {
+        SystemInfo system;
+        system.gamescopeInstalled = true;
+        GameSettings withGamescope;
+        withGamescope.gamescope = true;
+
+        // DirectX under Proton: the in-game cap, gamescope or not.
+        Availability a = availabilityFor(game(Runtime::Proton, GraphicsApi::DirectX11), withGamescope, system);
+        QVERIFY(a.frameCap.available);
+        QCOMPARE(a.frameCap.note, QString());
+
+        // Vulkan used directly under Proton: nothing reaches it.
+        a = availabilityFor(game(Runtime::Proton, GraphicsApi::Vulkan), withGamescope, system);
+        QVERIFY(!a.frameCap.available);
+        QVERIFY(a.frameCap.note.contains(QLatin1String("Vulkan")));
+
+        // Outside Proton only gamescope can, and only with vertical sync on.
+        a = availabilityFor(game(Runtime::Native, GraphicsApi::Vulkan), withGamescope, system);
+        QVERIFY(a.frameCap.available);
+        QVERIFY(a.frameCap.note.contains(QLatin1String("vertical sync")));
+    }
+
     void onlyNotesAnOpenGlGuessUnderProton()
     {
         SystemInfo system;

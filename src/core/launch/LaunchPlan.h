@@ -29,6 +29,9 @@ struct LaunchContext {
     QHash<QString, QString> environment;
     bool gamescopeInstalled = false;
     std::optional<Screen> screen; // the main monitor, when it could be read
+    // The game's command runs through Proton, where DXVK and VKD3D-Proton cap
+    // the frame rate exactly, inside the game.
+    bool proton = false;
 };
 
 struct LaunchPlan {
@@ -41,6 +44,10 @@ struct LaunchPlan {
 };
 
 bool needsScreen(const settings::GameSettings &settings);
+// Whether a game's command, as Steam passes it on, starts Proton: a program
+// named "proton" followed by one of its verbs, directly or after the Steam
+// Linux Runtime's entry point.
+bool runsThroughProton(const QStringList &command);
 LaunchPlan planLaunch(const settings::GameSettings &settings, const LaunchContext &context);
 
 } // namespace gfxtune::launch

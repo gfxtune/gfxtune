@@ -222,9 +222,59 @@ private Q_SLOTS:
                                             QStringLiteral("-h"), QStringLiteral("964"), QStringLiteral("-r"), QStringLiteral("120"),
                                             QStringLiteral("-F"), QStringLiteral("fsr"), QStringLiteral("-S"), QStringLiteral("fit"),
                                             QStringLiteral("--sharpness"), QStringLiteral("5"), QStringLiteral("-f"), QStringLiteral("--")}));
-        // gamescope caps the frame rate, so the in-game limiters stay off.
+        // Outside Proton, gamescope's screen is the cap; the in-game limiters stay off.
         QVERIFY(!setsEnv(plan, QStringLiteral("VKD3D_FRAME_RATE")));
         QVERIFY(!setsEnv(plan, QStringLiteral("DXVK_CONFIG")));
+    }
+
+    void capsProtonGamesInsideTheGameEvenInGamescope()
+    {
+        // gamescope's -r does not hold back a game with vertical sync off, so
+        // under Proton the exact in-game limiters cap it and gamescope follows
+        // the monitor.
+        GameSettings s;
+        s.gamescope = true;
+        s.frameCapEnabled = true;
+        s.frameCap = 60;
+        LaunchContext c = context();
+        c.proton = true;
+        const LaunchPlan plan = planLaunch(s, c);
+        QVERIFY(!plan.wrapper.isEmpty());
+        QVERIFY(!plan.wrapper.contains(QStringLiteral("-r")));
+        QVERIFY(setsEnv(plan, QStringLiteral("VKD3D_FRAME_RATE")));
+        QVERIFY(setsEnv(plan, QStringLiteral("DXVK_CONFIG")));
+        QVERIFY(plan.applied.contains(QStringLiteral("Frame rate cap 60")));
+
+        // Without a cap, gamescope is never given a refresh rate either.
+        s.frameCapEnabled = false;
+        QVERIFY(!planLaunch(s, c).wrapper.contains(QStringLiteral("-r")));
+    }
+
+    void recognisesProtonCommands_data()
+    {
+        QTest::addColumn<QStringList>("command");
+        QTest::addColumn<bool>("proton");
+        const QString game = QStringLiteral("/games/Raft/Raft.exe");
+        QTest::newRow("Proton") << QStringList{QStringLiteral("/steam/steamapps/common/Proton - Experimental/proton"), QStringLiteral("waitforexitandrun"), game} << true;
+        QTest::newRow("behind the runtime")
+            << QStringList{QStringLiteral("/steam/steamapps/common/SteamLinuxRuntime_sniper/_v2-entry-point"), QStringLiteral("--verb=waitforexitandrun"),
+                           QStringLiteral("--"), QStringLiteral("/usr/share/steam/compatibilitytools.d/proton-cachyos/proton"), QStringLiteral("waitforexitandrun"), game}
+            << true;
+        QTest::newRow("native game") << QStringList{QStringLiteral("/games/Stardew Valley/StardewValley")} << false;
+        QTest::newRow("native, runtime only")
+            << QStringList{QStringLiteral("/steam/SteamLinuxRuntime_sniper/_v2-entry-point"), QStringLiteral("--verb=waitforexitandrun"), QStringLiteral("--"), QStringLiteral("/games/cs2/cs2.sh")}
+            << false;
+        QTest::newRow("a program named proton, no verb") << QStringList{QStringLiteral("/games/proton"), QStringLiteral("-fullscreen")} << false;
+        QTest::newRow("proton only in a folder name") << QStringList{QStringLiteral("/games/proton/run"), QStringLiteral("run")} << false;
+        QTest::newRow("verb before proton") << QStringList{QStringLiteral("waitforexitandrun"), QStringLiteral("/x/proton")} << false;
+        QTest::newRow("nothing") << QStringList{} << false;
+    }
+
+    void recognisesProtonCommands()
+    {
+        QFETCH(QStringList, command);
+        QFETCH(bool, proton);
+        QCOMPARE(runsThroughProton(command), proton);
     }
 
     void leavesSharpnessOutForOtherFilters()

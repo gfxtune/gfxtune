@@ -108,13 +108,29 @@ bool needsScreen(const GameSettings &settings)
     return settings.gamescope;
 }
 
+bool runsThroughProton(const QStringList &command)
+{
+    static const QStringList verbs{
+        QStringLiteral("waitforexitandrun"), QStringLiteral("run"), QStringLiteral("waitforexit"),
+        QStringLiteral("runinprefix"), QStringLiteral("getcompatpath"), QStringLiteral("getnativepath"),
+    };
+    for (qsizetype i = 0; i + 1 < command.size(); ++i) {
+        const QString &argument = command.at(i);
+        const qsizetype slash = argument.lastIndexOf(QLatin1Char('/'));
+        if (QStringView(argument).sliced(slash + 1) == u"proton" && verbs.contains(command.at(i + 1))) {
+            return true;
+        }
+    }
+    return false;
+}
+
 LaunchPlan planLaunch(const GameSettings &s, const LaunchContext &context)
 {
     LaunchPlan plan;
     Planner p(context, plan);
     QStringList dxvk; // options for DXVK_CONFIG
 
-    // gamescope first: it decides how the frame rate is capped.
+    // gamescope first: for games outside Proton it is what caps the frame rate.
     bool gamescope = false;
     if (s.gamescope) {
         if (context.environment.contains(QStringLiteral("GAMESCOPE_WAYLAND_DISPLAY"))) {
@@ -143,8 +159,13 @@ LaunchPlan planLaunch(const GameSettings &s, const LaunchContext &context)
         }
     }
 
-    // Without gamescope, DXVK caps DirectX 9 to 11 and VKD3D-Proton DirectX 12.
-    const bool capInGame = s.frameCapEnabled && !gamescope;
+    // DXVK caps DirectX 9 to 11 and VKD3D-Proton DirectX 12, exactly and inside
+    // the game, so under Proton they cap it whether gamescope runs or not.
+    // gamescope's -r only sets the refresh rate of its own screen, which holds
+    // a game back only while the game waits for vertical sync: it is the cap
+    // only for games outside Proton.
+    const bool capWithGamescope = s.frameCapEnabled && gamescope && !context.proton;
+    const bool capInGame = s.frameCapEnabled && !capWithGamescope;
     bool cappedByVkd3d = false;
     if (capInGame) {
         const QString fps = QString::number(s.frameCap);
@@ -173,9 +194,9 @@ LaunchPlan planLaunch(const GameSettings &s, const LaunchContext &context)
             QStringLiteral("-w"), QString::number(width),
             QStringLiteral("-h"), QString::number(height),
         };
-        if (s.frameCapEnabled) {
+        if (capWithGamescope) {
             plan.wrapper << QStringLiteral("-r") << QString::number(s.frameCap);
-            plan.applied.append(QStringLiteral("Frame rate cap %1 (gamescope)").arg(s.frameCap));
+            plan.applied.append(QStringLiteral("Frame rate cap %1 (gamescope, while vertical sync is on)").arg(s.frameCap));
         }
         plan.wrapper << QStringLiteral("-F") << settings::toKey(s.upscaleFilter);
         plan.wrapper << QStringLiteral("-S") << settings::toKey(s.scalingMode);

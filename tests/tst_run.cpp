@@ -193,6 +193,26 @@ private Q_SLOTS:
         QCOMPARE(gameSaw().value(QStringLiteral("VKD3D_FRAME_RATE")), QStringLiteral("unset"));
     }
 
+    void capsProtonGamesInsideTheGameInGamescope()
+    {
+        // A stand-in for Proton: drops its verb and starts the game.
+        const QString proton = path(QStringLiteral("tools/Proton 11.0/proton"));
+        QVERIFY(test::writeFile(proton, "#!/bin/sh\nshift\nexec \"$@\"\n", true));
+        GameSettings s;
+        s.gamescope = true;
+        s.frameCapEnabled = true;
+        s.frameCap = 60;
+        QVERIFY(store().save(1001, s, {}));
+        QCOMPARE(run(environment(QStringLiteral("1001")), QStringList{proton, QStringLiteral("waitforexitandrun")} + gameCommand()), 0);
+        // gamescope follows the monitor; DXVK and VKD3D-Proton hold the cap.
+        const QString args = gamescopeSaw();
+        QVERIFY2(args.startsWith(QLatin1String("-W ")), qPrintable(args));
+        QVERIFY2(!args.contains(QLatin1String(" -r ")), qPrintable(args));
+        QCOMPARE(gameSaw().value(QStringLiteral("VKD3D_FRAME_RATE")), QStringLiteral("60"));
+        QVERIFY(gameSaw().value(QStringLiteral("DXVK_CONFIG")).contains(QLatin1String("dxgi.maxFrameRate = 60")));
+        QVERIFY(launch::readLastLaunch(store().baseDir(), 1001)->applied.contains(QStringLiteral("Frame rate cap 60")));
+    }
+
     void neverStartsASecondGamescope()
     {
         GameSettings s;
