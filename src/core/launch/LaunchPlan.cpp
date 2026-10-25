@@ -223,6 +223,17 @@ LaunchPlan planLaunch(const GameSettings &s, const LaunchContext &context)
         plan.applied.append(QStringLiteral("Frame rate cap %1").arg(s.frameCap));
     }
 
+    // gfxtune's Vulkan layer loads only with GFXTUNE_FILTERS set, and only
+    // when a filter is on as the game starts. It then follows the settings
+    // file, so later changes show without a restart.
+    if (s.filters.active() && !context.filterSettingsPath.isEmpty() && p.set(QStringLiteral("GFXTUNE_FILTERS"), QStringLiteral("1"))) {
+        plan.environment.append({QStringLiteral("GFXTUNE_FILTERS_SETTINGS"), context.filterSettingsPath});
+        if (!context.filterReportPath.isEmpty()) {
+            plan.environment.append({QStringLiteral("GFXTUNE_FILTERS_REPORT"), context.filterReportPath});
+        }
+        plan.applied.append(QStringLiteral("In-game filters"));
+    }
+
     if (gamescope) {
         const Screen screen = *context.screen;
         const double scale = s.renderScale / 100.0;

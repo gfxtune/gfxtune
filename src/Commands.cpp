@@ -71,6 +71,9 @@ int listGames(QTextStream &out)
         if (game.runtime == Runtime::Proton) {
             out << "    FSR 4:     " << fsr4Words(game.tool.fsr4) << '\n';
         }
+        if (!game.antiCheat.isEmpty()) {
+            out << "    anti-cheat: " << game.antiCheat.join(QStringLiteral(", ")) << '\n';
+        }
         out << "    cover:     " << (game.coverPath.isEmpty() ? "none in Steam's cache" : "found") << '\n';
         if (!game.launchOptions.isEmpty()) {
             out << "    launch options: " << game.launchOptions << '\n';

@@ -119,6 +119,7 @@ void GameLibrary::scanFinished()
         return;
     }
     m_scanning = false;
+    lockFiltersForAntiCheat();
     Q_EMIT stateChanged();
     if (m_rescanPending) {
         m_rescanPending = false;
@@ -126,6 +127,26 @@ void GameLibrary::scanFinished()
         return;
     }
     syncLaunchLines();
+}
+
+// Filters stay locked in games with anti-cheat until the user accepts the
+// risk. A game that gained anti-cheat in an update after filters were set
+// gets them switched off (the values stay) until the user decides.
+void GameLibrary::lockFiltersForAntiCheat()
+{
+    for (const steam::Game &game : std::as_const(m_scan.games)) {
+        if (game.antiCheat.isEmpty()) {
+            continue;
+        }
+        settings::GameSettings s = m_store->load(game.appId);
+        if (!s.filters.active() || s.filtersRiskAccepted) {
+            continue;
+        }
+        s.filters.enabled = false;
+        if (m_store->save(game.appId, s, game.name)) {
+            Q_EMIT settingsRewritten(game.appId);
+        }
+    }
 }
 
 void GameLibrary::pollRunning()

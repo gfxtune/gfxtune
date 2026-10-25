@@ -35,6 +35,15 @@ GameSettings sample()
     s.scalingMode = ScalingMode::Integer;
     s.renderScale = 67;
     s.sharpness = 3;
+    s.filters.enabled = false;
+    s.filters.sharpening = 45;
+    s.filters.brightness = -10;
+    s.filters.contrast = 12;
+    s.filters.gamma = 130;
+    s.filters.saturation = -100;
+    s.filters.vibrance = 100;
+    s.filters.temperature = -35;
+    s.filtersRiskAccepted = true;
     return s;
 }
 
@@ -106,6 +115,10 @@ private Q_SLOTS:
         QVERIFY(text.contains("name=Ashfall Protocol"));
         QVERIFY(text.contains("vertical_sync=fast"));
         QVERIFY(text.contains("filter=nis"));
+        // The section the Vulkan layer reads while the game runs.
+        QVERIFY(text.contains("[filters]"));
+        QVERIFY(text.contains("sharpening=45"));
+        QVERIFY(text.contains("temperature=-35"));
         // Nothing left behind by the atomic write.
         QCOMPARE(QDir(dir.filePath(QStringLiteral("gfxtune/games"))).entryList(QDir::Files), QStringList{QStringLiteral("1091.ini")});
     }
@@ -130,6 +143,7 @@ private Q_SLOTS:
                                                   "[frames]\nframe_cap_enabled=yes\nframe_cap=5\nvertical_sync=sometimes\n"
                                                   "[upscaling]\nfsr4_upgrade=true\n"
                                                   "[gamescope]\nenabled=TRUE\nrender_scale=66\nsharpness=21\nfilter=xbr\nscaling=fill\n"
+                                                  "[filters]\nenabled=maybe\nsharpening=500\ncontrast=x\ngamma=150\n"
                                                   "[other]\nunknown_key=1\n"));
         QStringList warnings;
         const GameSettings loaded = store.load(7, &warnings);
@@ -145,7 +159,11 @@ private Q_SLOTS:
         QCOMPARE(loaded.fsr4, Fsr4::On);
         QVERIFY(loaded.gamescope);
         QCOMPARE(loaded.scalingMode, ScalingMode::Fill);
-        QCOMPARE(warnings.size(), 7);
+        QCOMPARE(loaded.filters.enabled, defaults.filters.enabled);
+        QCOMPARE(loaded.filters.sharpening, defaults.filters.sharpening);
+        QCOMPARE(loaded.filters.contrast, defaults.filters.contrast);
+        QCOMPARE(loaded.filters.gamma, 150);
+        QCOMPARE(warnings.size(), 10);
     }
 
     void survivesGarbageFiles()
@@ -352,6 +370,65 @@ private Q_SLOTS:
         const QByteArray saved = file.readAll();
         QVERIFY(saved.contains("fsr4=off"));
         QVERIFY(!saved.contains("fsr4_upgrade"));
+    }
+
+    void acceptingTheWarningAloneChangesNothing()
+    {
+        QTemporaryDir dir;
+        const SettingsStore store(dir.filePath(QStringLiteral("gfxtune")));
+        GameSettings s;
+        s.filtersRiskAccepted = true;
+        QVERIFY(!s.isDefault()); // kept in a file...
+        QVERIFY(!s.affectsGame()); // ...but no reason for a launch line
+        QVERIFY(store.save(3, s, {}));
+        QVERIFY(store.load(3).filtersRiskAccepted);
+        QVERIFY(store.customizedGames().isEmpty());
+        s.filters.sharpening = 20;
+        QVERIFY(s.affectsGame());
+        QVERIFY(store.save(3, s, {}));
+        QCOMPARE(store.customizedGames(), QSet<quint32>{3});
+    }
+
+    void decidesWhereFiltersWork()
+    {
+        SystemInfo system;
+        const auto filtersFor = [&system](Runtime runtime, GraphicsApis apis) { return availabilityFor(game(runtime, apis), GameSettings{}, system).filters; };
+        QVERIFY(!filtersFor(Runtime::Native, GraphicsApi::OpenGL).available);
+        QVERIFY(filtersFor(Runtime::Native, GraphicsApi::OpenGL).note.contains(QLatin1String("OpenGL")));
+        QVERIFY(!filtersFor(Runtime::Unknown, {}).available);
+        QVERIFY(filtersFor(Runtime::Native, GraphicsApi::Vulkan).available);
+        QVERIFY(filtersFor(Runtime::Native, GraphicsApi::Vulkan).note.contains(QLatin1String("HDR")));
+        QVERIFY(filtersFor(Runtime::Proton, GraphicsApi::DirectX11).available);
+        // Not sure what it draws with: offered, with a word of caution.
+        QVERIFY(filtersFor(Runtime::Native, {}).available);
+        QVERIFY(filtersFor(Runtime::Native, {}).note.contains(QLatin1String("Only shows")));
+        QVERIFY(filtersFor(Runtime::Proton, GraphicsApi::OpenGL).available);
+        QVERIFY(filtersFor(Runtime::Proton, GraphicsApi::OpenGL).note.contains(QLatin1String("Only shows")));
+    }
+
+    void locksFiltersUntilTheRiskIsAccepted()
+    {
+        SystemInfo system;
+        Game g = game(Runtime::Proton, GraphicsApi::DirectX11);
+        g.name = QStringLiteral("Hollow Orbit");
+        Availability a = availabilityFor(g, GameSettings{}, system);
+        QVERIFY(!a.filtersLocked);
+
+        g.antiCheat = {QStringLiteral("Easy Anti-Cheat"), QStringLiteral("BattlEye")};
+        a = availabilityFor(g, GameSettings{}, system);
+        QVERIFY(a.filters.available);
+        QVERIFY(a.filtersLocked);
+        QVERIFY(a.filtersWarning.startsWith(QLatin1String("Hollow Orbit ships Easy Anti-Cheat and BattlEye.")));
+        QVERIFY(a.filtersWarning.contains(QLatin1String("your responsibility")));
+
+        GameSettings accepted;
+        accepted.filtersRiskAccepted = true;
+        QVERIFY(!availabilityFor(g, accepted, system).filtersLocked);
+
+        // Nothing to lock where the filters cannot work anyway.
+        g = game(Runtime::Native, GraphicsApi::OpenGL);
+        g.antiCheat = {QStringLiteral("Valve Anti-Cheat")};
+        QVERIFY(!availabilityFor(g, GameSettings{}, system).filtersLocked);
     }
 
     void onlyNotesAnOpenGlGuessUnderProton()

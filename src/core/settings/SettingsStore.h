@@ -33,6 +33,7 @@ public:
     // `gameName` is written for people reading the file; it is not read back.
     bool save(quint32 appId, const GameSettings &settings, const QString &gameName, QString *error = nullptr) const;
     bool remove(quint32 appId, QString *error = nullptr) const;
+    // Games whose settings change how they start or look.
     QSet<quint32> customizedGames() const;
 
     // Deletes the whole gfxtune folder, and nothing outside it.

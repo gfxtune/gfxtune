@@ -549,6 +549,11 @@ SteamScan scanSteam(const ScanOptions &options)
         game.buildId = app.buildId;
         game.coverPath = findCover(root, scan.accountId, app.appId, listedCovers(info));
         resolveRuntime(game, info, mapping, valveMappings, tools);
+        // Steam's store category 8 is "Valve Anti-Cheat enabled".
+        const vdf::Node *vac = info ? info->find({u"common", u"category", u"category_8"}) : nullptr;
+        if (vac && vac->value == QLatin1String("1")) {
+            game.antiCheat.append(QStringLiteral("Valve Anti-Cheat"));
+        }
         if (game.runtime == Runtime::Proton && !game.tool.installPath.isEmpty()) {
             auto known = fsr4ByTool.find(game.tool.installPath);
             if (known == fsr4ByTool.end()) {
@@ -565,6 +570,11 @@ SteamScan scanSteam(const ScanOptions &options)
             game.apis = report.apis;
             game.fsr31Dx12 = report.fsr31Dx12;
             game.fsr31Vulkan = report.fsr31Vulkan;
+            for (const QString &name : report.antiCheat) {
+                if (!game.antiCheat.contains(name)) {
+                    game.antiCheat.append(name);
+                }
+            }
         }
         scan.games.append(game);
     }

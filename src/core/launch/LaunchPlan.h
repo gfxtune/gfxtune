@@ -32,6 +32,10 @@ struct LaunchContext {
     // The game's command runs through Proton, where DXVK and VKD3D-Proton cap
     // the frame rate exactly, inside the game.
     bool proton = false;
+    // Where gfxtune's Vulkan layer reads the game's filter settings while it
+    // runs, and where it reports back.
+    QString filterSettingsPath;
+    QString filterReportPath;
 };
 
 struct LaunchPlan {

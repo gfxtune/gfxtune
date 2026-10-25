@@ -1,0 +1,8 @@
+/* Only the loader's entry point leaves the layer; everything else stays
+   private, so nothing clashes with the game's own libraries. */
+{
+    global:
+        vkNegotiateLoaderLayerInterfaceVersion;
+    local:
+        *;
+};

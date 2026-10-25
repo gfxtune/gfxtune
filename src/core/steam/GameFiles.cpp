@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QHash>
+#include <QRegularExpression>
 
 #include <algorithm>
 
@@ -35,7 +36,15 @@ struct FolderIndex {
     bool fsr31Dx12 = false;
     bool fsr31Vulkan = false;
     bool unity = false; // ships Unity's Windows player
+    QStringList antiCheat;
 };
+
+void addAntiCheat(FolderIndex &index, const QString &name)
+{
+    if (!name.isEmpty() && !index.antiCheat.contains(name)) {
+        index.antiCheat.append(name);
+    }
+}
 
 bool isLinuxProgram(const QFileInfo &info)
 {
@@ -61,6 +70,7 @@ void indexFile(const QFileInfo &info, const QString &relative, bool windowsGame,
     } else if (fileName == QLatin1String("unityplayer.dll")) {
         index.unity = true;
     }
+    addAntiCheat(index, antiCheatOfFile(fileName));
 
     if (windowsGame) {
         if (fileName.endsWith(QLatin1String(".exe")) || fileName.endsWith(QLatin1String(".dll"))) {
@@ -94,6 +104,7 @@ FolderIndex indexFolder(const QString &root, bool windowsGame)
                 break;
             }
             if (info.isDir()) {
+                addAntiCheat(index, antiCheatOfFolder(info.fileName().toLower()));
                 if (!info.isSymLink() && depth + 1 < MaxDepth) {
                     queue.emplace_back(info.filePath(), depth + 1);
                 }
@@ -187,6 +198,61 @@ GraphicsApis apisFromLibraries(const QStringList &libraries)
     return apis;
 }
 
+QString antiCheatOfFile(const QString &fileName)
+{
+    const auto is = [&fileName](std::initializer_list<const char *> names) {
+        return std::any_of(names.begin(), names.end(), [&fileName](const char *name) { return fileName == QLatin1String(name); });
+    };
+    if (fileName.startsWith(QLatin1String("easyanticheat")) || is({"start_protected_game.exe"})) {
+        return QStringLiteral("Easy Anti-Cheat");
+    }
+    if (is({"beservice.exe", "beservice_x64.exe", "beclient.dll", "beclient_x64.dll", "beclient_x64.so"})) {
+        return QStringLiteral("BattlEye");
+    }
+    const bool program = fileName.endsWith(QLatin1String(".exe")) || fileName.endsWith(QLatin1String(".dll"))
+        || fileName.endsWith(QLatin1String(".sys"));
+    if (program && (fileName.startsWith(QLatin1String("sguard")) || fileName.startsWith(QLatin1String("ace-")))) {
+        return QStringLiteral("Anti-Cheat Expert");
+    }
+    if (fileName.startsWith(QLatin1String("mhyprot")) || fileName.startsWith(QLatin1String("hoyokprotect")) || is({"mhypbase.dll"})) {
+        return QStringLiteral("miHoYo Protect");
+    }
+    if (is({"gamemon.des", "gamemon64.des"})) {
+        return QStringLiteral("nProtect GameGuard");
+    }
+    if (fileName.endsWith(QLatin1String(".xem"))) {
+        return QStringLiteral("XIGNCODE3");
+    }
+    if (fileName.startsWith(QLatin1String("eaanticheat"))) {
+        return QStringLiteral("EA Anti-Cheat");
+    }
+    if (fileName.endsWith(QLatin1String(".sys"))) {
+        return QStringLiteral("a kernel driver, most likely anti-cheat");
+    }
+    return {};
+}
+
+QString antiCheatOfFolder(const QString &folderName)
+{
+    if (folderName.startsWith(QLatin1String("easyanticheat"))) {
+        return QStringLiteral("Easy Anti-Cheat");
+    }
+    if (folderName == QLatin1String("battleye")) {
+        return QStringLiteral("BattlEye");
+    }
+    if (folderName == QLatin1String("gameguard")) {
+        return QStringLiteral("nProtect GameGuard");
+    }
+    if (folderName == QLatin1String("eaanticheat")) {
+        return QStringLiteral("EA Anti-Cheat");
+    }
+    static const QRegularExpression generic(QStringLiteral("anti[-_ ]?cheat"));
+    if (generic.match(folderName).hasMatch()) {
+        return QStringLiteral("anti-cheat");
+    }
+    return {};
+}
+
 GameFileReport inspectGameFiles(const QString &installPath, const QStringList &executables, bool windowsGame)
 {
     GameFileReport report;
@@ -196,6 +262,7 @@ GameFileReport inspectGameFiles(const QString &installPath, const QStringList &e
     const FolderIndex index = indexFolder(installPath, windowsGame);
     report.fsr31Dx12 = index.fsr31Dx12;
     report.fsr31Vulkan = index.fsr31Vulkan;
+    report.antiCheat = index.antiCheat;
 
     QStringList checked;
     for (const QString &executable : executables) {

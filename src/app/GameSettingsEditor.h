@@ -47,6 +47,17 @@ class GameSettingsEditor : public QObject
     Q_PROPERTY(int sharpness READ sharpness WRITE setSharpness NOTIFY settingsChanged)
     Q_PROPERTY(bool customized READ customized NOTIFY settingsChanged)
 
+    // In-game filters (see src/filters/Filters.h for the ranges).
+    Q_PROPERTY(bool filtersEnabled READ filtersEnabled WRITE setFiltersEnabled NOTIFY settingsChanged)
+    Q_PROPERTY(int filterSharpening READ filterSharpening WRITE setFilterSharpening NOTIFY settingsChanged)
+    Q_PROPERTY(int filterBrightness READ filterBrightness WRITE setFilterBrightness NOTIFY settingsChanged)
+    Q_PROPERTY(int filterContrast READ filterContrast WRITE setFilterContrast NOTIFY settingsChanged)
+    Q_PROPERTY(int filterGamma READ filterGamma WRITE setFilterGamma NOTIFY settingsChanged)
+    Q_PROPERTY(int filterSaturation READ filterSaturation WRITE setFilterSaturation NOTIFY settingsChanged)
+    Q_PROPERTY(int filterVibrance READ filterVibrance WRITE setFilterVibrance NOTIFY settingsChanged)
+    Q_PROPERTY(int filterTemperature READ filterTemperature WRITE setFilterTemperature NOTIFY settingsChanged)
+    Q_PROPERTY(bool filterColoursNeutral READ filterColoursNeutral NOTIFY settingsChanged)
+
     Q_PROPERTY(bool anisotropicAvailable READ anisotropicAvailable NOTIFY availabilityChanged)
     Q_PROPERTY(QString anisotropicNote READ anisotropicNote NOTIFY availabilityChanged)
     Q_PROPERTY(bool verticalSyncAvailable READ verticalSyncAvailable NOTIFY availabilityChanged)
@@ -59,6 +70,10 @@ class GameSettingsEditor : public QObject
     Q_PROPERTY(QString fsr4ProtonChoice READ fsr4ProtonChoice NOTIFY availabilityChanged)
     Q_PROPERTY(bool gamescopeAvailable READ gamescopeAvailable NOTIFY availabilityChanged)
     Q_PROPERTY(QString gamescopeNote READ gamescopeNote NOTIFY availabilityChanged)
+    Q_PROPERTY(bool filtersAvailable READ filtersAvailable NOTIFY availabilityChanged)
+    Q_PROPERTY(QString filtersNote READ filtersNote NOTIFY availabilityChanged)
+    Q_PROPERTY(bool filtersLocked READ filtersLocked NOTIFY availabilityChanged)
+    Q_PROPERTY(QString filtersWarning READ filtersWarning NOTIFY availabilityChanged)
 
     Q_PROPERTY(QString problem READ problem NOTIFY problemChanged)
 
@@ -72,6 +87,8 @@ class GameSettingsEditor : public QObject
     Q_PROPERTY(QString lastLaunchApplied READ lastLaunchApplied NOTIFY launchChanged)
     Q_PROPERTY(QString lastLaunchKept READ lastLaunchKept NOTIFY launchChanged)
     Q_PROPERTY(QString lastLaunchNotApplied READ lastLaunchNotApplied NOTIFY launchChanged)
+    // What the filter layer reported from inside the game, in words.
+    Q_PROPERTY(QString lastLaunchFilters READ lastLaunchFilters NOTIFY launchChanged)
 
 public:
     GameSettingsEditor(GameLibrary *library, settings::SettingsStore *store, settings::SystemInfo system,
@@ -106,7 +123,28 @@ public:
     void setRenderScale(int percent);
     int sharpness() const { return m_settings.sharpness; }
     void setSharpness(int value);
-    bool customized() const { return !m_settings.isDefault(); }
+    bool customized() const { return m_settings.affectsGame(); }
+
+    bool filtersEnabled() const { return m_settings.filters.enabled; }
+    void setFiltersEnabled(bool on);
+    int filterSharpening() const { return m_settings.filters.sharpening; }
+    void setFilterSharpening(int value);
+    int filterBrightness() const { return m_settings.filters.brightness; }
+    void setFilterBrightness(int value);
+    int filterContrast() const { return m_settings.filters.contrast; }
+    void setFilterContrast(int value);
+    int filterGamma() const { return m_settings.filters.gamma; }
+    void setFilterGamma(int value);
+    int filterSaturation() const { return m_settings.filters.saturation; }
+    void setFilterSaturation(int value);
+    int filterVibrance() const { return m_settings.filters.vibrance; }
+    void setFilterVibrance(int value);
+    int filterTemperature() const { return m_settings.filters.temperature; }
+    void setFilterTemperature(int value);
+    bool filterColoursNeutral() const { return m_settings.filters.colourNeutral(); }
+    // Unlocks the filters in a game with anti-cheat: the user takes the risk.
+    Q_INVOKABLE void acceptFiltersRisk();
+    Q_INVOKABLE void resetFilterColours();
 
     bool anisotropicAvailable() const { return m_availability.anisotropicFiltering.available; }
     QString anisotropicNote() const { return m_availability.anisotropicFiltering.note; }
@@ -119,6 +157,10 @@ public:
     QString fsr4ProtonChoice() const;
     bool gamescopeAvailable() const { return m_availability.gamescope.available; }
     QString gamescopeNote() const { return m_availability.gamescope.note; }
+    bool filtersAvailable() const { return m_availability.filters.available; }
+    QString filtersNote() const { return m_availability.filters.note; }
+    bool filtersLocked() const { return m_availability.filtersLocked; }
+    QString filtersWarning() const { return m_availability.filtersWarning; }
 
     QString problem() const { return m_problem; }
 
@@ -131,6 +173,7 @@ public:
     QString lastLaunchApplied() const { return m_lastLaunch ? m_lastLaunch->applied.join(QStringLiteral(", ")) : QString(); }
     QString lastLaunchKept() const { return m_lastLaunch ? m_lastLaunch->keptFromSteam.join(QStringLiteral(", ")) : QString(); }
     QString lastLaunchNotApplied() const { return m_lastLaunch ? m_lastLaunch->notApplied.join(QStringLiteral("; ")) : QString(); }
+    QString lastLaunchFilters() const;
     Q_INVOKABLE void copyLaunchLine() const;
 
     const settings::GameSettings &current() const { return m_settings; }
@@ -149,6 +192,8 @@ Q_SIGNALS:
 
 private:
     void edit(const std::function<void(settings::GameSettings &)> &change);
+    // Changes a filter value, unless the filters are unavailable or locked.
+    void editFilters(const std::function<void(filters::Values &)> &change);
     void load();
     void updateAvailability();
     void setProblem(const QString &problem);
@@ -165,6 +210,9 @@ private:
     settings::Availability m_availability;
     QString m_problem;
     std::optional<launch::LastLaunch> m_lastLaunch;
+    std::optional<launch::FilterReport> m_filterReport;
+    // While the selected game runs, its filter report can still arrive.
+    QTimer m_reportPoll;
 };
 
 } // namespace gfxtune

@@ -25,7 +25,8 @@ add_library(gfxtune_core STATIC
     core/steam/SteamProcess.cpp
     core/steam/SteamWatcher.cpp
 )
-target_include_directories(gfxtune_core PUBLIC core)
+# core/ for the core's own headers, src/ for filters/, shared with the layer.
+target_include_directories(gfxtune_core PUBLIC core ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(gfxtune_core PUBLIC Qt6::Core)
 
 # The objects the window talks to, as the QML module Gfxtune.Backend.
@@ -53,6 +54,7 @@ qt_add_qml_module(gfxtune_ui
         qml/GameSettingsPane.qml
         qml/GpuPanel.qml
         qml/Cover.qml
+        qml/FilterSlider.qml
         qml/Note.qml
         qml/SettingSwitch.qml
         qml/ValueComboBox.qml
@@ -71,4 +73,6 @@ qt_add_executable(gfxtune-run run/main.cpp)
 target_link_libraries(gfxtune-run PRIVATE gfxtune_core Qt6::Gui)
 
 install(TARGETS gfxtune gfxtune-run RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+add_subdirectory(layer)
 install(FILES ${PROJECT_SOURCE_DIR}/data/gfxtune.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)

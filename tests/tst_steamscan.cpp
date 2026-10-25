@@ -95,6 +95,10 @@ private Q_SLOTS:
         QCOMPARE(neon->tool.displayName, s("Proton 9.0")); // from the installed tool's manifest
         QCOMPARE(neon->tool.installPath, QFileInfo(steam.lib2).canonicalFilePath() + s("/steamapps/common/Proton 9.0"));
         QCOMPARE(ashfall->tool.fsr4, Fsr4Support::OnRequest);
+        // Anti-cheat from the game's files, and Valve's from Steam's data.
+        QVERIFY(ashfall->antiCheat.isEmpty());
+        QCOMPARE(findGame(scan, 1004)->antiCheat, QStringList{s("Easy Anti-Cheat")});
+        QCOMPARE(findGame(scan, 1005)->antiCheat, QStringList{s("Valve Anti-Cheat")});
         QCOMPARE(neon->tool.fsr4, Fsr4Support::None);
         // The cover file Steam's data names, under a hash folder.
         QVERIFY(neon->coverPath.endsWith(s("/appcache/librarycache/1002/") + test::NeonDriftCover));

@@ -160,6 +160,38 @@ private Q_SLOTS:
         QCOMPARE(plan.applied.size(), 4);
     }
 
+    void switchesTheFilterLayerOn()
+    {
+        GameSettings s;
+        s.filters.sharpening = 40;
+        LaunchContext c = context();
+        c.filterSettingsPath = QStringLiteral("/home/user/.config/gfxtune/games/7.ini");
+        c.filterReportPath = QStringLiteral("/home/user/.config/gfxtune/last-launch/7.filters");
+        LaunchPlan plan = planLaunch(s, c);
+        QCOMPARE(envValue(plan, QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("1"));
+        QCOMPARE(envValue(plan, QStringLiteral("GFXTUNE_FILTERS_SETTINGS")), c.filterSettingsPath);
+        QCOMPARE(envValue(plan, QStringLiteral("GFXTUNE_FILTERS_REPORT")), c.filterReportPath);
+        QVERIFY(plan.applied.contains(QStringLiteral("In-game filters")));
+
+        // Only when a filter is on as the game starts.
+        s.filters.enabled = false;
+        QVERIFY(!setsEnv(planLaunch(s, c), QStringLiteral("GFXTUNE_FILTERS")));
+        s = GameSettings{};
+        s.filters.gamma = 100; // neutral
+        QVERIFY(!setsEnv(planLaunch(s, c), QStringLiteral("GFXTUNE_FILTERS")));
+
+        // Without a settings file to follow there is nothing to load.
+        s.filters.contrast = 10;
+        QVERIFY(!setsEnv(planLaunch(s, context()), QStringLiteral("GFXTUNE_FILTERS")));
+
+        // The user's own choice in the launch options wins.
+        c.environment.insert(QStringLiteral("GFXTUNE_FILTERS"), QStringLiteral("0"));
+        plan = planLaunch(s, c);
+        QVERIFY(!setsEnv(plan, QStringLiteral("GFXTUNE_FILTERS")));
+        QVERIFY(!setsEnv(plan, QStringLiteral("GFXTUNE_FILTERS_SETTINGS")));
+        QVERIFY(plan.keptFromSteam.contains(QStringLiteral("GFXTUNE_FILTERS")));
+    }
+
     void turnsFsr4OffOnEveryProton()
     {
         GameSettings s;

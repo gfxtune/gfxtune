@@ -72,6 +72,9 @@ private Q_SLOTS:
         QVERIFY(ashfall.contains(QLatin1String("cover:     none in Steam's cache")));
         QVERIFY(ashfall.contains(QLatin1String("FSR 4:     this Proton turns it on when asked")));
         QVERIFY(neon.contains(QLatin1String("FSR 4:     not possible with this Proton")));
+        QVERIFY(!ashfall.contains(QLatin1String("anti-cheat")));
+        QVERIFY(gameBlock(result.out, QStringLiteral("1004  Hollow Orbit")).contains(QLatin1String("anti-cheat: Easy Anti-Cheat")));
+        QVERIFY(gameBlock(result.out, QStringLiteral("1005  Copper Coast")).contains(QLatin1String("anti-cheat: Valve Anti-Cheat")));
         QVERIFY(ashfall.contains(QLatin1String("launch options: gamemoderun %command% -dx12 \"quoted arg\"")));
 
         QVERIFY(result.out.contains(QLatin1String("Installed but not listed")));

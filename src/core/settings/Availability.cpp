@@ -118,6 +118,23 @@ Availability availabilityFor(const steam::Game &game, const GameSettings &settin
         }
     }
 
+    // The layer reaches whatever draws with Vulkan: Vulkan games and, under
+    // Proton, DirectX through DXVK and VKD3D-Proton. Not OpenGL.
+    if (game.runtime == Runtime::Unknown) {
+        a.filters = {false, QStringLiteral("gfxtune could not tell how this game runs.")};
+    } else if (openGl && game.runtime != Runtime::Proton) {
+        a.filters = {false, QStringLiteral("This game draws with OpenGL, which the filters cannot reach.")};
+    } else if (openGl || !game.apis) {
+        a.filters = {true, QStringLiteral("Only shows if the game draws with Vulkan or DirectX. Not while the game shows HDR.")};
+    } else {
+        a.filters = {true, QStringLiteral("Not while the game shows HDR.")};
+    }
+    if (a.filters.available && !game.antiCheat.isEmpty() && !settings.filtersRiskAccepted) {
+        a.filtersLocked = true;
+        a.filtersWarning = QStringLiteral("%1 ships %2. The filters run inside the game, like MangoHud does. No bans are known for this kind of filter, but nobody can promise there will never be one. Using them on this game is your responsibility.")
+                               .arg(game.name, game.antiCheat.join(QStringLiteral(" and ")));
+    }
+
     if (own.gamescope) {
         a.gamescope = {false, QStringLiteral("This game's Steam launch options already start gamescope.")};
     } else if (!system.gamescopeInstalled) {

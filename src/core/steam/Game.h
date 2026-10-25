@@ -5,6 +5,7 @@
 
 #include <QFlags>
 #include <QString>
+#include <QStringList>
 
 namespace gfxtune::steam
 {
@@ -60,6 +61,8 @@ struct Game {
     // possible.
     bool fsr31Dx12 = false;
     bool fsr31Vulkan = false;
+    // Anti-cheat the game ships or Steam lists (Valve Anti-Cheat), by name.
+    QStringList antiCheat;
 
     // The launch options currently set in Steam for this game.
     QString launchOptions;

@@ -23,7 +23,18 @@ struct LastLaunch {
     QStringList notApplied;
 };
 
+// What gfxtune's Vulkan layer reported from inside the game once the game
+// had its swapchain, kept in <gfxtune folder>/last-launch/<app id>.filters.
+// The layer writes it without Qt: "key=value" lines, time in Unix seconds.
+struct FilterReport {
+    QDateTime time;
+    bool running = false;
+    QString detail; // the picture's size and format, or why it was skipped
+};
+
 QString lastLaunchPath(const QString &baseDir, quint32 appId);
+QString filterReportPath(const QString &baseDir, quint32 appId);
+std::optional<FilterReport> readFilterReport(const QString &baseDir, quint32 appId);
 bool writeLastLaunch(const QString &baseDir, quint32 appId, const LaunchPlan &plan, const QDateTime &time);
 std::optional<LastLaunch> readLastLaunch(const QString &baseDir, quint32 appId);
 

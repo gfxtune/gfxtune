@@ -1,0 +1,21 @@
+{
+    "file_format_version": "1.2.1",
+    "layer": {
+        "name": "VK_LAYER_GFXTUNE_filters",
+        "type": "GLOBAL",
+        "library_path": "@GFXTUNE_LAYER_LIBRARY@",
+        "library_arch": "64",
+        "api_version": "1.4.303",
+        "implementation_version": "1",
+        "description": "gfxtune in-game filters: sharpening and colour",
+        "functions": {
+            "vkNegotiateLoaderLayerInterfaceVersion": "vkNegotiateLoaderLayerInterfaceVersion"
+        },
+        "enable_environment": {
+            "GFXTUNE_FILTERS": "1"
+        },
+        "disable_environment": {
+            "DISABLE_GFXTUNE_FILTERS": "1"
+        }
+    }
+}

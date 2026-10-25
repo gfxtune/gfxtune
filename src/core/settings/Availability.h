@@ -24,6 +24,12 @@ struct Availability {
     Option frameCap;
     Option fsr4;
     Option gamescope;
+    // The in-game filters as a whole.
+    Option filters;
+    // Anti-cheat found in the game while the user has not accepted the risk:
+    // the filters stay locked and `filtersWarning` says why.
+    bool filtersLocked = false;
+    QString filtersWarning;
 };
 
 struct SystemInfo {

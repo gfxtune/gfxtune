@@ -209,6 +209,108 @@ QQC2.ScrollView {
 
             Kirigami.Separator {
                 Kirigami.FormData.isSection: true
+                Kirigami.FormData.label: "In-game filters"
+            }
+            Kirigami.InlineMessage {
+                objectName: "filtersWarning"
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 24
+                visible: pane.editor.filtersLocked
+                type: Kirigami.MessageType.Warning
+                text: pane.editor.filtersWarning
+                actions: [
+                    Kirigami.Action {
+                        text: "I Accept the Risk"
+                        icon.name: "security-medium"
+                        onTriggered: pane.editor.acceptFiltersRisk()
+                    }
+                ]
+            }
+            SettingSwitch {
+                id: filtersSwitch
+                objectName: "filtersSwitch"
+                Kirigami.FormData.label: "Filters:"
+                enabled: pane.editor.filtersAvailable && !pane.editor.filtersLocked
+                text: checked ? "On" : "Off"
+                value: pane.editor.filtersEnabled
+                onPicked: value => pane.editor.filtersEnabled = value
+            }
+            Note {
+                visible: filtersSwitch.enabled
+                text: "Changes show in the game within a second while it runs. Switch off to compare with the original picture."
+            }
+            FilterSlider {
+                objectName: "filterSharpening"
+                Kirigami.FormData.label: "Sharpening:"
+                enabled: filtersSwitch.enabled
+                from: 0
+                to: 100
+                value: pane.editor.filterSharpening
+                describe: v => v === 0 ? "Off" : v + " %"
+                onPicked: value => pane.editor.filterSharpening = value
+            }
+            FilterSlider {
+                Kirigami.FormData.label: "Brightness:"
+                enabled: filtersSwitch.enabled
+                from: -50
+                to: 50
+                value: pane.editor.filterBrightness
+                onPicked: value => pane.editor.filterBrightness = value
+            }
+            FilterSlider {
+                Kirigami.FormData.label: "Contrast:"
+                enabled: filtersSwitch.enabled
+                from: -50
+                to: 50
+                value: pane.editor.filterContrast
+                onPicked: value => pane.editor.filterContrast = value
+            }
+            FilterSlider {
+                Kirigami.FormData.label: "Gamma:"
+                enabled: filtersSwitch.enabled
+                from: 50
+                to: 200
+                value: pane.editor.filterGamma
+                describe: v => (v / 100).toFixed(2)
+                onPicked: value => pane.editor.filterGamma = value
+            }
+            FilterSlider {
+                Kirigami.FormData.label: "Saturation:"
+                enabled: filtersSwitch.enabled
+                from: -100
+                to: 100
+                value: pane.editor.filterSaturation
+                onPicked: value => pane.editor.filterSaturation = value
+            }
+            FilterSlider {
+                Kirigami.FormData.label: "Vibrance:"
+                enabled: filtersSwitch.enabled
+                from: -100
+                to: 100
+                value: pane.editor.filterVibrance
+                onPicked: value => pane.editor.filterVibrance = value
+            }
+            FilterSlider {
+                Kirigami.FormData.label: "Colour temperature:"
+                enabled: filtersSwitch.enabled
+                from: -100
+                to: 100
+                value: pane.editor.filterTemperature
+                describe: v => v === 0 ? "Neutral" : (v > 0 ? "Warmer " : "Cooler ") + Math.abs(v)
+                onPicked: value => pane.editor.filterTemperature = value
+            }
+            QQC2.Button {
+                enabled: filtersSwitch.enabled && !pane.editor.filterColoursNeutral
+                text: "Reset Colours"
+                icon.name: "edit-undo"
+                flat: true
+                onClicked: pane.editor.resetFilterColours()
+            }
+            Note {
+                text: pane.editor.filtersNote
+            }
+
+            Kirigami.Separator {
+                Kirigami.FormData.isSection: true
                 Kirigami.FormData.label: "gamescope"
             }
             SettingSwitch {
@@ -328,6 +430,14 @@ QQC2.ScrollView {
                 visible: pane.editor.lastLaunchNotApplied.length > 0
                 wrapMode: Text.Wrap
                 text: pane.editor.lastLaunchNotApplied
+            }
+            QQC2.Label {
+                objectName: "lastLaunchFilters"
+                Kirigami.FormData.label: "In-game filters:"
+                Layout.maximumWidth: Kirigami.Units.gridUnit * 24
+                visible: pane.editor.lastLaunchFilters.length > 0
+                wrapMode: Text.Wrap
+                text: pane.editor.lastLaunchFilters
             }
         }
 

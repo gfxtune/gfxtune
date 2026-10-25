@@ -60,6 +60,7 @@ public:
     void setPollInterval(int ms) { m_runningPoll.setInterval(ms); }
 
     bool steamRunning() const { return m_steamRunning; }
+    bool isRunning(quint32 appId) const { return m_running.contains(appId); }
     const settings::SettingsStore *store() const { return m_store; }
 
     // Where a game stands with gfxtune-run in its Steam launch options.
@@ -77,6 +78,8 @@ Q_SIGNALS:
     void stateChanged();
     // The details of the games changed (after a scan).
     void gamesChanged();
+    // The library changed a game's saved settings by itself.
+    void settingsRewritten(quint32 appId);
     // A game started or stopped.
     void runningChanged();
 
@@ -84,6 +87,7 @@ private:
     void runScan(bool inspect);
     void scanFinished();
     void pollRunning();
+    void lockFiltersForAntiCheat();
     void syncLaunchLines();
 
     steam::ScanOptions m_options;

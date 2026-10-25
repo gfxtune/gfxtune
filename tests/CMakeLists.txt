@@ -39,6 +39,14 @@ target_compile_definitions(tst_commands PRIVATE GFXTUNE_PATH="$<TARGET_FILE:gfxt
 add_dependencies(tst_commands gfxtune)
 add_test(NAME commands COMMAND tst_commands)
 
+# The in-game filters on a real Vulkan device, and the layer through the loader.
+find_package(Vulkan REQUIRED)
+qt_add_executable(tst_layer tst_layer.cpp)
+target_link_libraries(tst_layer PRIVATE gfxtune_filters_vk Vulkan::Vulkan Qt6::Test)
+target_compile_definitions(tst_layer PRIVATE GFXTUNE_LAYER_MANIFEST_DIR="${CMAKE_BINARY_DIR}/layer")
+add_dependencies(tst_layer VkLayer_gfxtune)
+add_test(NAME layer COMMAND tst_layer)
+
 # The window itself, drawn off screen.
 qt_add_executable(tst_window tst_window.cpp)
 target_link_libraries(tst_window PRIVATE gfxtune_test_support gfxtune_ui gfxtune_uiplugin Qt6::Widgets)

@@ -26,7 +26,8 @@ namespace
 const QByteArray GameScript = "#!/bin/sh\n"
     "{\n"
     "  for a in \"$@\"; do printf 'arg=%s\\n' \"$a\"; done\n"
-    "  for v in RADV_TEX_ANISO MESA_VK_WSI_PRESENT_MODE DXVK_CONFIG VKD3D_FRAME_RATE PROTON_FSR4_UPGRADE; do\n"
+    "  for v in RADV_TEX_ANISO MESA_VK_WSI_PRESENT_MODE DXVK_CONFIG VKD3D_FRAME_RATE PROTON_FSR4_UPGRADE \\\n"
+    "           GFXTUNE_FILTERS GFXTUNE_FILTERS_SETTINGS GFXTUNE_FILTERS_REPORT; do\n"
     "    eval \"printf '%s=%s\\n' $v \\\"\\${$v-unset}\\\"\"\n"
     "  done\n"
     "} > \"$TEST_OUT\"\n";
@@ -211,6 +212,17 @@ private Q_SLOTS:
         QCOMPARE(gameSaw().value(QStringLiteral("VKD3D_FRAME_RATE")), QStringLiteral("60"));
         QVERIFY(gameSaw().value(QStringLiteral("DXVK_CONFIG")).contains(QLatin1String("dxgi.maxFrameRate = 60")));
         QVERIFY(launch::readLastLaunch(store().baseDir(), 1001)->applied.contains(QStringLiteral("Frame rate cap 60")));
+    }
+
+    void asksForTheFilterLayer()
+    {
+        GameSettings s;
+        s.filters.sharpening = 35;
+        QVERIFY(store().save(1001, s, {}));
+        QCOMPARE(run(environment(QStringLiteral("1001")), gameCommand()), 0);
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("1"));
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS_SETTINGS")), store().pathFor(1001));
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS_REPORT")), launch::filterReportPath(store().baseDir(), 1001));
     }
 
     void neverStartsASecondGamescope()

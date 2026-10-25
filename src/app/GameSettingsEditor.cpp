@@ -35,6 +35,27 @@ GameSettingsEditor::GameSettingsEditor(GameLibrary *library, settings::SettingsS
     connect(m_library, &GameLibrary::stateChanged, this, &GameSettingsEditor::launchChanged);
     // A game that just started has a fresh last-launch report.
     connect(m_library, &GameLibrary::runningChanged, this, &GameSettingsEditor::reloadLastLaunch);
+    connect(m_library, &GameLibrary::settingsRewritten, this, [this](quint32 appId) {
+        if (appId == m_appId) {
+            m_saveTimer.stop();
+            m_unsaved = false;
+            load();
+        }
+    });
+    // The layer reports once the game has its first frame, a few seconds in.
+    m_reportPoll.setInterval(2000);
+    connect(&m_reportPoll, &QTimer::timeout, this, [this] {
+        const auto report = launch::readFilterReport(m_store->baseDir(), m_appId);
+        const bool changed = report.has_value() != m_filterReport.has_value()
+            || (report && (report->time != m_filterReport->time || report->running != m_filterReport->running || report->detail != m_filterReport->detail));
+        if (changed) {
+            m_filterReport = report;
+            Q_EMIT launchChanged();
+        }
+        if (!m_library->isRunning(m_appId)) {
+            m_reportPoll.stop();
+        }
+    });
 }
 
 GameSettingsEditor::~GameSettingsEditor()
@@ -90,7 +111,29 @@ void GameSettingsEditor::copyLaunchLine() const
 void GameSettingsEditor::reloadLastLaunch()
 {
     m_lastLaunch = m_appId != 0 ? launch::readLastLaunch(m_store->baseDir(), m_appId) : std::nullopt;
+    m_filterReport = m_appId != 0 ? launch::readFilterReport(m_store->baseDir(), m_appId) : std::nullopt;
+    if (m_appId != 0 && m_library->isRunning(m_appId)) {
+        m_reportPoll.start();
+    } else {
+        m_reportPoll.stop();
+    }
     Q_EMIT launchChanged();
+}
+
+QString GameSettingsEditor::lastLaunchFilters() const
+{
+    if (!m_lastLaunch || !m_lastLaunch->applied.contains(QStringLiteral("In-game filters"))) {
+        return {};
+    }
+    // A report from before this launch is about an earlier one.
+    if (m_filterReport && m_filterReport->time >= m_lastLaunch->time.addSecs(-1)) {
+        return m_filterReport->running ? QStringLiteral("Drawn in the game (%1)").arg(m_filterReport->detail)
+                                       : QStringLiteral("Not drawn: %1").arg(m_filterReport->detail);
+    }
+    if (m_library->isRunning(m_appId)) {
+        return QStringLiteral("Waiting for the game's first frame");
+    }
+    return QStringLiteral("Not drawn: the game never showed a Vulkan picture (it may draw with OpenGL)");
 }
 
 bool GameSettingsEditor::hasGame() const
@@ -215,6 +258,73 @@ void GameSettingsEditor::setSharpness(int value)
 {
     const int bounded = qBound(0, value, GameSettings::MaxSharpness);
     edit([bounded](GameSettings &s) { s.sharpness = bounded; });
+}
+
+void GameSettingsEditor::setFiltersEnabled(bool on)
+{
+    editFilters([on](filters::Values &v) { v.enabled = on; });
+}
+
+void GameSettingsEditor::setFilterSharpening(int value)
+{
+    editFilters([value](filters::Values &v) { v.sharpening = filters::Sharpening.clamp(value); });
+}
+
+void GameSettingsEditor::setFilterBrightness(int value)
+{
+    editFilters([value](filters::Values &v) { v.brightness = filters::Brightness.clamp(value); });
+}
+
+void GameSettingsEditor::setFilterContrast(int value)
+{
+    editFilters([value](filters::Values &v) { v.contrast = filters::Contrast.clamp(value); });
+}
+
+void GameSettingsEditor::setFilterGamma(int value)
+{
+    editFilters([value](filters::Values &v) { v.gamma = filters::Gamma.clamp(value); });
+}
+
+void GameSettingsEditor::setFilterSaturation(int value)
+{
+    editFilters([value](filters::Values &v) { v.saturation = filters::Saturation.clamp(value); });
+}
+
+void GameSettingsEditor::setFilterVibrance(int value)
+{
+    editFilters([value](filters::Values &v) { v.vibrance = filters::Vibrance.clamp(value); });
+}
+
+void GameSettingsEditor::setFilterTemperature(int value)
+{
+    editFilters([value](filters::Values &v) { v.temperature = filters::Temperature.clamp(value); });
+}
+
+void GameSettingsEditor::resetFilterColours()
+{
+    editFilters([](filters::Values &v) {
+        const filters::Values neutral;
+        v.brightness = neutral.brightness;
+        v.contrast = neutral.contrast;
+        v.gamma = neutral.gamma;
+        v.saturation = neutral.saturation;
+        v.vibrance = neutral.vibrance;
+        v.temperature = neutral.temperature;
+    });
+}
+
+void GameSettingsEditor::acceptFiltersRisk()
+{
+    edit([](GameSettings &s) { s.filtersRiskAccepted = true; });
+    flush(); // a decision like this is saved at once
+}
+
+void GameSettingsEditor::editFilters(const std::function<void(filters::Values &)> &change)
+{
+    if (!m_availability.filters.available || m_availability.filtersLocked) {
+        return;
+    }
+    edit([&change](GameSettings &s) { change(s.filters); });
 }
 
 void GameSettingsEditor::resetToDefaults()

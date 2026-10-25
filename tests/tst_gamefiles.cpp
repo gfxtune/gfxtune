@@ -149,6 +149,50 @@ private Q_SLOTS:
         const auto report = steam::inspectGameFiles(root, {QStringLiteral("Game.exe")}, true);
         QCOMPARE(report.apis, GraphicsApis());
     }
+
+    void recognisesAntiCheat()
+    {
+        const auto file = [](const char *name) { return steam::antiCheatOfFile(QString::fromUtf8(name)); };
+        const auto folder = [](const char *name) { return steam::antiCheatOfFolder(QString::fromUtf8(name)); };
+        QCOMPARE(file("easyanticheat_x64.dll"), QStringLiteral("Easy Anti-Cheat"));
+        QCOMPARE(file("start_protected_game.exe"), QStringLiteral("Easy Anti-Cheat"));
+        QCOMPARE(file("beservice_x64.exe"), QStringLiteral("BattlEye"));
+        QCOMPARE(file("beclient_x64.so"), QStringLiteral("BattlEye"));
+        QCOMPARE(file("ace-base64.sys"), QStringLiteral("Anti-Cheat Expert"));
+        QCOMPARE(file("sguard64.exe"), QStringLiteral("Anti-Cheat Expert"));
+        QCOMPARE(file("mhypbase.dll"), QStringLiteral("miHoYo Protect"));
+        QCOMPARE(file("hoyokprotect.sys"), QStringLiteral("miHoYo Protect"));
+        QCOMPARE(file("gamemon64.des"), QStringLiteral("nProtect GameGuard"));
+        QCOMPARE(file("x3.xem"), QStringLiteral("XIGNCODE3"));
+        QCOMPARE(file("eaanticheat.gameservice.exe"), QStringLiteral("EA Anti-Cheat"));
+        QVERIFY(file("unknownguard.sys").contains(QLatin1String("kernel driver")));
+        // Look-alikes that are not anti-cheat.
+        QVERIFY(file("ace-of-spades.png").isEmpty());
+        QVERIFY(file("sguard_logo.png").isEmpty());
+        QVERIFY(file("unityplayer.dll").isEmpty());
+        QVERIFY(file("system.dll").isEmpty());
+
+        QCOMPARE(folder("easyanticheat_eos"), QStringLiteral("Easy Anti-Cheat"));
+        QCOMPARE(folder("battleye"), QStringLiteral("BattlEye"));
+        QCOMPARE(folder("gameguard"), QStringLiteral("nProtect GameGuard"));
+        QCOMPARE(folder("anticheatexpert"), QStringLiteral("anti-cheat"));
+        QCOMPARE(folder("anti_cheat"), QStringLiteral("anti-cheat"));
+        QVERIFY(folder("cheats").isEmpty());
+        QVERIFY(folder("battle").isEmpty());
+
+        // In a game folder, each found once, whatever the letter case.
+        const QString root = gameFolder(QStringLiteral("protected"));
+        QVERIFY(test::writeFile(root + QStringLiteral("/Game.exe"), test::writePe(true, {QStringLiteral("d3d11.dll")})));
+        QVERIFY(test::writeFile(root + QStringLiteral("/EasyAntiCheat/EasyAntiCheat_x64.dll"), "x"));
+        QVERIFY(test::writeFile(root + QStringLiteral("/BattlEye/BEService_x64.exe"), "x"));
+        QVERIFY(test::writeFile(root + QStringLiteral("/Engine/Binaries/Driver.sys"), "x"));
+        const QStringList found = steam::inspectGameFiles(root, {QStringLiteral("Game.exe")}, true).antiCheat;
+        QCOMPARE(found.size(), 3);
+        QVERIFY(found.contains(QStringLiteral("Easy Anti-Cheat")));
+        QVERIFY(found.contains(QStringLiteral("BattlEye")));
+        QVERIFY(found.contains(QStringLiteral("a kernel driver, most likely anti-cheat")));
+        QVERIFY(steam::inspectGameFiles(gameFolder(QStringLiteral("unity")), {}, true).antiCheat.isEmpty());
+    }
 };
 
 QTEST_GUILESS_MAIN(GameFilesTest)

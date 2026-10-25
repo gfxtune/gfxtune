@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "filters/Filters.h"
+
 #include <QList>
 #include <QString>
 
@@ -46,6 +48,12 @@ struct GameSettings {
     // 0 (off) to 20 (strongest). gamescope counts the other way round.
     int sharpness = 10;
 
+    // Drawn into the game's picture by gfxtune's Vulkan layer.
+    filters::Values filters;
+    // The user accepted the risk of the filters in a game that ships
+    // anti-cheat; until then they stay locked for it.
+    bool filtersRiskAccepted = false;
+
     static constexpr int MinFrameCap = 10;
     static constexpr int MaxFrameCap = 1000;
     static constexpr int MaxSharpness = 20;
@@ -53,6 +61,14 @@ struct GameSettings {
     static const QList<int> RenderScales;
 
     bool isDefault() const { return *this == GameSettings{}; }
+    // Whether anything changes how the game starts or looks. Accepting the
+    // anti-cheat warning alone does not.
+    bool affectsGame() const
+    {
+        GameSettings withoutConsent = *this;
+        withoutConsent.filtersRiskAccepted = false;
+        return !withoutConsent.isDefault();
+    }
     bool operator==(const GameSettings &) const = default;
 };
 

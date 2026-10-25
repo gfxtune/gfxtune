@@ -127,10 +127,13 @@ void FakeSteam::build()
     game(lib2, 1003, s("Stonewake"), s("Stonewake"));
     QVERIFY(writeFile(lib2 + s("/steamapps/common/Stonewake/stonewake"), writeElf(true, {s("libvulkan.so.1")}), true));
 
-    // 1004: Windows only, uses the default tool for all other titles.
+    // 1004: Windows only, uses the default tool for all other titles. Ships
+    // Easy Anti-Cheat.
     game(root, 1004, s("Hollow Orbit"), s("Hollow Orbit"));
+    QVERIFY(writeFile(root + s("/steamapps/common/Hollow Orbit/EasyAntiCheat/EasyAntiCheat_EOS_Setup.exe"), "x"));
 
-    // 1005: has a Linux version, but the user forced Proton.
+    // 1005: has a Linux version, but the user forced Proton. Steam lists
+    // Valve Anti-Cheat for it.
     game(root, 1005, s("Copper Coast"), s("Copper Coast"));
 
     // 1006: still downloading.
@@ -189,6 +192,8 @@ void FakeSteam::build()
         })})})}),
     })}));
 
+    Node vacGame = appInfo(s("Game"), s("windows,linux"));
+    vacGame.children.front().children.push_back(section(s("category"), {value(s("category_2"), s("1")), value(s("category_8"), s("1"))}));
     Node neonDrift = appInfo(s("game"), s("windows"), {launchEntry(s("Launcher.exe"), {})});
     neonDrift.children.front().children.push_back(section(s("library_assets_full"), {section(s("library_capsule"), {
         section(s("image"), {value(s("english"), NeonDriftCover), value(s("japanese"), s("b2c3d4e5f60718293a4b5c6d7e8f9012345678a1/library_capsule_japanese.jpg"))}),
@@ -199,7 +204,7 @@ void FakeSteam::build()
         {1002, neonDrift},
         {1003, appInfo(s("Game"), s("windows,linux"), {launchEntry(s("Stonewake.exe"), s("windows")), launchEntry(s("stonewake"), s("linux"))})},
         {1004, appInfo(s("Game"), s("windows"))},
-        {1005, appInfo(s("Game"), s("windows,linux"))},
+        {1005, vacGame},
         {1008, appInfo(s("Music"), s("windows,linux"))},
         {891390, section({}, {section(s("extended"), {
             section(s("compat_tools"), {

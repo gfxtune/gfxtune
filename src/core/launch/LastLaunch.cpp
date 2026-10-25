@@ -4,6 +4,7 @@
 #include "LastLaunch.h"
 
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QSettings>
 
@@ -13,6 +14,47 @@ namespace gfxtune::launch
 QString lastLaunchPath(const QString &baseDir, quint32 appId)
 {
     return baseDir + QStringLiteral("/last-launch/%1.ini").arg(appId);
+}
+
+QString filterReportPath(const QString &baseDir, quint32 appId)
+{
+    return baseDir + QStringLiteral("/last-launch/%1.filters").arg(appId);
+}
+
+std::optional<FilterReport> readFilterReport(const QString &baseDir, quint32 appId)
+{
+    QFile file(filterReportPath(baseDir, appId));
+    // A few short lines; anything bigger was not written by the layer.
+    if (file.size() > 4096 || !file.open(QIODevice::ReadOnly)) {
+        return std::nullopt;
+    }
+    FilterReport report;
+    QString state;
+    for (const QByteArray &raw : file.readAll().split('\n')) {
+        const QString line = QString::fromUtf8(raw).trimmed();
+        const qsizetype equals = line.indexOf(QLatin1Char('='));
+        if (line.startsWith(QLatin1Char('#')) || equals <= 0) {
+            continue;
+        }
+        const QString key = line.left(equals);
+        const QString value = line.mid(equals + 1);
+        if (key == QLatin1String("time")) {
+            bool ok = false;
+            const qint64 seconds = value.toLongLong(&ok);
+            if (ok && seconds > 0) {
+                report.time = QDateTime::fromSecsSinceEpoch(seconds);
+            }
+        } else if (key == QLatin1String("state")) {
+            state = value;
+        } else if (key == QLatin1String("detail")) {
+            report.detail = value;
+        }
+    }
+    if (!report.time.isValid() || (state != QLatin1String("running") && state != QLatin1String("skipped"))) {
+        return std::nullopt;
+    }
+    report.running = state == QLatin1String("running");
+    return report;
 }
 
 bool writeLastLaunch(const QString &baseDir, quint32 appId, const LaunchPlan &plan, const QDateTime &time)

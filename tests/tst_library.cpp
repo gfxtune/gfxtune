@@ -331,6 +331,127 @@ private Q_SLOTS:
         editor.flush();
         QVERIFY(editor.problem().startsWith(s("Could not save")));
     }
+
+    void locksFiltersInGamesWithAntiCheat()
+    {
+        Setup setup;
+        GameLibrary library(setup.steam.options(), &setup.store, nullptr, setup.proc.path());
+        GameSettingsEditor editor(&library, &setup.store, SystemInfo{true}, nullptr, 50);
+        library.start();
+        QVERIFY(waitUntilIdle(library));
+
+        editor.setAppId(1004); // ships Easy Anti-Cheat
+        QVERIFY(editor.filtersAvailable());
+        QVERIFY(editor.filtersLocked());
+        QVERIFY(editor.filtersWarning().contains(s("Easy Anti-Cheat")));
+        editor.setFilterSharpening(50);
+        editor.setFiltersEnabled(false);
+        QCOMPARE(editor.filterSharpening(), 0); // refused while locked
+        QVERIFY(editor.filtersEnabled());
+
+        editor.acceptFiltersRisk();
+        QVERIFY(!editor.filtersLocked());
+        QVERIFY(setup.store.load(1004).filtersRiskAccepted); // saved at once
+        QVERIFY(!editor.customized()); // no launch line just for that
+        editor.setFilterSharpening(50);
+        editor.setFilterTemperature(250);
+        QCOMPARE(editor.filterSharpening(), 50);
+        QCOMPARE(editor.filterTemperature(), 100); // kept in range
+        QVERIFY(editor.customized());
+
+        editor.setFilterContrast(10);
+        QVERIFY(!editor.filterColoursNeutral());
+        editor.resetFilterColours();
+        QVERIFY(editor.filterColoursNeutral());
+        QCOMPARE(editor.filterSharpening(), 50); // sharpening is not a colour
+
+        // Valve Anti-Cheat comes from Steam's data, before any file is read.
+        editor.setAppId(1005);
+        QVERIFY(editor.filtersLocked());
+    }
+
+    void switchesFiltersOffWhenAGameGainsAntiCheat()
+    {
+        Setup setup;
+        // Filters set while the game had no anti-cheat; an update added it.
+        GameSettings before;
+        before.filters.sharpening = 60;
+        QVERIFY(setup.store.save(1004, before, s("Hollow Orbit")));
+
+        GameLibrary library(setup.steam.options(), &setup.store, nullptr, setup.proc.path());
+        GameSettingsEditor editor(&library, &setup.store, SystemInfo{true}, nullptr, 50);
+        editor.setAppId(1004);
+        QSignalSpy rewritten(&library, &GameLibrary::settingsRewritten);
+        library.start();
+        QVERIFY(waitUntilIdle(library));
+
+        QCOMPARE(rewritten.count(), 1);
+        const GameSettings after = setup.store.load(1004);
+        QVERIFY(!after.filters.enabled);
+        QCOMPARE(after.filters.sharpening, 60); // the values stay
+        QVERIFY(!editor.filtersEnabled());      // and the page shows it
+
+        // Once accepted, the user's choice stands.
+        editor.acceptFiltersRisk();
+        editor.setFiltersEnabled(true);
+        editor.flush();
+        library.refresh();
+        QVERIFY(waitUntilIdle(library));
+        QCOMPARE(rewritten.count(), 1);
+        QVERIFY(setup.store.load(1004).filters.enabled);
+    }
+
+    void reportsWhatTheFiltersDid()
+    {
+        Setup setup;
+        GameLibrary library(setup.steam.options(), &setup.store, nullptr, setup.proc.path());
+        library.setPollInterval(100);
+        GameSettingsEditor editor(&library, &setup.store, SystemInfo{true}, nullptr, 50);
+        library.start();
+        QVERIFY(waitUntilIdle(library));
+
+        const QDateTime started = QDateTime::currentDateTime().addSecs(-60);
+        launch::LaunchPlan plan;
+        plan.applied = {s("In-game filters")};
+        QVERIFY(launch::writeLastLaunch(setup.store.baseDir(), 1003, plan, started));
+        const auto writeReport = [&](qint64 time, const char *state, const char *detail) {
+            return test::writeFile(launch::filterReportPath(setup.store.baseDir(), 1003),
+                                   QByteArray("# from the layer\ntime=") + QByteArray::number(time) + "\nstate=" + state + "\ndetail=" + detail + "\n");
+        };
+        const auto reselect = [&] {
+            editor.setAppId(1001);
+            editor.setAppId(1003);
+        };
+
+        reselect();
+        QVERIFY(editor.lastLaunchFilters().contains(s("never showed a Vulkan picture")));
+
+        QVERIFY(writeReport(started.addSecs(5).toSecsSinceEpoch(), "running", "2560×1440, B8G8R8A8_SRGB"));
+        reselect();
+        QCOMPARE(editor.lastLaunchFilters(), s("Drawn in the game (2560×1440, B8G8R8A8_SRGB)"));
+
+        QVERIFY(writeReport(started.addSecs(5).toSecsSinceEpoch(), "skipped", "the game shows HDR or a wide colour space"));
+        reselect();
+        QCOMPARE(editor.lastLaunchFilters(), s("Not drawn: the game shows HDR or a wide colour space"));
+
+        // A report from an earlier launch does not count.
+        QVERIFY(writeReport(started.addSecs(-3600).toSecsSinceEpoch(), "running", "old"));
+        reselect();
+        QVERIFY(editor.lastLaunchFilters().contains(s("never showed")));
+
+        // While the game runs the report can still arrive; the page follows.
+        QVERIFY(test::writeFile(setup.proc.filePath(s("4244/comm")), "reaper\n"));
+        QVERIFY(test::writeFile(setup.proc.filePath(s("4244/cmdline")), QByteArray("reaper\0SteamLaunch\0AppId=1003\0", 30)));
+        QTRY_COMPARE_WITH_TIMEOUT(editor.lastLaunchFilters(), s("Waiting for the game's first frame"), 5000);
+        QVERIFY(writeReport(QDateTime::currentSecsSinceEpoch(), "running", "1920×1080, B8G8R8A8_UNORM"));
+        QTRY_COMPARE_WITH_TIMEOUT(editor.lastLaunchFilters(), s("Drawn in the game (1920×1080, B8G8R8A8_UNORM)"), 5000);
+
+        // Nothing to say when the filters were not part of the launch.
+        plan.applied = {s("Anisotropic filtering 8×")};
+        QVERIFY(launch::writeLastLaunch(setup.store.baseDir(), 1003, plan, QDateTime::currentDateTime()));
+        reselect();
+        QVERIFY(editor.lastLaunchFilters().isEmpty());
+    }
 };
 
 QTEST_GUILESS_MAIN(LibraryTest)

@@ -71,6 +71,18 @@ int chartsWithData(QQuickItem *item, int points)
     return count;
 }
 
+// Real images, since the window decodes them: one in each layout.
+void writeRealCovers(const test::FakeSteam &steam)
+{
+    QImage cover(60, 90, QImage::Format_RGB32);
+    cover.fill(QColor(40, 90, 160));
+    const QString cache = steam.root + QStringLiteral("/appcache/librarycache/");
+    for (const QString &coverPath : {cache + QStringLiteral("1001/library_600x900.jpg"), cache + QStringLiteral("1002/") + test::NeonDriftCover}) {
+        QVERIFY(QDir().mkpath(QFileInfo(coverPath).path()));
+        QVERIFY(cover.save(coverPath, "JPEG"));
+    }
+}
+
 } // namespace
 
 class WindowTest : public QObject
@@ -118,14 +130,7 @@ private Q_SLOTS:
     {
         test::FakeSteam steam;
         steam.build();
-        // Real images, since the window decodes them: one in each layout.
-        QImage cover(60, 90, QImage::Format_RGB32);
-        cover.fill(QColor(40, 90, 160));
-        const QString cache = steam.root + QStringLiteral("/appcache/librarycache/");
-        for (const QString &coverPath : {cache + QStringLiteral("1001/library_600x900.jpg"), cache + QStringLiteral("1002/") + test::NeonDriftCover}) {
-            QVERIFY(QDir().mkpath(QFileInfo(coverPath).path()));
-            QVERIFY(cover.save(coverPath, "JPEG"));
-        }
+        writeRealCovers(steam);
         QTemporaryDir config;
         QTemporaryDir proc;
         settings::SettingsStore store(config.filePath(QStringLiteral("gfxtune")));
@@ -187,6 +192,45 @@ private Q_SLOTS:
         QTest::qWait(100);
         QCOMPARE(editor.verticalSync(), before);
         QVERIFY(!editor.customized());
+    }
+
+    void locksTheFiltersBehindTheWarning()
+    {
+        test::FakeSteam steam;
+        steam.build();
+        writeRealCovers(steam);
+        QTemporaryDir config;
+        QTemporaryDir proc;
+        settings::SettingsStore store(config.filePath(QStringLiteral("gfxtune")));
+        GameLibrary library(steam.options(), &store, nullptr, proc.path());
+        GameSettingsEditor editor(&library, &store, settings::SystemInfo{true});
+        QTemporaryDir sys;
+        test::addCard(sys.path(), 0);
+        GpuMonitor gpu(sys.path());
+
+        Window w(library, editor, gpu);
+        QVERIFY(w.window);
+        w.window->show();
+        library.start();
+        QVERIFY(QTest::qWaitFor([&] { return library.loaded() && !library.scanning(); }, 10000));
+
+        // A game without anti-cheat: the filters are there to use.
+        editor.setAppId(1001);
+        QQuickItem *warning = findItem(w.window->contentItem(), QStringLiteral("filtersWarning"));
+        QQuickItem *sharpening = findItem(w.window->contentItem(), QStringLiteral("filterSharpening"));
+        QVERIFY(warning && sharpening);
+        QTRY_VERIFY(!warning->isVisible());
+        QVERIFY(sharpening->isEnabled());
+
+        // Easy Anti-Cheat: warned and locked until accepted.
+        editor.setAppId(1004);
+        QTRY_VERIFY(warning->isVisible());
+        QVERIFY(!sharpening->isEnabled());
+        editor.acceptFiltersRisk();
+        QTRY_VERIFY(!warning->isVisible());
+        QVERIFY(sharpening->isEnabled());
+
+        QVERIFY2(w.warnings.isEmpty(), qPrintable(w.describeWarnings()));
     }
 
     void readsTheCardOnlyWhileVisible()

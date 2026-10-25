@@ -143,6 +143,19 @@ GameSettings SettingsStore::load(quint32 appId, QStringList *warnings) const
     s.scalingMode = in.choice(QStringLiteral("gamescope/scaling"), defaults.scalingMode);
     s.renderScale = in.oneOf(QStringLiteral("gamescope/render_scale"), defaults.renderScale, GameSettings::RenderScales);
     s.sharpness = in.number(QStringLiteral("gamescope/sharpness"), defaults.sharpness, 0, GameSettings::MaxSharpness);
+
+    const auto ranged = [&in](const char *key, const filters::Range &range) {
+        return in.number(QStringLiteral("filters/") + QLatin1String(key), range.neutral, range.min, range.max);
+    };
+    s.filters.enabled = in.flag(QStringLiteral("filters/enabled"), defaults.filters.enabled);
+    s.filters.sharpening = ranged("sharpening", filters::Sharpening);
+    s.filters.brightness = ranged("brightness", filters::Brightness);
+    s.filters.contrast = ranged("contrast", filters::Contrast);
+    s.filters.gamma = ranged("gamma", filters::Gamma);
+    s.filters.saturation = ranged("saturation", filters::Saturation);
+    s.filters.vibrance = ranged("vibrance", filters::Vibrance);
+    s.filters.temperature = ranged("temperature", filters::Temperature);
+    s.filtersRiskAccepted = in.flag(QStringLiteral("filters/risk_accepted"), defaults.filtersRiskAccepted);
     return s;
 }
 
@@ -170,6 +183,17 @@ bool SettingsStore::save(quint32 appId, const GameSettings &s, const QString &ga
     out.setValue(QStringLiteral("gamescope/scaling"), toKey(s.scalingMode));
     out.setValue(QStringLiteral("gamescope/render_scale"), s.renderScale);
     out.setValue(QStringLiteral("gamescope/sharpness"), s.sharpness);
+    // Read by the Vulkan layer while the game runs, without Qt: keep these
+    // plain "key=number" lines (see src/layer/LayerSettings.cpp).
+    out.setValue(QStringLiteral("filters/enabled"), s.filters.enabled);
+    out.setValue(QStringLiteral("filters/sharpening"), s.filters.sharpening);
+    out.setValue(QStringLiteral("filters/brightness"), s.filters.brightness);
+    out.setValue(QStringLiteral("filters/contrast"), s.filters.contrast);
+    out.setValue(QStringLiteral("filters/gamma"), s.filters.gamma);
+    out.setValue(QStringLiteral("filters/saturation"), s.filters.saturation);
+    out.setValue(QStringLiteral("filters/vibrance"), s.filters.vibrance);
+    out.setValue(QStringLiteral("filters/temperature"), s.filters.temperature);
+    out.setValue(QStringLiteral("filters/risk_accepted"), s.filtersRiskAccepted);
     out.sync(); // QSettings writes through a temporary file and renames it
     if (out.status() != QSettings::NoError) {
         return fail(error, QStringLiteral("could not write %1").arg(path));
@@ -193,7 +217,8 @@ QSet<quint32> SettingsStore::customizedGames() const
     for (const QString &name : files) {
         bool ok = false;
         const quint32 id = QFileInfo(name).completeBaseName().toUInt(&ok);
-        if (ok && id != 0) {
+        // A file can hold nothing but an accepted anti-cheat warning.
+        if (ok && id != 0 && load(id).affectsGame()) {
             ids.insert(id);
         }
     }
