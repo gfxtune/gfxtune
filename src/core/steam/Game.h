@@ -75,6 +75,12 @@ struct Game {
 
 QString runtimeName(Runtime runtime);
 
+// A game whose files point to OpenGL and nothing else.
+inline bool drawsOnlyWithOpenGl(GraphicsApis apis)
+{
+    return apis == GraphicsApis(GraphicsApi::OpenGL);
+}
+
 // Reads a Proton build's own files: AMD's FSR 4 library in its contrib
 // folder (copied into every prefix), or its launch script switching FSR 4
 // on by itself or reading PROTON_FSR4_UPGRADE.

@@ -10,11 +10,13 @@ import org.kde.kirigami as Kirigami
 import org.kde.quickcharts as Charts
 import Gfxtune.Backend
 
-// The card's live readings, on the right of the window.
-ColumnLayout {
+// The live readings on the right of the window: the game being measured,
+// the card and the processor.
+QQC2.ScrollView {
     id: panel
 
     required property GpuMonitor monitor
+    required property GameLibrary library
 
     // The same colour as a Kirigami.Separator.
     readonly property color gridColor: Kirigami.ColorUtils.linearInterpolation(Kirigami.Theme.backgroundColor, Kirigami.Theme.textColor, 0.2)
@@ -22,91 +24,29 @@ ColumnLayout {
     // is not focused, which is the usual case while a game runs.
     readonly property color mainColor: Kirigami.Theme.focusColor
     readonly property color hotspotColor: Kirigami.Theme.neutralTextColor
+    readonly property bool cardShown: monitor.status === GpuMonitor.AmdCard && !monitor.asleep
 
-    spacing: Kirigami.Units.smallSpacing
+    // The scroll bar is drawn over the content; keep the readings clear of it.
+    readonly property real barWidth: QQC2.ScrollBar.vertical.visible ? QQC2.ScrollBar.vertical.width + Kirigami.Units.smallSpacing : 0
+    leftPadding: mirrored ? barWidth : 0
+    rightPadding: mirrored ? 0 : barWidth
+    contentWidth: availableWidth
+    QQC2.ScrollBar.horizontal.policy: QQC2.ScrollBar.AlwaysOff
 
-    Kirigami.Heading {
+    component Key: QQC2.Label {
         Layout.fillWidth: true
-        level: 3
-        text: "GPU"
-    }
-
-    QQC2.Label {
-        Layout.fillWidth: true
-        visible: panel.monitor.cardNames.length === 1
-        text: panel.monitor.cardNames.length > 0 ? panel.monitor.cardNames[0] : ""
-        elide: Text.ElideRight
         opacity: 0.7
     }
-
-    QQC2.ComboBox {
-        Layout.fillWidth: true
-        visible: panel.monitor.cardNames.length > 1
-        model: panel.monitor.cardNames
-        currentIndex: panel.monitor.currentCard
-        wheelEnabled: false
-        onActivated: index => panel.monitor.currentCard = index
+    component Value: QQC2.Label {
+        Layout.alignment: Qt.AlignRight
+        horizontalAlignment: Text.AlignRight
+        font.features: { "tnum": 1 }
     }
-
-    Kirigami.PlaceholderMessage {
+    component Readings: GridLayout {
         Layout.fillWidth: true
-        Layout.topMargin: Kirigami.Units.gridUnit * 2
-        visible: panel.monitor.status !== GpuMonitor.AmdCard
-        icon.name: "video-card-inactive"
-        text: panel.monitor.status === GpuMonitor.OtherCards ? "Only AMD cards are supported" : "No graphics card found"
-        explanation: panel.monitor.status === GpuMonitor.OtherCards
-            ? "gfxtune reads the sensors of AMD Radeon cards through the amdgpu driver."
-            : ""
-    }
-
-    QQC2.Label {
-        Layout.fillWidth: true
-        Layout.topMargin: Kirigami.Units.largeSpacing
-        visible: panel.monitor.status === GpuMonitor.AmdCard && panel.monitor.asleep
-        text: "The card is asleep. gfxtune does not wake it just to read it."
-        wrapMode: Text.Wrap
-        opacity: 0.7
-    }
-
-    GridLayout {
-        Layout.fillWidth: true
-        Layout.topMargin: Kirigami.Units.largeSpacing
-        visible: panel.monitor.status === GpuMonitor.AmdCard && !panel.monitor.asleep
         columns: 2
         columnSpacing: Kirigami.Units.largeSpacing
         rowSpacing: Kirigami.Units.smallSpacing
-
-        component Key: QQC2.Label {
-            Layout.fillWidth: true
-            opacity: 0.7
-        }
-        component Value: QQC2.Label {
-            Layout.alignment: Qt.AlignRight
-            font.features: { "tnum": 1 }
-        }
-
-        Key { text: "Temperature" }
-        Value { text: panel.monitor.temperature }
-        Key { text: "Hotspot" }
-        Value { text: panel.monitor.hotspot }
-        Key { text: "Memory temperature" }
-        Value { text: panel.monitor.memoryTemperature }
-        Key { text: "Power" }
-        Value { text: panel.monitor.power }
-        Key { text: "GPU load" }
-        Value { text: panel.monitor.load }
-        Key { text: "Memory load" }
-        Value { text: panel.monitor.memoryLoad }
-        Key { text: "Video memory" }
-        Value { text: panel.monitor.videoMemory }
-        Key { text: "Core clock" }
-        Value { text: panel.monitor.coreClock }
-        Key { text: "Memory clock" }
-        Value { text: panel.monitor.memoryClock }
-        Key { text: "Fan" }
-        Value { text: panel.monitor.fan }
-        Key { text: "Voltage" }
-        Value { text: panel.monitor.voltage }
     }
 
     // The last minute of a reading, drawn like KDE's System Monitor: grid
@@ -242,58 +182,192 @@ ColumnLayout {
     }
 
     ColumnLayout {
-        Layout.fillWidth: true
-        Layout.topMargin: Kirigami.Units.largeSpacing
-        visible: panel.monitor.status === GpuMonitor.AmdCard && !panel.monitor.asleep
+        width: panel.availableWidth
         spacing: Kirigami.Units.smallSpacing
 
-        Caption {
-            text: "Temperature, last minute"
-        }
-        HistoryChart {
-            unit: "°C"
-            low: panel.monitor.temperatureLow
-            high: panel.monitor.temperatureHigh
-            values: panel.monitor.edgeHistory
-            lineColor: panel.mainColor
-            secondValues: panel.monitor.hotspotHistory
-            secondColor: panel.hotspotColor
-        }
-        Flow {
+        // The game the layer measures, while one runs.
+        ColumnLayout {
+            objectName: "gameBlock"
             Layout.fillWidth: true
-            spacing: Kirigami.Units.largeSpacing
+            Layout.bottomMargin: Kirigami.Units.gridUnit
+            visible: panel.monitor.gameAppId !== 0
+            spacing: Kirigami.Units.smallSpacing
 
+            Kirigami.Heading {
+                Layout.fillWidth: true
+                level: 3
+                text: panel.library.gameName(panel.monitor.gameAppId)
+                elide: Text.ElideRight
+            }
+            Readings {
+                Key { text: "Frame rate" }
+                Value { text: panel.monitor.gameFps }
+                Key { text: "Frame time" }
+                Value { text: panel.monitor.gameFrameTime }
+                Key { text: "Video memory" }
+                Value { text: panel.monitor.gameVideoMemory }
+            }
+            Caption {
+                Layout.topMargin: Kirigami.Units.largeSpacing
+                text: "Frame rate, last minute"
+            }
+            HistoryChart {
+                unit: "FPS"
+                low: 0
+                high: panel.monitor.fpsHigh
+                values: panel.monitor.fpsHistory
+                lineColor: panel.mainColor
+            }
+        }
+
+        Kirigami.Heading {
+            Layout.fillWidth: true
+            level: 3
+            text: "GPU"
+        }
+
+        QQC2.Label {
+            Layout.fillWidth: true
+            visible: panel.monitor.cardNames.length === 1
+            text: panel.monitor.cardNames.length > 0 ? panel.monitor.cardNames[0] : ""
+            elide: Text.ElideRight
+            opacity: 0.7
+        }
+
+        QQC2.ComboBox {
+            Layout.fillWidth: true
+            visible: panel.monitor.cardNames.length > 1
+            model: panel.monitor.cardNames
+            currentIndex: panel.monitor.currentCard
+            wheelEnabled: false
+            onActivated: index => panel.monitor.currentCard = index
+        }
+
+        Kirigami.PlaceholderMessage {
+            Layout.fillWidth: true
+            Layout.topMargin: Kirigami.Units.gridUnit * 2
+            visible: panel.monitor.status !== GpuMonitor.AmdCard
+            icon.name: "video-card-inactive"
+            text: panel.monitor.status === GpuMonitor.OtherCards ? "Only AMD cards are supported" : "No graphics card found"
+            explanation: panel.monitor.status === GpuMonitor.OtherCards
+                ? "gfxtune reads the sensors of AMD Radeon cards through the amdgpu driver."
+                : ""
+        }
+
+        QQC2.Label {
+            Layout.fillWidth: true
+            Layout.topMargin: Kirigami.Units.largeSpacing
+            visible: panel.monitor.status === GpuMonitor.AmdCard && panel.monitor.asleep
+            text: "The card is asleep. gfxtune does not wake it just to read it."
+            wrapMode: Text.Wrap
+            opacity: 0.7
+        }
+
+        Readings {
+            Layout.topMargin: Kirigami.Units.largeSpacing
+            visible: panel.cardShown
+
+            Key { text: "Temperature" }
+            Value { text: panel.monitor.temperature }
+            Key { text: "Hotspot" }
+            Value { text: panel.monitor.hotspot }
+            Key { text: "Memory temperature" }
+            Value { text: panel.monitor.memoryTemperature }
+            Key { text: "Power" }
+            Value { text: panel.monitor.power }
+            Key { text: "GPU load" }
+            Value { text: panel.monitor.load }
+            Key { text: "Memory load" }
+            Value { text: panel.monitor.memoryLoad }
+            Key { text: "Video memory" }
+            Value { text: panel.monitor.videoMemory }
+            Key { text: "Core clock" }
+            Value { text: panel.monitor.coreClock }
+            Key { text: "Memory clock" }
+            Value { text: panel.monitor.memoryClock }
+            Key { text: "Fan" }
+            Value { text: panel.monitor.fan }
+            Key { text: "Voltage" }
+            Value { text: panel.monitor.voltage }
+            Key {
+                Layout.alignment: Qt.AlignTop
+                text: "Held back by"
+            }
+            Value {
+                objectName: "heldBackBy"
+                Layout.maximumWidth: Kirigami.Units.gridUnit * 8
+                wrapMode: Text.Wrap
+                text: panel.monitor.heldBackBy
+            }
+        }
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.topMargin: Kirigami.Units.largeSpacing
+            visible: panel.cardShown
+            spacing: Kirigami.Units.smallSpacing
+
+            Caption {
+                text: "Temperature, last minute"
+            }
+            HistoryChart {
+                unit: "°C"
+                low: panel.monitor.temperatureLow
+                high: panel.monitor.temperatureHigh
+                values: panel.monitor.edgeHistory
+                lineColor: panel.mainColor
+                secondValues: panel.monitor.hotspotHistory
+                secondColor: panel.hotspotColor
+            }
+            Flow {
+                Layout.fillWidth: true
+                spacing: Kirigami.Units.largeSpacing
+
+                LegendEntry {
+                    swatch: panel.mainColor
+                    name: "Temperature"
+                    value: panel.monitor.temperature
+                }
+                LegendEntry {
+                    swatch: panel.hotspotColor
+                    name: "Hotspot"
+                    value: panel.monitor.hotspot
+                }
+            }
+
+            Caption {
+                Layout.topMargin: Kirigami.Units.largeSpacing
+                text: "Power, last minute"
+            }
+            HistoryChart {
+                unit: "W"
+                low: 0
+                high: panel.monitor.powerHigh
+                values: panel.monitor.powerHistory
+                lineColor: panel.mainColor
+            }
             LegendEntry {
                 swatch: panel.mainColor
-                name: "Temperature"
-                value: panel.monitor.temperature
-            }
-            LegendEntry {
-                swatch: panel.hotspotColor
-                name: "Hotspot"
-                value: panel.monitor.hotspot
+                name: "Power"
+                value: panel.monitor.power
             }
         }
 
-        Caption {
-            Layout.topMargin: Kirigami.Units.largeSpacing
-            text: "Power, last minute"
+        Kirigami.Heading {
+            Layout.fillWidth: true
+            Layout.topMargin: Kirigami.Units.gridUnit
+            level: 3
+            text: "CPU"
         }
-        HistoryChart {
-            unit: "W"
-            low: 0
-            high: panel.monitor.powerHigh
-            values: panel.monitor.powerHistory
-            lineColor: panel.mainColor
-        }
-        LegendEntry {
-            swatch: panel.mainColor
-            name: "Power"
-            value: panel.monitor.power
-        }
-    }
+        Readings {
+            objectName: "cpuReadings"
 
-    Item {
-        Layout.fillHeight: true
+            Key { text: "Load" }
+            Value { text: panel.monitor.cpuLoad }
+            Key { text: "Temperature" }
+            Value { text: panel.monitor.cpuTemperature }
+            Key { text: "Clock" }
+            Value { text: panel.monitor.cpuClock }
+        }
     }
 }

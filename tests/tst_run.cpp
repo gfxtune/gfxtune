@@ -10,6 +10,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QMap>
 #include <QProcess>
 #include <QTemporaryDir>
@@ -27,10 +28,16 @@ const QByteArray GameScript = "#!/bin/sh\n"
     "{\n"
     "  for a in \"$@\"; do printf 'arg=%s\\n' \"$a\"; done\n"
     "  for v in RADV_TEX_ANISO MESA_VK_WSI_PRESENT_MODE DXVK_CONFIG VKD3D_FRAME_RATE PROTON_FSR4_UPGRADE \\\n"
-    "           GFXTUNE_FILTERS GFXTUNE_FILTERS_SETTINGS GFXTUNE_FILTERS_REPORT; do\n"
+    "           GFXTUNE_FILTERS GFXTUNE_FILTERS_SETTINGS GFXTUNE_FILTERS_REPORT GFXTUNE_PERF_DIR vblank_mode; do\n"
     "    eval \"printf '%s=%s\\n' $v \\\"\\${$v-unset}\\\"\"\n"
     "  done\n"
     "} > \"$TEST_OUT\"\n";
+
+// Notes that it ran, then starts the rest, like gamemoderun and mangohud.
+QByteArray wrapperScript(const QByteArray &name)
+{
+    return "#!/bin/sh\necho " + name + " >> \"$TEST_OUT.wrappers\"\nexec \"$@\"\n";
+}
 
 // Records its own arguments, then starts what follows "--".
 const QByteArray GamescopeScript = "#!/bin/sh\n"
@@ -71,6 +78,7 @@ private:
     {
         QFile::remove(m_out);
         QFile::remove(m_out + QStringLiteral(".gamescope"));
+        QFile::remove(m_out + QStringLiteral(".wrappers"));
         QProcess process;
         process.setProcessEnvironment(env);
         process.start(QStringLiteral(GFXTUNE_RUN_PATH), arguments);
@@ -108,6 +116,12 @@ private:
         return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()).trimmed() : QString();
     }
 
+    QStringList wrappersSaw() const
+    {
+        QFile file(m_out + QStringLiteral(".wrappers"));
+        return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts) : QStringList();
+    }
+
     QStringList gameCommand() const { return {path(QStringLiteral("game.sh")), QStringLiteral("-dx12"), QStringLiteral("two words")}; }
 
 private Q_SLOTS:
@@ -116,6 +130,8 @@ private Q_SLOTS:
         m_out = path(QStringLiteral("out.txt"));
         QVERIFY(test::writeFile(path(QStringLiteral("game.sh")), GameScript, true));
         QVERIFY(test::writeFile(path(QStringLiteral("bin/gamescope")), GamescopeScript, true));
+        QVERIFY(test::writeFile(path(QStringLiteral("bin/gamemoderun")), wrapperScript("gamemoderun"), true));
+        QVERIFY(test::writeFile(path(QStringLiteral("bin/mangohud")), wrapperScript("mangohud"), true));
         QVERIFY(QDir().mkpath(path(QStringLiteral("home"))));
     }
 
@@ -141,6 +157,7 @@ private Q_SLOTS:
     void appliesTheGamesSettings()
     {
         GameSettings s;
+        s.measurePerformance = false; // the variables, not the layer
         s.anisotropicFiltering = 8;
         s.verticalSync = settings::VerticalSync::Off;
         s.frameCapEnabled = true;
@@ -179,6 +196,7 @@ private Q_SLOTS:
     void wrapsTheGameInGamescope()
     {
         GameSettings s;
+        s.measurePerformance = false; // the variables, not the layer
         s.gamescope = true;
         s.renderScale = 50;
         s.frameCapEnabled = true;
@@ -200,6 +218,7 @@ private Q_SLOTS:
         const QString proton = path(QStringLiteral("tools/Proton 11.0/proton"));
         QVERIFY(test::writeFile(proton, "#!/bin/sh\nshift\nexec \"$@\"\n", true));
         GameSettings s;
+        s.measurePerformance = false; // the variables, not the layer
         s.gamescope = true;
         s.frameCapEnabled = true;
         s.frameCap = 60;
@@ -223,6 +242,71 @@ private Q_SLOTS:
         QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("1"));
         QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS_SETTINGS")), store().pathFor(1001));
         QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS_REPORT")), launch::filterReportPath(store().baseDir(), 1001));
+    }
+
+    void measuresIntoTheGamesFolder()
+    {
+        GameSettings s;
+        s.frameCapEnabled = true; // measuring is on by default
+        QVERIFY(store().save(1001, s, {}));
+        const QString dir = store().baseDir() + QStringLiteral("/performance/1001");
+        QDir(dir).removeRecursively();
+        QCOMPARE(run(environment(QStringLiteral("1001")), gameCommand()), 0);
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("1"));
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_PERF_DIR")), dir);
+        QVERIFY(QFileInfo(dir).isDir()); // the layer never creates folders
+
+        s.measurePerformance = false;
+        QVERIFY(store().save(1001, s, {}));
+        QCOMPARE(run(environment(QStringLiteral("1001")), gameCommand()), 0);
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_PERF_DIR")), QStringLiteral("unset"));
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("unset"));
+    }
+
+    // gfxtune-run knows of anti-cheat only from what the app saved.
+    void keepsTheLayerOutOfAntiCheatGames()
+    {
+        GameSettings s;
+        s.filters.sharpening = 30;
+        QVERIFY(store().save(1004, s, {}));
+        QVERIFY(store().saveFacts(1004, settings::GameFacts{{QStringLiteral("Easy Anti-Cheat")}, false}));
+        const QString dir = store().baseDir() + QStringLiteral("/performance/1004");
+        QCOMPARE(run(environment(QStringLiteral("1004")), gameCommand()), 0);
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("unset"));
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_PERF_DIR")), QStringLiteral("unset"));
+        QVERIFY(!QFileInfo::exists(dir));
+        QVERIFY(launch::readLastLaunch(store().baseDir(), 1004)->notApplied.contains(
+            QStringLiteral("In-game filters and measuring: locked until the anti-cheat risk is accepted")));
+
+        s.filtersRiskAccepted = true;
+        QVERIFY(store().save(1004, s, {}));
+        QCOMPARE(run(environment(QStringLiteral("1004")), gameCommand()), 0);
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("1"));
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_PERF_DIR")), dir);
+    }
+
+    void startsThroughGameModeAndMangoHud()
+    {
+        GameSettings s;
+        s.gameMode = true;
+        s.mangoHud = true;
+        s.verticalSync = settings::VerticalSync::Off;
+        s.measurePerformance = false;
+        QVERIFY(store().save(1001, s, {}));
+        QCOMPARE(run(environment(QStringLiteral("1001")), gameCommand()), 0);
+        QCOMPARE(wrappersSaw(), (QStringList{QStringLiteral("gamemoderun"), QStringLiteral("mangohud")}));
+        QCOMPARE(gameSaw().value(QStringLiteral("arg1")), QStringLiteral("two words"));
+        QCOMPARE(gameSaw().value(QStringLiteral("vblank_mode")), QStringLiteral("0"));
+
+        // Inside gamescope, gamescope shows MangoHud through mangoapp.
+        s.gamescope = true;
+        QVERIFY(store().save(1001, s, {}));
+        QVERIFY(test::writeFile(path(QStringLiteral("bin/mangoapp")), "#!/bin/sh\n", true));
+        QCOMPARE(run(environment(QStringLiteral("1001")), gameCommand()), 0);
+        QCOMPARE(wrappersSaw(), QStringList{QStringLiteral("gamemoderun")});
+        QVERIFY2(gamescopeSaw().contains(QLatin1String(" --mangoapp -f -- ")), qPrintable(gamescopeSaw()));
+        QVERIFY(QFile::remove(path(QStringLiteral("bin/mangoapp"))));
+        QVERIFY(gameSaw().contains(QStringLiteral("arg0")));
     }
 
     void neverStartsASecondGamescope()

@@ -104,6 +104,7 @@ Kirigami.ApplicationWindow {
                     }
 
                     GameSettingsPane {
+                        objectName: "gameSettingsPane"
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         visible: root.editor.hasGame
@@ -131,6 +132,7 @@ Kirigami.ApplicationWindow {
                 Layout.fillHeight: true
                 Layout.margins: Kirigami.Units.largeSpacing * 2
                 monitor: root.gpu
+                library: root.library
             }
         }
     }

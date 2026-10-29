@@ -10,15 +10,19 @@ find_package(Vulkan 1.3 REQUIRED COMPONENTS glslangValidator)
 # Shaders become SPIR-V arrays in headers, compiled in at build time.
 set(shader_dir ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 set(shader_headers)
-foreach(shader fullscreen.vert filters.frag)
+foreach(shader fullscreen.vert filters.frag
+               smaa_edges.vert smaa_edges.frag smaa_weights.vert smaa_weights.frag smaa_blend.vert smaa_blend.frag)
     string(REPLACE "." "_" variable ${shader})
     set(header ${shader_dir}/${variable}.h)
     add_custom_command(
         OUTPUT ${header}
         COMMAND ${CMAKE_COMMAND} -E make_directory ${shader_dir}
         COMMAND Vulkan::glslangValidator -V --target-env vulkan1.0 --quiet --vn ${variable}
+                -I${CMAKE_CURRENT_SOURCE_DIR}/third_party/smaa
                 -o ${header} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}
         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}
+                ${CMAKE_CURRENT_SOURCE_DIR}/shaders/smaa.glsl
+                ${CMAKE_CURRENT_SOURCE_DIR}/third_party/smaa/SMAA.hlsl
         COMMENT "Compiling shader ${shader}"
         VERBATIM)
     list(APPEND shader_headers ${header})
@@ -27,7 +31,11 @@ endforeach()
 # Everything but the hooks, so tests can drive the filter pass directly.
 add_library(gfxtune_filters_vk STATIC
     FilterPass.cpp
+    FullscreenPass.cpp
     LayerSettings.cpp
+    Pacing.cpp
+    Recorder.cpp
+    Smaa.cpp
     ${shader_headers}
 )
 target_include_directories(gfxtune_filters_vk

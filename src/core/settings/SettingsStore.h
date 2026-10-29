@@ -33,6 +33,11 @@ public:
     // `gameName` is written for people reading the file; it is not read back.
     bool save(quint32 appId, const GameSettings &settings, const QString &gameName, QString *error = nullptr) const;
     bool remove(quint32 appId, QString *error = nullptr) const;
+
+    // What gfxtune found out about the game, kept next to its settings.
+    // Written only for games that have a settings file.
+    GameFacts loadFacts(quint32 appId) const;
+    bool saveFacts(quint32 appId, const GameFacts &facts, QString *error = nullptr) const;
     // Games whose settings change how they start or look.
     QSet<quint32> customizedGames() const;
 

@@ -11,7 +11,11 @@ QQC2.ScrollView {
     id: pane
 
     required property GameSettingsEditor editor
+    // The scroll bar is drawn over the content; keep the settings clear of it.
+    readonly property real barWidth: QQC2.ScrollBar.vertical.visible ? QQC2.ScrollBar.vertical.width : 0
 
+    leftPadding: mirrored ? barWidth : 0
+    rightPadding: mirrored ? 0 : barWidth
     contentWidth: availableWidth
 
     ColumnLayout {
@@ -114,6 +118,9 @@ QQC2.ScrollView {
 
         Kirigami.FormLayout {
             Layout.fillWidth: true
+            // Narrow pages put the labels above the settings, edge to edge.
+            Layout.leftMargin: Kirigami.Units.gridUnit
+            Layout.rightMargin: Kirigami.Units.gridUnit
 
             Kirigami.Separator {
                 Kirigami.FormData.isSection: true
@@ -134,6 +141,28 @@ QQC2.ScrollView {
             }
             Note {
                 text: pane.editor.anisotropicNote
+            }
+            ValueComboBox {
+                objectName: "lodBias"
+                Kirigami.FormData.label: "Texture detail:"
+                enabled: pane.editor.lodBiasAvailable
+                // Hundredths of a mip level, added to the game's own bias.
+                model: [
+                    {text: "Game decides", value: 0},
+                    {text: "Sharper (−0.25)", value: -25},
+                    {text: "Sharper (−0.5)", value: -50},
+                    {text: "Sharper (−0.75)", value: -75},
+                    {text: "Sharper (−1)", value: -100},
+                    {text: "Sharper (−1.5)", value: -150},
+                    {text: "Sharpest (−2)", value: -200},
+                    {text: "Softer (+0.5)", value: 50},
+                    {text: "Softer (+1)", value: 100}
+                ]
+                value: pane.editor.lodBias
+                onPicked: value => pane.editor.lodBias = value
+            }
+            Note {
+                text: pane.editor.lodBiasNote
             }
 
             Kirigami.Separator {
@@ -213,7 +242,8 @@ QQC2.ScrollView {
             }
             Kirigami.InlineMessage {
                 objectName: "filtersWarning"
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 24
+                Layout.fillWidth: true
+                Layout.maximumWidth: Kirigami.Units.gridUnit * 24
                 visible: pane.editor.filtersLocked
                 type: Kirigami.MessageType.Warning
                 text: pane.editor.filtersWarning
@@ -237,6 +267,21 @@ QQC2.ScrollView {
             Note {
                 visible: filtersSwitch.enabled
                 text: "Changes show in the game within a second while it runs. Switch off to compare with the original picture."
+            }
+            ValueComboBox {
+                objectName: "antiAliasing"
+                Kirigami.FormData.label: "Anti-aliasing:"
+                enabled: filtersSwitch.enabled
+                model: [
+                    {text: "Off", value: 0},
+                    {text: "SMAA", value: 1}
+                ]
+                value: pane.editor.antiAliasing
+                onPicked: value => pane.editor.antiAliasing = value
+            }
+            Note {
+                visible: filtersSwitch.enabled && pane.editor.antiAliasing !== 0
+                text: "Smooths jagged edges in the finished picture. Costs a little performance and can soften small text."
             }
             FilterSlider {
                 objectName: "filterSharpening"
@@ -323,7 +368,8 @@ QQC2.ScrollView {
                 text: pane.editor.gamescopeNote
             }
             Kirigami.InlineMessage {
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 24
+                Layout.fillWidth: true
+                Layout.maximumWidth: Kirigami.Units.gridUnit * 24
                 visible: pane.editor.gamescope
                 type: Kirigami.MessageType.Warning
                 text: "gamescope can lower performance and add input latency. Turn it off if the game feels slower."
@@ -332,6 +378,9 @@ QQC2.ScrollView {
                 Kirigami.FormData.label: "Render resolution:"
                 enabled: pane.editor.gamescope && pane.editor.gamescopeAvailable
                 model: [
+                    {text: "Supersampling (200%)", value: 200},
+                    {text: "Supersampling (150%)", value: 150},
+                    {text: "Supersampling (125%)", value: 125},
                     {text: "Native (100%)", value: 100},
                     {text: "Ultra quality (77%)", value: 77},
                     {text: "Quality (67%)", value: 67},
@@ -344,7 +393,7 @@ QQC2.ScrollView {
             }
             ValueComboBox {
                 Kirigami.FormData.label: "Upscaler:"
-                enabled: pane.editor.gamescope && pane.editor.gamescopeAvailable
+                enabled: pane.editor.gamescope && pane.editor.gamescopeAvailable && pane.editor.renderScale <= 100
                 model: [
                     {text: "FSR 1", value: 0},
                     {text: "NIS", value: 1},
@@ -358,7 +407,8 @@ QQC2.ScrollView {
             }
             RowLayout {
                 Kirigami.FormData.label: "Upscaler sharpness:"
-                enabled: pane.editor.gamescope && pane.editor.gamescopeAvailable && pane.editor.upscaleFilter === 0
+                enabled: pane.editor.gamescope && pane.editor.gamescopeAvailable && pane.editor.renderScale <= 100
+                         && pane.editor.upscaleFilter === 0
 
                 QQC2.Slider {
                     wheelEnabled: false // scrolling the page must not edit it
@@ -391,10 +441,65 @@ QQC2.ScrollView {
                 value: pane.editor.scalingMode
                 onPicked: value => pane.editor.scalingMode = value
             }
+
+            Kirigami.Separator {
+                Kirigami.FormData.isSection: true
+                Kirigami.FormData.label: "Launch"
+            }
+            SettingSwitch {
+                objectName: "gameMode"
+                Kirigami.FormData.label: "GameMode:"
+                enabled: pane.editor.gameModeAvailable
+                value: pane.editor.gameMode
+                onPicked: value => pane.editor.gameMode = value
+            }
+            Note {
+                text: pane.editor.gameModeNote
+            }
+            SettingSwitch {
+                objectName: "mangoHud"
+                Kirigami.FormData.label: "MangoHud:"
+                enabled: pane.editor.mangoHudAvailable
+                value: pane.editor.mangoHud
+                onPicked: value => pane.editor.mangoHud = value
+            }
+            Note {
+                text: pane.editor.mangoHudNote
+            }
+
+            Kirigami.Separator {
+                Kirigami.FormData.isSection: true
+                Kirigami.FormData.label: "Performance"
+            }
+            SettingSwitch {
+                objectName: "measurePerformance"
+                Kirigami.FormData.label: "Measure performance:"
+                enabled: pane.editor.measureAvailable && !pane.editor.filtersLocked
+                // Locked by anti-cheat, nothing is measured whatever is saved.
+                value: pane.editor.measurePerformance && enabled
+                onPicked: value => pane.editor.measurePerformance = value
+            }
+            Note {
+                text: pane.editor.measureNote
+            }
+        }
+
+        PerformanceHistory {
+            Layout.fillWidth: true
+            // A column is otherwise no wider than its widest child; filling
+            // the page centres the table under the settings.
+            Layout.maximumWidth: Number.POSITIVE_INFINITY
+            Layout.leftMargin: Kirigami.Units.gridUnit
+            Layout.rightMargin: Kirigami.Units.gridUnit
+            editor: pane.editor
+            room: pane.availableWidth - Layout.leftMargin - Layout.rightMargin
         }
 
         Kirigami.FormLayout {
             Layout.fillWidth: true
+            // Narrow pages put the labels above the settings, edge to edge.
+            Layout.leftMargin: Kirigami.Units.gridUnit
+            Layout.rightMargin: Kirigami.Units.gridUnit
 
             Kirigami.Separator {
                 Kirigami.FormData.isSection: true
@@ -412,6 +517,7 @@ QQC2.ScrollView {
             }
             QQC2.Label {
                 Kirigami.FormData.label: "Applied:"
+                Layout.fillWidth: true
                 Layout.maximumWidth: Kirigami.Units.gridUnit * 24
                 visible: pane.editor.hasLastLaunch
                 wrapMode: Text.Wrap
@@ -419,6 +525,7 @@ QQC2.ScrollView {
             }
             QQC2.Label {
                 Kirigami.FormData.label: "Left to Steam's options:"
+                Layout.fillWidth: true
                 Layout.maximumWidth: Kirigami.Units.gridUnit * 24
                 visible: pane.editor.lastLaunchKept.length > 0
                 wrapMode: Text.Wrap
@@ -426,6 +533,7 @@ QQC2.ScrollView {
             }
             QQC2.Label {
                 Kirigami.FormData.label: "Not applied:"
+                Layout.fillWidth: true
                 Layout.maximumWidth: Kirigami.Units.gridUnit * 24
                 visible: pane.editor.lastLaunchNotApplied.length > 0
                 wrapMode: Text.Wrap
@@ -434,6 +542,7 @@ QQC2.ScrollView {
             QQC2.Label {
                 objectName: "lastLaunchFilters"
                 Kirigami.FormData.label: "In-game filters:"
+                Layout.fillWidth: true
                 Layout.maximumWidth: Kirigami.Units.gridUnit * 24
                 visible: pane.editor.lastLaunchFilters.length > 0
                 wrapMode: Text.Wrap

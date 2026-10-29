@@ -9,11 +9,18 @@
 // are skipped. Khronos' validation layer checks every call when installed.
 
 #include "FilterPass.h"
+#include "FullscreenPass.h"
 #include "LayerSettings.h"
+#include "Pacing.h"
+#include "Recorder.h"
+#include "Smaa.h"
+#include "shared/FrameHistogram.h"
+#include "support/FakeSysfs.h"
 #include "VulkanFunctions.h"
 #include "filters/Filters.h"
 
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QStringList>
 #include <QTemporaryDir>
@@ -21,6 +28,10 @@
 
 #include <vulkan/vulkan.h>
 
+#include "first_level_frag.h"
+#include "fullscreen_vert.h"
+
+#include <array>
 #include <cstring>
 #include <functional>
 #include <optional>
@@ -385,10 +396,18 @@ struct Vulkan {
         VkDeviceMemory memory = VK_NULL_HANDLE;
     };
 
-    Image image(VkFormat format, VkImageUsageFlags usage)
+    VkPhysicalDeviceMemoryProperties memoryProperties() const
+    {
+        VkPhysicalDeviceMemoryProperties props{};
+        vkGetPhysicalDeviceMemoryProperties(physical, &props);
+        return props;
+    }
+
+    Image image(VkFormat format, VkImageUsageFlags usage, bool mutableFormat = false)
     {
         Image i;
         auto info = layer::vkStruct<VkImageCreateInfo>(VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);
+        info.flags = mutableFormat ? VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT : 0;
         info.imageType = VK_IMAGE_TYPE_2D;
         info.format = format;
         info.extent = {Width, Height, 1};
@@ -467,12 +486,13 @@ ShaderParams params(const Values &values, VkFormat format)
     return filters::shaderParams(values, layer::isSrgbFormat(format));
 }
 
-void writeSettings(const QString &path, const Values &v)
+void writeSettings(const QString &path, const Values &v, int frameCap = 0, int lodBias = 0)
 {
     QFile file(path);
     QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
-    file.write(QStringLiteral("[filters]\nenabled=%1\nsharpening=%2\nbrightness=%3\ncontrast=%4\ngamma=%5\n"
-                              "saturation=%6\nvibrance=%7\ntemperature=%8\n")
+    file.write(QStringLiteral("[image]\nlod_bias=%12\n[frames]\nframe_cap_enabled=%9\nframe_cap=%10\n"
+                              "[filters]\nenabled=%1\nsharpening=%2\nbrightness=%3\ncontrast=%4\ngamma=%5\n"
+                              "saturation=%6\nvibrance=%7\ntemperature=%8\nanti_aliasing=%11\n")
                    .arg(v.enabled ? QStringLiteral("true") : QStringLiteral("false"))
                    .arg(v.sharpening)
                    .arg(v.brightness)
@@ -481,6 +501,10 @@ void writeSettings(const QString &path, const Values &v)
                    .arg(v.saturation)
                    .arg(v.vibrance)
                    .arg(v.temperature)
+                   .arg(frameCap > 0 ? QStringLiteral("true") : QStringLiteral("false"))
+                   .arg(frameCap > 0 ? frameCap : 60)
+                   .arg(QLatin1String(filters::AntiAliasingNames[v.antiAliasing]))
+                   .arg(lodBias)
                    .toUtf8());
 }
 
@@ -530,6 +554,7 @@ private:
     QTemporaryDir m_dir;
     QString m_settings;
     QString m_report;
+    QString m_performance;
 
     QString layerDir() const { return QStringLiteral(GFXTUNE_LAYER_MANIFEST_DIR); }
 
@@ -541,6 +566,9 @@ private Q_SLOTS:
         m_report = m_dir.filePath(QStringLiteral("game.filters"));
         qputenv("GFXTUNE_FILTERS_SETTINGS", m_settings.toUtf8());
         qputenv("GFXTUNE_FILTERS_REPORT", m_report.toUtf8());
+        m_performance = m_dir.filePath(QStringLiteral("performance"));
+        QVERIFY(QDir().mkpath(m_performance));
+        qputenv("GFXTUNE_PERF_DIR", m_performance.toUtf8());
         // Only the layer this build made, as an explicit layer, so it can sit
         // above the validation layer and be checked by it.
         qputenv("VK_ADD_LAYER_PATH", layerDir().toUtf8());
@@ -549,13 +577,13 @@ private Q_SLOTS:
 
     void readsTheSettingsFile()
     {
-        const Values v = layer::parseFilterSettings(
+        const Values v = layer::parseLayerConfig(
             "[game]\nsharpening=99\n"
             "[filters]\nenabled=false\nsharpening=55\nbrightness=-12\ncontrast= 7 \ngamma=180\n"
             "saturation=-100\nvibrance=101\ntemperature=x\nunknown=3\n; comment\n"
             "[gamescope]\nsharpness=4\n"
             // The same names in another section are not filters.
-            "[other]\nsharpening=7\ncontrast=9\n");
+            "[other]\nsharpening=7\ncontrast=9\n").filters;
         QCOMPARE(v.enabled, false);
         QCOMPARE(v.sharpening, 55);
         QCOMPARE(v.brightness, -12);
@@ -564,34 +592,34 @@ private Q_SLOTS:
         QCOMPARE(v.saturation, -100);
         QCOMPARE(v.vibrance, filters::Vibrance.neutral);       // out of range
         QCOMPARE(v.temperature, filters::Temperature.neutral); // not a number
-        QCOMPARE(layer::parseFilterSettings(""), Values{});
-        QCOMPARE(layer::parseFilterSettings("garbage\x01\xFF[[["), Values{});
+        QCOMPARE(layer::parseLayerConfig("").filters, Values{});
+        QCOMPARE(layer::parseLayerConfig("garbage\x01\xFF[[[").filters, Values{});
     }
 
     void followsTheSettingsFileAsItChanges()
     {
         const QString path = m_dir.filePath(QStringLiteral("follow.ini"));
         layer::SettingsFile file(path.toStdString(), std::chrono::milliseconds(0));
-        QCOMPARE(file.values(), Values{}); // no file yet: nothing to draw
+        QCOMPARE(file.config().filters, Values{}); // no file yet: nothing to draw
         Values v;
         v.sharpening = 30;
         writeSettings(path, v);
-        QCOMPARE(file.values().sharpening, 30);
+        QCOMPARE(file.config().filters.sharpening, 30);
         v.sharpening = 70;
         v.contrast = -5;
         writeSettings(path, v);
-        QCOMPARE(file.values().sharpening, 70);
-        QCOMPARE(file.values().contrast, -5);
+        QCOMPARE(file.config().filters.sharpening, 70);
+        QCOMPARE(file.config().filters.contrast, -5);
         QFile::remove(path); // "Reset" deleted it
-        QCOMPARE(file.values(), Values{});
+        QCOMPARE(file.config().filters, Values{});
 
         // Between checks, the file is not looked at.
         layer::SettingsFile slow(path.toStdString(), std::chrono::hours(1));
         writeSettings(path, v);
-        QCOMPARE(slow.values().sharpening, 70);
+        QCOMPARE(slow.config().filters.sharpening, 70);
         v.sharpening = 10;
         writeSettings(path, v);
-        QCOMPARE(slow.values().sharpening, 70);
+        QCOMPARE(slow.config().filters.sharpening, 70);
     }
 
     void writesItsReport()
@@ -779,6 +807,7 @@ private Q_SLOTS:
         // picture in), present. Then wait for that image to come back and
         // read what was shown.
         QString why;
+        int presentCalls = 0;
         const auto presentFrame = [&]() -> QByteArray {
             why.clear();
             uint32_t index = 0;
@@ -804,6 +833,7 @@ private Q_SLOTS:
             present.pSwapchains = &swapchain;
             present.pImageIndices = &index;
             const VkResult presented = drawn ? vkQueuePresentKHR(v.queue, &present) : VK_ERROR_UNKNOWN;
+            ++presentCalls;
             if (presented != VK_SUCCESS) {
                 why = QStringLiteral("present: %1").arg(int(presented));
                 vkDestroyFence(v.device, acquireFence, nullptr);
@@ -819,6 +849,7 @@ private Q_SLOTS:
                 auto back = present;
                 back.pImageIndices = &image;
                 vkQueuePresentKHR(v.queue, &back);
+                ++presentCalls;
                 vkQueueWaitIdle(v.queue);
             };
             std::vector<uint32_t> held;
@@ -857,6 +888,17 @@ private Q_SLOTS:
             return shownBytes;
         };
 
+        const auto presentAfter = [&](const Values &next) {
+            writeSettings(m_settings, next);
+            QTest::qWait(700);
+            return presentFrame();
+        };
+        const auto presentFrameCounting = [&] {
+            const int before = presentCalls;
+            presentFrame();
+            return presentCalls - before;
+        };
+
         // Filtered, as the settings file says.
         int worst = 0;
         QByteArray shown = presentFrame();
@@ -880,6 +922,32 @@ private Q_SLOTS:
         shown = presentFrame();
         QVERIFY2(!shown.isEmpty(), qPrintable(QStringLiteral("the third frame did not come back: ") + why));
         QCOMPARE(shown, input);
+
+        // Anti-aliasing too: SMAA, then the other filters, in the game.
+        values = sample(2);
+        const QByteArray withoutSmaa = presentAfter(values);
+        values.antiAliasing = 1;
+        writeSettings(m_settings, values);
+        QTest::qWait(700);
+        shown = presentFrame();
+        QVERIFY2(!shown.isEmpty(), qPrintable(QStringLiteral("the anti-aliased frame did not come back: ") + why));
+        QVERIFY(shown != withoutSmaa); // the noise and stripes have edges everywhere
+
+        // The cap holds the game's presents apart: 20 FPS is 50 ms each.
+        values = Values{};
+        values.enabled = false;
+        writeSettings(m_settings, values, 20);
+        QTest::qWait(700);
+        QElapsedTimer timer;
+        timer.start();
+        int presents = 0;
+        for (int i = 0; i < 3; ++i) {
+            presents += presentFrameCounting();
+        }
+        QVERIFY2(timer.elapsed() >= (presents - 1) * 50 - 5, qPrintable(QStringLiteral("%1 presents in %2 ms").arg(presents).arg(timer.elapsed())));
+
+        // Measured as it ran: the live file is there within a second.
+        QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(m_performance + QStringLiteral("/live")), 3000);
 
         vkDestroySemaphore(v.device, rendered, nullptr);
         vkDestroySwapchainKHR(v.device, swapchain, nullptr);
@@ -949,6 +1017,362 @@ private Q_SLOTS:
         qunsetenv("GFXTUNE_FILTERS");
         qunsetenv("VK_ADD_IMPLICIT_LAYER_PATH");
         qputenv("VK_ADD_LAYER_PATH", layerDir().toUtf8());
+    }
+
+    void pacesFramesOnAFixedGrid()
+    {
+        using Clock = layer::FrameLimiter::Clock;
+        using std::chrono::milliseconds;
+        layer::FrameLimiter limiter;
+        const Clock::time_point start = Clock::now();
+        QCOMPARE(limiter.slot(0, start), start); // no cap: right away
+        // 100 FPS: slots 10 ms apart from the first frame.
+        QCOMPARE(limiter.slot(100, start), start);
+        QCOMPARE(limiter.slot(100, start + milliseconds(1)), start + milliseconds(10));
+        // A frame a little late does not move the grid...
+        QCOMPARE(limiter.slot(100, start + milliseconds(25)), start + milliseconds(20));
+        QCOMPARE(limiter.slot(100, start + milliseconds(26)), start + milliseconds(30));
+        // ...one late by more than a whole interval starts it afresh.
+        QCOMPARE(limiter.slot(100, start + milliseconds(500)), start + milliseconds(500));
+        QCOMPARE(limiter.slot(100, start + milliseconds(501)), start + milliseconds(510));
+        // A new cap starts afresh too.
+        QCOMPARE(limiter.slot(50, start + milliseconds(502)), start + milliseconds(502));
+        QCOMPARE(limiter.slot(50, start + milliseconds(503)), start + milliseconds(522));
+
+        // Waiting lands on time, within a millisecond.
+        const Clock::time_point target = Clock::now() + milliseconds(5);
+        layer::FrameLimiter::waitUntil(target);
+        const auto late = Clock::now() - target;
+        QVERIFY(late >= Clock::duration::zero());
+        QVERIFY2(late < milliseconds(1), qPrintable(QString::number(std::chrono::duration<double, std::milli>(late).count())));
+    }
+
+    void addsTextureDetailWithinTheLimit()
+    {
+        QCOMPARE(layer::biasedLod(0.0f, -50, 16.0f), -0.5f);
+        QCOMPARE(layer::biasedLod(-0.25f, 100, 16.0f), 0.75f); // added to the game's own
+        QCOMPARE(layer::biasedLod(-1.5f, -200, 2.0f), -2.0f); // the card's limit
+        QCOMPARE(layer::biasedLod(1.5f, 100, 2.0f), 2.0f);
+    }
+
+    // Through the loader, texture detail reaches the samplers a game makes:
+    // a texture whose first level is red and second green, read at its
+    // first level, comes out green with the detail one level lower.
+    void appliesTextureDetailToTheGamesSamplers()
+    {
+        QStringList layers{QStringLiteral("VK_LAYER_GFXTUNE_filters")};
+        if (Vulkan::availableLayers().contains(QStringLiteral("VK_LAYER_KHRONOS_validation"))) {
+            layers << QStringLiteral("VK_LAYER_KHRONOS_validation");
+        }
+        Vulkan v;
+        if (!v.create(layers, false)) {
+            QSKIP(qPrintable(v.why));
+        }
+        constexpr VkFormat Format = VK_FORMAT_R8G8B8A8_UNORM;
+        if (!v.formatUsable(Format, VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT)) {
+            QSKIP("R8G8B8A8_UNORM cannot be sampled and drawn to");
+        }
+
+        // The texture: 2×2 red texels, then one green one.
+        auto imageInfo = layer::vkStruct<VkImageCreateInfo>(VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);
+        imageInfo.imageType = VK_IMAGE_TYPE_2D;
+        imageInfo.format = Format;
+        imageInfo.extent = {2, 2, 1};
+        imageInfo.mipLevels = 2;
+        imageInfo.arrayLayers = 1;
+        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+        imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        VkImage texture = VK_NULL_HANDLE;
+        QCOMPARE(v.vk.CreateImage(v.device, &imageInfo, nullptr, &texture), VK_SUCCESS);
+        VkMemoryRequirements needs{};
+        v.vk.GetImageMemoryRequirements(v.device, texture, &needs);
+        auto allocate = layer::vkStruct<VkMemoryAllocateInfo>(VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO);
+        allocate.allocationSize = needs.size;
+        allocate.memoryTypeIndex = v.memoryType(needs.memoryTypeBits, 0);
+        VkDeviceMemory textureMemory = VK_NULL_HANDLE;
+        QCOMPARE(v.vk.AllocateMemory(v.device, &allocate, nullptr, &textureMemory), VK_SUCCESS);
+        v.vk.BindImageMemory(v.device, texture, textureMemory, 0);
+        auto viewInfo = layer::vkStruct<VkImageViewCreateInfo>(VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO);
+        viewInfo.image = texture;
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        viewInfo.format = Format;
+        viewInfo.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 2, 0, 1};
+        VkImageView textureView = VK_NULL_HANDLE;
+        QCOMPARE(v.vk.CreateImageView(v.device, &viewInfo, nullptr, &textureView), VK_SUCCESS);
+
+        const uint8_t texels[] = {255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 0, 255, 0, 255};
+        Vulkan::Buffer upload = v.hostBuffer(sizeof(texels));
+        Vulkan::Buffer download = v.hostBuffer(4);
+        std::memcpy(upload.mapped, texels, sizeof(texels));
+        QVERIFY(v.run([&](VkCommandBuffer cmd) {
+            auto b = layer::vkStruct<VkImageMemoryBarrier>(VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER);
+            b.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            b.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            b.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            b.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            b.image = texture;
+            b.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 2, 0, 1};
+            v.vk.CmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &b);
+            VkBufferImageCopy levels[2]{};
+            levels[0].imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+            levels[0].imageExtent = {2, 2, 1};
+            levels[1].bufferOffset = 16;
+            levels[1].imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 1, 0, 1};
+            levels[1].imageExtent = {1, 1, 1};
+            v.vk.CmdCopyBufferToImage(cmd, upload.buffer, texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 2, levels);
+            b.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            b.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            b.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            b.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            v.vk.CmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &b);
+        }));
+
+        std::string error;
+        layer::OwnImage target;
+        QVERIFY2(target.create(v.vk, v.device, v.memoryProperties(), Format, {1, 1},
+                               VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, false, &error),
+                 error.c_str());
+
+        // Draws with a sampler made after the layer saw the setting.
+        const auto readWith = [&](int bias) {
+            writeSettings(m_settings, Values{}, 0, bias);
+            QTest::qWait(1100); // the layer looks at its settings file once a second
+            layer::FullscreenPass::Setup setup;
+            setup.format = Format;
+            setup.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            setup.vertex = fullscreen_vert;
+            setup.vertexSize = sizeof(fullscreen_vert);
+            setup.fragment = first_level_frag;
+            setup.fragmentSize = sizeof(first_level_frag);
+            setup.sources = {VK_FILTER_NEAREST};
+            const auto pass = layer::FullscreenPass::create(v.vk, v.device, setup, &error);
+            std::array<uint8_t, 4> pixel{};
+            if (!pass) {
+                qWarning() << error.c_str();
+                return pixel;
+            }
+            const VkFramebuffer framebuffer = pass->createFramebuffer(target.view, {1, 1}, &error);
+            const VkDescriptorSet sources = pass->createDescriptor({textureView}, &error);
+            v.run([&](VkCommandBuffer cmd) {
+                pass->record(cmd, framebuffer, {1, 1}, sources, nullptr);
+                VkBufferImageCopy region{};
+                region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+                region.imageExtent = {1, 1, 1};
+                vkCmdCopyImageToBuffer(cmd, target.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, download.buffer, 1, &region);
+            });
+            std::memcpy(pixel.data(), download.mapped, 4);
+            pass->destroyDescriptor(sources);
+            pass->destroyFramebuffer(framebuffer);
+            return pixel;
+        };
+        const std::array<uint8_t, 4> red{255, 0, 0, 255};
+        const std::array<uint8_t, 4> green{0, 255, 0, 255};
+        QCOMPARE(readWith(0), red);
+        QCOMPARE(readWith(100), green); // one level softer
+        QCOMPARE(readWith(-200), red);  // sharper than the first level is the first level
+
+        writeSettings(m_settings, Values{});
+        target.destroy(v.vk, v.device);
+        v.free(upload);
+        v.free(download);
+        v.vk.DestroyImageView(v.device, textureView, nullptr);
+        v.vk.DestroyImage(v.device, texture, nullptr);
+        v.vk.FreeMemory(v.device, textureMemory, nullptr);
+        QVERIFY2(v.problems.isEmpty(), qPrintable(v.problems.join(QLatin1Char('\n'))));
+    }
+
+    void countsFramesIntoAHistogram()
+    {
+        shared::FrameHistogram h;
+        // 99 frames at 10 ms, one at 50 ms, and a pause that is not a frame.
+        for (int i = 0; i < 99; ++i) {
+            h.add(10'000'000);
+        }
+        h.add(50'000'000);
+        h.add(3'000'000'000);
+        h.add(-1);
+        QCOMPARE(h.frames(), std::uint64_t(100));
+        QVERIFY(std::abs(h.seconds() - 1.04) < 1e-9);
+        QVERIFY(std::abs(h.averageFps() - 100.0 / 1.04) < 1e-6);
+        QVERIFY(std::abs(h.percentileMs(50) - 10.05) < 1e-9);
+        QVERIFY(std::abs(h.lowFps(1) - 1000.0 / 10.05) < 1e-6);   // 1 % low: the 99th frame
+        QVERIFY(std::abs(h.lowFps(0.1) - 1000.0 / 50.05) < 1e-6); // 0.1 % low: the worst one
+        // Long frames go in the coarse buckets.
+        QCOMPARE(shared::FrameHistogram::bucketOf(150'000'000), shared::FrameHistogram::FineBuckets + 5);
+        QCOMPARE(shared::FrameHistogram::bucketOf(999'999'999), shared::FrameHistogram::Buckets - 1);
+
+        shared::FrameHistogram back;
+        QVERIFY(back.parse(h.serialize()));
+        QCOMPARE(back.frames(), h.frames());
+        QCOMPARE(back.lowFps(0.1), h.lowFps(0.1));
+        QVERIFY(!back.parse("12,5:x"));
+        QCOMPARE(back.frames(), std::uint64_t(0));
+        QVERIFY(!back.parse("1,99999:1"));
+        QVERIFY(!back.parse(""));
+        back.merge(h);
+        back.merge(h);
+        QCOMPARE(back.frames(), std::uint64_t(200));
+    }
+
+    void recordsASession()
+    {
+        QTemporaryDir sys;
+        test::addCard(sys.path(), 0);
+        QTemporaryDir dir;
+        using Clock = layer::PerformanceRecorder::Clock;
+        const Clock::time_point start = Clock::now();
+        std::string sessionPath;
+        {
+            layer::PerformanceRecorder recorder(dir.path().toStdString(), sys.path().toStdString(), false);
+            recorder.setDevice(0x1002, 0x744c);
+            sessionPath = recorder.sessionPath();
+            // One second at 60 FPS.
+            for (int i = 0; i <= 60; ++i) {
+                recorder.frame(start + std::chrono::microseconds(16'667 * i));
+            }
+            recorder.tick(true);
+            QFile live(QString::fromStdString(recorder.livePath()));
+            QVERIFY(live.open(QIODevice::ReadOnly));
+            const QString text = QString::fromUtf8(live.readAll());
+            QVERIFY2(text.contains(QLatin1String("fps=59.99")) || text.contains(QLatin1String("fps=60.00")), qPrintable(text));
+            QVERIFY2(text.contains(QLatin1String("frame_ms=16.667")), qPrintable(text));
+            // A paused game: no frames, no FPS, and no card reading counted.
+            recorder.tick(false);
+            live.close();
+            QVERIFY(live.open(QIODevice::ReadOnly));
+            QVERIFY(QString::fromUtf8(live.readAll()).contains(QLatin1String("fps=0.000")));
+        }
+        // The session file: the frames, and the card's readings from the fake /sys.
+        QFile file(QString::fromStdString(sessionPath));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QString session = QString::fromUtf8(file.readAll());
+        QVERIFY2(session.contains(QLatin1String("gpu_samples=1\n")), qPrintable(session));
+        QVERIFY(session.contains(QLatin1String("edge_sum=41.000")));
+        QVERIFY(session.contains(QLatin1String("power_sum=21.000")));
+        file.close();
+
+        // A new Vulkan instance in the same process carries on.
+        layer::PerformanceRecorder again(dir.path().toStdString(), sys.path().toStdString(), false);
+        for (int i = 0; i <= 30; ++i) {
+            again.frame(start + std::chrono::seconds(10) + std::chrono::microseconds(16'667 * i));
+        }
+        again.tick(true);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        std::string histogram;
+        for (const QByteArray &line : file.readAll().split('\n')) {
+            if (line.startsWith("histogram=")) {
+                histogram = line.mid(10).toStdString();
+            }
+        }
+        shared::FrameHistogram h;
+        QVERIFY(h.parse(histogram));
+        QCOMPARE(h.frames(), std::uint64_t(90));
+    }
+
+    void antiAliasesEdgesOnly_data()
+    {
+        QTest::addColumn<int>("format");
+        QTest::newRow("UNORM") << int(VK_FORMAT_R8G8B8A8_UNORM);
+        QTest::newRow("sRGB") << int(VK_FORMAT_B8G8R8A8_SRGB);
+    }
+
+    void antiAliasesEdgesOnly()
+    {
+        QFETCH(int, format);
+        const auto f = VkFormat(format);
+        const QStringList layers = Vulkan::availableLayers().contains(QStringLiteral("VK_LAYER_KHRONOS_validation"))
+                                       ? QStringList{QStringLiteral("VK_LAYER_KHRONOS_validation")}
+                                       : QStringList{};
+        Vulkan v;
+        if (!v.create(layers, false)) {
+            QSKIP(qPrintable(v.why));
+        }
+        std::string error;
+        const auto smaa = layer::Smaa::create(v.vk, v.device, v.memoryProperties(), f, &error);
+        QVERIFY2(smaa, error.c_str());
+        layer::Smaa::Frame frame;
+        QVERIFY2(smaa->createFrame({Width, Height}, frame, &error), error.c_str());
+        Vulkan::Image source = v.image(f, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, layer::isSrgbFormat(f));
+        layer::Smaa::Source input;
+        QVERIFY2(smaa->createSource(frame, source.image, input, &error), error.c_str());
+        // Read back as the layer uses it: through the last filter step, here
+        // with nothing else to do.
+        const auto last = layer::FilterPass::create(v.vk, v.device, f, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &error);
+        QVERIFY2(last, error.c_str());
+        Vulkan::Image target = v.image(f, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+        layer::FilterPass::Target t;
+        QVERIFY2(last->addTarget(frame.output.image, target.image, {Width, Height}, t, &error), error.c_str());
+
+        // A white shape with a stair-stepped diagonal edge on black, and a
+        // flat grey band that has no edges inside it.
+        std::vector<Rgb> picture(Width * Height, Rgb{0, 0, 0});
+        for (uint32_t y = 0; y < Height; ++y) {
+            for (uint32_t x = 0; x < Width; ++x) {
+                if (x < 2 * y && x < 16) {
+                    picture[y * Width + x] = {1, 1, 1};
+                } else if (x >= 18) {
+                    picture[y * Width + x] = {0.5f, 0.5f, 0.5f};
+                }
+            }
+        }
+        const QByteArray in = pack(picture, f);
+        Vulkan::Buffer upload = v.hostBuffer(VkDeviceSize(in.size()));
+        Vulkan::Buffer download = v.hostBuffer(VkDeviceSize(in.size()));
+        std::memcpy(upload.mapped, in.constData(), size_t(in.size()));
+        const VkBufferImageCopy region = Vulkan::wholeImage();
+        QVERIFY(v.run([&](VkCommandBuffer cmd) {
+            v.barrier(cmd, source.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            vkCmdCopyBufferToImage(cmd, upload.buffer, source.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+            v.barrier(cmd, source.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            smaa->record(cmd, frame, input);
+            v.barrier(cmd, target.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            last->record(cmd, t, params(Values{}, f));
+            vkCmdCopyImageToBuffer(cmd, target.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, download.buffer, 1, &region);
+        }));
+        smaa->uploadSubmitted();
+        const QByteArray out(static_cast<const char *>(download.mapped), in.size());
+
+        // Smoothed: pixels on the staircase take values between black and
+        // white. Untouched: everything away from an edge, bit for bit (one
+        // step for sRGB's encode and decode).
+        const int slack = layer::isSrgbFormat(f) ? 1 : 0;
+        int blended = 0;
+        for (uint32_t y = 0; y < Height; ++y) {
+            for (uint32_t x = 0; x < Width; ++x) {
+                const std::size_t i = (y * Width + x) * 4;
+                bool nearEdge = false;
+                for (int dy = -2; dy <= 2; ++dy) {
+                    for (int dx = -2; dx <= 2; ++dx) {
+                        const int nx = int(x) + dx, ny = int(y) + dy;
+                        if (nx >= 0 && ny >= 0 && nx < int(Width) && ny < int(Height)
+                            && picture[size_t(ny) * Width + size_t(nx)] != picture[y * Width + x]) {
+                            nearEdge = true;
+                        }
+                    }
+                }
+                for (int c = 0; c < 3; ++c) {
+                    const int got = uint8_t(out[qsizetype(i) + c]);
+                    const int was = uint8_t(in[qsizetype(i) + c]);
+                    if (!nearEdge) {
+                        QVERIFY2(std::abs(got - was) <= slack, qPrintable(QStringLiteral("(%1, %2) changed from %3 to %4").arg(x).arg(y).arg(was).arg(got)));
+                    } else if (was == 255 || was == 0) {
+                        blended += (got > 8 && got < 247) ? 1 : 0;
+                    }
+                }
+            }
+        }
+        QVERIFY2(blended > 10, qPrintable(QString::number(blended)));
+
+        last->removeTarget(t);
+        v.free(target);
+        smaa->destroySource(input);
+        smaa->destroyFrame(frame);
+        v.free(upload);
+        v.free(download);
+        v.free(source);
+        QVERIFY2(v.problems.isEmpty(), qPrintable(v.problems.join(QLatin1Char('\n'))));
     }
 };
 

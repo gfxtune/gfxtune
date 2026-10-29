@@ -173,10 +173,12 @@ private Q_SLOTS:
         QCOMPARE(envValue(plan, QStringLiteral("GFXTUNE_FILTERS_REPORT")), c.filterReportPath);
         QVERIFY(plan.applied.contains(QStringLiteral("In-game filters")));
 
-        // Only when a filter is on as the game starts.
+        // Only when a filter is on as the game starts, or for measuring.
         s.filters.enabled = false;
+        s.measurePerformance = false;
         QVERIFY(!setsEnv(planLaunch(s, c), QStringLiteral("GFXTUNE_FILTERS")));
         s = GameSettings{};
+        s.measurePerformance = false;
         s.filters.gamma = 100; // neutral
         QVERIFY(!setsEnv(planLaunch(s, c), QStringLiteral("GFXTUNE_FILTERS")));
 
@@ -306,6 +308,230 @@ private Q_SLOTS:
         // Without a cap, gamescope is never given a refresh rate either.
         s.frameCapEnabled = false;
         QVERIFY(!planLaunch(s, c).wrapper.contains(QStringLiteral("-r")));
+    }
+
+    // The layer loads for measuring and filters when gfxtune-run gives it a
+    // settings file to follow.
+    static LaunchContext layerContext()
+    {
+        LaunchContext c = context();
+        c.filterSettingsPath = QStringLiteral("/home/user/.config/gfxtune/games/7.ini");
+        c.performanceDir = QStringLiteral("/home/user/.config/gfxtune/performance/7");
+        return c;
+    }
+
+    void measuresPerformanceInTheLayer()
+    {
+        GameSettings s; // measuring is on by default
+        LaunchPlan plan = planLaunch(s, layerContext());
+        QCOMPARE(envValue(plan, QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("1"));
+        QCOMPARE(envValue(plan, QStringLiteral("GFXTUNE_PERF_DIR")), QStringLiteral("/home/user/.config/gfxtune/performance/7"));
+        QCOMPARE(plan.applied, QStringList{QStringLiteral("Performance measuring")});
+
+        // Filters alone: no measurements written.
+        s.measurePerformance = false;
+        s.filters.saturation = 20;
+        plan = planLaunch(s, layerContext());
+        QVERIFY(setsEnv(plan, QStringLiteral("GFXTUNE_FILTERS")));
+        QVERIFY(!setsEnv(plan, QStringLiteral("GFXTUNE_PERF_DIR")));
+        QCOMPARE(plan.applied, QStringList{QStringLiteral("In-game filters")});
+
+        // Games that draw only with OpenGL are out of the layer's reach.
+        s = GameSettings{};
+        LaunchContext c = layerContext();
+        c.facts.openGlOnly = true;
+        plan = planLaunch(s, c);
+        QVERIFY(!setsEnv(plan, QStringLiteral("GFXTUNE_FILTERS")));
+        QVERIFY(plan.notApplied.isEmpty());
+    }
+
+    void locksTheLayerInGamesWithAntiCheat()
+    {
+        GameSettings s;
+        s.filters.contrast = 10;
+        s.frameCapEnabled = true;
+        s.frameCap = 90;
+        LaunchContext c = layerContext();
+        c.proton = true;
+        c.facts.antiCheat = {QStringLiteral("Easy Anti-Cheat")};
+        LaunchPlan plan = planLaunch(s, c);
+        QVERIFY(!setsEnv(plan, QStringLiteral("GFXTUNE_FILTERS")));
+        QVERIFY(!setsEnv(plan, QStringLiteral("GFXTUNE_PERF_DIR")));
+        QCOMPARE(plan.notApplied, QStringList{QStringLiteral("In-game filters and measuring: locked until the anti-cheat risk is accepted")});
+        // The cap falls back to DXVK and VKD3D-Proton.
+        QVERIFY(setsEnv(plan, QStringLiteral("VKD3D_FRAME_RATE")));
+        QVERIFY(plan.applied.contains(QStringLiteral("Frame rate cap 90")));
+
+        s.filtersRiskAccepted = true;
+        plan = planLaunch(s, c);
+        QVERIFY(setsEnv(plan, QStringLiteral("GFXTUNE_FILTERS")));
+        QVERIFY(plan.notApplied.isEmpty());
+        QVERIFY(!setsEnv(plan, QStringLiteral("VKD3D_FRAME_RATE")));
+
+        // Nothing for the layer to do: nothing locked to report.
+        s = GameSettings{};
+        s.measurePerformance = false;
+        QVERIFY(planLaunch(s, c).notApplied.isEmpty());
+    }
+
+    // One limiter at a time: the layer's whenever it loads.
+    void capsInTheLayerWhenItLoads()
+    {
+        GameSettings s;
+        s.frameCapEnabled = true;
+        s.frameCap = 60;
+        s.gamescope = true;
+        for (bool proton : {false, true}) {
+            LaunchContext c = layerContext();
+            c.proton = proton;
+            const LaunchPlan plan = planLaunch(s, c);
+            QVERIFY(setsEnv(plan, QStringLiteral("GFXTUNE_FILTERS")));
+            QVERIFY(!setsEnv(plan, QStringLiteral("VKD3D_FRAME_RATE")));
+            QVERIFY(!setsEnv(plan, QStringLiteral("DXVK_CONFIG")));
+            QVERIFY(!plan.wrapper.contains(QStringLiteral("-r")));
+            QCOMPARE(plan.applied.count(QStringLiteral("Frame rate cap 60")), 1);
+        }
+    }
+
+    void setsTextureDetail()
+    {
+        GameSettings s;
+        s.lodBias = -50;
+        // Through the layer, for every API it reaches, under Proton too.
+        LaunchPlan plan = planLaunch(s, layerContext());
+        QVERIFY(plan.applied.contains(QStringLiteral("Texture detail -0.50")));
+        QVERIFY(!setsEnv(plan, QStringLiteral("DXVK_CONFIG")));
+        LaunchContext protonLayer = layerContext();
+        protonLayer.proton = true;
+        plan = planLaunch(s, protonLayer);
+        QVERIFY(!setsEnv(plan, QStringLiteral("DXVK_CONFIG")));
+        QCOMPARE(plan.applied, (QStringList{QStringLiteral("Performance measuring"), QStringLiteral("Texture detail -0.50")}));
+
+        // Without it, DXVK sets it for DirectX 9 to 11.
+        s.measurePerformance = false;
+        LaunchContext c = layerContext();
+        c.proton = true;
+        plan = planLaunch(s, c);
+        QVERIFY(!setsEnv(plan, QStringLiteral("GFXTUNE_FILTERS")));
+        QCOMPARE(envValue(plan, QStringLiteral("DXVK_CONFIG")), QStringLiteral("d3d11.samplerLodBias = -0.50; d3d9.samplerLodBias = -0.50"));
+        QCOMPARE(plan.applied, QStringList{QStringLiteral("Texture detail -0.50 (DirectX 9 to 11)")});
+
+        // Softer textures: a positive bias.
+        s.lodBias = 100;
+        QVERIFY(planLaunch(s, c).applied.contains(QStringLiteral("Texture detail 1.00 (DirectX 9 to 11)")));
+
+        // The user's own DXVK_CONFIG wins, and nothing is claimed.
+        c.environment.insert(QStringLiteral("DXVK_CONFIG"), QStringLiteral("dxgi.syncInterval = 0"));
+        plan = planLaunch(s, c);
+        QVERIFY(!setsEnv(plan, QStringLiteral("DXVK_CONFIG")));
+        QVERIFY(plan.applied.isEmpty());
+
+        // A native game without the layer has nothing that sets it.
+        plan = planLaunch(s, context());
+        QCOMPARE(plan.notApplied, QStringList{QStringLiteral("Texture detail: needs gfxtune's layer, which is off for this game")});
+    }
+
+    // Mesa's vblank_mode reaches OpenGL games, which know only off and on.
+    void syncsOpenGlGamesToo()
+    {
+        const QList<std::pair<VerticalSync, QString>> modes{
+            {VerticalSync::Off, QStringLiteral("0")},
+            {VerticalSync::On, QStringLiteral("3")},
+            {VerticalSync::Fast, QString()},
+            {VerticalSync::Adaptive, QString()},
+            {VerticalSync::GameDefault, QString()},
+        };
+        for (const auto &[mode, value] : modes) {
+            GameSettings s;
+            s.verticalSync = mode;
+            const LaunchPlan plan = planLaunch(s, context());
+            QCOMPARE(setsEnv(plan, QStringLiteral("vblank_mode")), !value.isEmpty());
+            QCOMPARE(envValue(plan, QStringLiteral("vblank_mode")), value);
+        }
+        GameSettings s;
+        s.verticalSync = VerticalSync::Off;
+        LaunchContext c = context();
+        c.environment.insert(QStringLiteral("vblank_mode"), QStringLiteral("1"));
+        const LaunchPlan plan = planLaunch(s, c);
+        QVERIFY(!setsEnv(plan, QStringLiteral("vblank_mode")));
+        QVERIFY(setsEnv(plan, QStringLiteral("MESA_VK_WSI_PRESENT_MODE")));
+    }
+
+    void supersamplesThroughGamescope()
+    {
+        GameSettings s;
+        s.gamescope = true;
+        s.renderScale = 150;
+        s.upscaleFilter = UpscaleFilter::Fsr; // not used when scaling down
+        s.sharpness = 15;
+        const LaunchPlan plan = planLaunch(s, context());
+        QCOMPARE(plan.wrapper, (QStringList{QStringLiteral("gamescope"), QStringLiteral("-W"), QStringLiteral("2560"),
+                                            QStringLiteral("-H"), QStringLiteral("1440"), QStringLiteral("-w"), QStringLiteral("3840"),
+                                            QStringLiteral("-h"), QStringLiteral("2160"), QStringLiteral("-F"), QStringLiteral("linear"),
+                                            QStringLiteral("-S"), QStringLiteral("auto"), QStringLiteral("-f"), QStringLiteral("--")}));
+        QCOMPARE(plan.applied, QStringList{QStringLiteral("gamescope: drawn at 3840×2160, scaled down to 2560×1440")});
+
+        // Twice the size of a 4K screen stays an even, valid size.
+        s.renderScale = 200;
+        const LaunchPlan big = planLaunch(s, context(true, Screen{3840, 2160, 120}));
+        QCOMPARE(big.wrapper.mid(5, 4), (QStringList{QStringLiteral("-w"), QStringLiteral("7680"), QStringLiteral("-h"), QStringLiteral("4320")}));
+    }
+
+    void startsGameModeAndMangoHud()
+    {
+        GameSettings s;
+        s.gameMode = true;
+        s.mangoHud = true;
+        LaunchContext c = context();
+        c.gameModeInstalled = true;
+        c.mangoHudInstalled = true;
+        LaunchPlan plan = planLaunch(s, c);
+        QCOMPARE(plan.wrapper, (QStringList{QStringLiteral("gamemoderun"), QStringLiteral("mangohud")}));
+        QCOMPARE(plan.applied, (QStringList{QStringLiteral("GameMode"), QStringLiteral("MangoHud")}));
+
+        // Started already by the launch options: left alone.
+        c.environment.insert(QStringLiteral("LD_PRELOAD"), QStringLiteral("/usr/$LIB/libgamemodeauto.so.0"));
+        c.environment.insert(QStringLiteral("MANGOHUD"), QStringLiteral("1"));
+        plan = planLaunch(s, c);
+        QVERIFY(plan.wrapper.isEmpty());
+        QCOMPARE(plan.keptFromSteam, (QStringList{QStringLiteral("gamemoderun"), QStringLiteral("MangoHud")}));
+
+        // Not installed.
+        c = context();
+        plan = planLaunch(s, c);
+        QVERIFY(plan.wrapper.isEmpty());
+        QCOMPARE(plan.notApplied, (QStringList{QStringLiteral("GameMode: not installed"), QStringLiteral("MangoHud: not installed")}));
+    }
+
+    // MangoHud's layer is not supported inside gamescope; gamescope shows it
+    // through mangoapp instead.
+    void showsMangoHudThroughGamescope()
+    {
+        GameSettings s;
+        s.gameMode = true;
+        s.mangoHud = true;
+        s.gamescope = true;
+        LaunchContext c = context();
+        c.gameModeInstalled = true;
+        c.mangoHudInstalled = true;
+        c.mangoAppInstalled = true;
+        LaunchPlan plan = planLaunch(s, c);
+        QCOMPARE(plan.wrapper.first(), QStringLiteral("gamemoderun"));
+        QCOMPARE(plan.wrapper.at(1), QStringLiteral("gamescope"));
+        QVERIFY(!plan.wrapper.contains(QStringLiteral("mangohud")));
+        QCOMPARE(plan.wrapper.mid(plan.wrapper.size() - 3), (QStringList{QStringLiteral("--mangoapp"), QStringLiteral("-f"), QStringLiteral("--")}));
+        QVERIFY(plan.applied.contains(QStringLiteral("MangoHud (gamescope's mangoapp)")));
+
+        c.mangoAppInstalled = false;
+        plan = planLaunch(s, c);
+        QVERIFY(!plan.wrapper.contains(QStringLiteral("--mangoapp")));
+        QVERIFY(!plan.wrapper.contains(QStringLiteral("mangohud")));
+        QCOMPARE(plan.notApplied, QStringList{QStringLiteral("MangoHud: inside gamescope it needs mangoapp, which is not installed")});
+
+        // gamescope cannot run: MangoHud goes around the game as usual.
+        c.gamescopeInstalled = false;
+        plan = planLaunch(s, c);
+        QCOMPARE(plan.wrapper, (QStringList{QStringLiteral("gamemoderun"), QStringLiteral("mangohud")}));
     }
 
     void recognisesProtonCommands_data()

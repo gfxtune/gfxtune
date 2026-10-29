@@ -26,6 +26,8 @@ bool hasHelper(const QString &launchOptions);
 struct OwnSettings {
     QSet<QString> environment; // names of variables assigned before %command%
     bool gamescope = false;    // gamescope already wraps the game
+    bool gameMode = false;     // so does gamemoderun
+    bool mangoHud = false;     // so does mangohud
 };
 OwnSettings ownSettings(const QString &launchOptions);
 

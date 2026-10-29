@@ -55,8 +55,20 @@ struct GpuReading {
     std::optional<int> fanRpm;
     std::optional<int> fanPercent;
     std::optional<int> voltage;
+    // What holds the card's clocks back right now, in words; empty when
+    // nothing does. Missing when the driver does not say.
+    std::optional<QStringList> heldBackBy;
 };
 
 GpuReading readGpu(const AmdGpu &gpu);
+
+// The reasons in the driver's gpu_metrics table (format 1.3, which RDNA 3
+// cards use). RDNA 3 firmware flags the hotspot limit almost all the time,
+// even idle (see MangoHud #1690), so like MangoHud it counts only from 90 °C.
+std::optional<QStringList> throttleReasons(const QByteArray &gpuMetrics, std::optional<double> hotspot);
+
+// Video memory that processes hold through the amdgpu driver, from their
+// open files' fdinfo, each client counted once.
+std::optional<quint64> processVideoMemory(const QList<qint64> &pids, const QString &procRoot = QStringLiteral("/proc"));
 
 } // namespace gfxtune::gpu

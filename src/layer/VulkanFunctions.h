@@ -25,6 +25,7 @@ T vkStruct(VkStructureType type)
 #define GFXTUNE_INSTANCE_FUNCTIONS(X)                                                                                  \
     X(DestroyInstance)                                                                                                 \
     X(GetPhysicalDeviceFormatProperties)                                                                               \
+    X(GetPhysicalDeviceProperties)                                                                                     \
     X(GetPhysicalDeviceMemoryProperties)                                                                               \
     X(GetPhysicalDeviceQueueFamilyProperties)                                                                          \
     X(GetPhysicalDeviceSurfaceCapabilitiesKHR)
@@ -39,6 +40,13 @@ T vkStruct(VkStructureType type)
     X(QueuePresentKHR)                                                                                                 \
     X(QueueSubmit)                                                                                                     \
     X(DeviceWaitIdle)                                                                                                  \
+    X(CreateBuffer)                                                                                                    \
+    X(DestroyBuffer)                                                                                                   \
+    X(GetBufferMemoryRequirements)                                                                                     \
+    X(BindBufferMemory)                                                                                                \
+    X(MapMemory)                                                                                                       \
+    X(UnmapMemory)                                                                                                     \
+    X(CmdCopyBufferToImage)                                                                                            \
     X(CreateImage)                                                                                                     \
     X(DestroyImage)                                                                                                    \
     X(GetImageMemoryRequirements)                                                                                      \

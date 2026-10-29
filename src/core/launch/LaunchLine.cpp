@@ -108,8 +108,11 @@ OwnSettings ownSettings(const QString &launchOptions)
         const QRegularExpressionMatch m = assignment.match(word);
         if (m.hasMatch()) {
             own.environment.insert(m.captured(1));
-        } else if (word.section(QLatin1Char('/'), -1) == QLatin1String("gamescope")) {
-            own.gamescope = true;
+        } else {
+            const QString program = word.section(QLatin1Char('/'), -1);
+            own.gamescope = own.gamescope || program == QLatin1String("gamescope");
+            own.gameMode = own.gameMode || program == QLatin1String("gamemoderun");
+            own.mangoHud = own.mangoHud || program == QLatin1String("mangohud");
         }
     }
     return own;

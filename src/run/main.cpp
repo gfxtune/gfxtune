@@ -7,9 +7,11 @@
 
 #include "launch/LastLaunch.h"
 #include "launch/LaunchPlan.h"
+#include "performance/Performance.h"
 #include "settings/SettingsStore.h"
 
 #include <QDateTime>
+#include <QDir>
 #include <QGuiApplication>
 #include <QProcessEnvironment>
 #include <QScreen>
@@ -91,6 +93,10 @@ int main(int argc, char *argv[])
         context.environment.insert(key, environment.value(key));
     }
     context.gamescopeInstalled = !QStandardPaths::findExecutable(QStringLiteral("gamescope")).isEmpty();
+    context.gameModeInstalled = !QStandardPaths::findExecutable(QStringLiteral("gamemoderun")).isEmpty();
+    context.mangoHudInstalled = !QStandardPaths::findExecutable(QStringLiteral("mangohud")).isEmpty();
+    context.mangoAppInstalled = !QStandardPaths::findExecutable(QStringLiteral("mangoapp")).isEmpty();
+    context.facts = store.loadFacts(appId);
     QStringList commandLine;
     for (char *const *argument = command; *argument; ++argument) {
         commandLine.append(QString::fromLocal8Bit(*argument));
@@ -98,6 +104,11 @@ int main(int argc, char *argv[])
     context.proton = launch::runsThroughProton(commandLine);
     context.filterSettingsPath = store.pathFor(appId);
     context.filterReportPath = launch::filterReportPath(store.baseDir(), appId);
+    // The layer writes its measurements here; it never creates folders.
+    const QString performanceDir = performance::performanceDir(store.baseDir(), appId);
+    if (gameSettings.measurePerformance && settings::layerWanted(gameSettings, context.facts) && QDir().mkpath(performanceDir)) {
+        context.performanceDir = performanceDir;
+    }
     if (launch::needsScreen(gameSettings) && context.gamescopeInstalled
         && !context.environment.contains(QStringLiteral("GAMESCOPE_WAYLAND_DISPLAY"))) {
         context.screen = mainScreen();
@@ -127,6 +138,6 @@ int main(int argc, char *argv[])
     full.push_back(nullptr);
     execvp(full[0], full.data());
     // The wrapper could not start; start the game without it.
-    std::perror("gfxtune-run: gamescope");
+    std::fprintf(stderr, "gfxtune-run: could not start %s; starting the game without it\n", full[0]);
     runCommand(command);
 }

@@ -7,8 +7,10 @@
 #include "GameLibrary.h"
 #include "GameSettingsEditor.h"
 #include "GpuMonitor.h"
+#include "performance/Performance.h"
 #include "support/FakeSteam.h"
 #include "support/FakeSysfs.h"
+#include "support/Fixtures.h"
 
 #include <QApplication>
 #include <QDir>
@@ -229,6 +231,91 @@ private Q_SLOTS:
         editor.acceptFiltersRisk();
         QTRY_VERIFY(!warning->isVisible());
         QVERIFY(sharpening->isEnabled());
+
+        QVERIFY2(w.warnings.isEmpty(), qPrintable(w.describeWarnings()));
+    }
+
+    // The game page's performance history and the panel's block for the
+    // game being measured.
+    void showsMeasuringAndTheGameBeingPlayed()
+    {
+        test::FakeSteam steam;
+        steam.build();
+        writeRealCovers(steam);
+        QTemporaryDir config;
+        QTemporaryDir proc;
+        settings::SettingsStore store(config.filePath(QStringLiteral("gfxtune")));
+        const QString perf = performance::performanceRoot(store.baseDir());
+        QVERIFY(test::writeFile(perf + QStringLiteral("/1003/history"),
+                                "1789990000,3900.0,468000,120.00,95.40,80.60,60.4,74.6,88.0,210.4,97.0\n"));
+        QVERIFY(test::writeFile(perf + QStringLiteral("/1003/live"), "time=" + QByteArray::number(QDateTime::currentSecsSinceEpoch() + 30)
+                                                                         + "\nfps=0\n")); // the clock jumped: not shown
+        GameLibrary library(steam.options(), &store, nullptr, proc.path());
+        GameSettingsEditor editor(&library, &store, settings::SystemInfo{true});
+        QTemporaryDir sys;
+        test::addCard(sys.path(), 0);
+        GpuMonitor gpu(sys.path(), nullptr, 100);
+        gpu.setGameSources(perf, proc.path());
+
+        Window w(library, editor, gpu);
+        QVERIFY(w.window);
+        w.window->show();
+        library.start();
+        QVERIFY(QTest::qWaitFor([&] { return library.loaded() && !library.scanning(); }, 10000));
+        editor.setAppId(1003);
+
+        QQuickItem *content = w.window->contentItem();
+        for (const char *name : {"lodBias", "antiAliasing", "gameMode", "mangoHud", "cpuReadings", "heldBackBy"}) {
+            QVERIFY2(findItem(content, QString::fromLatin1(name)), name);
+        }
+        QQuickItem *measure = findItem(content, QStringLiteral("measurePerformance"));
+        QQuickItem *table = findItem(content, QStringLiteral("sessionTable"));
+        QQuickItem *game = findItem(content, QStringLiteral("gameBlock"));
+        QVERIFY(measure && table && game);
+        QTRY_VERIFY(table->isVisible());
+        QVERIFY(measure->isEnabled());
+        QVERIFY(measure->property("checked").toBool());
+        QVERIFY(!game->isVisible());
+
+        // The header and one session as a table while it fits; in the
+        // smallest window a list instead.
+        const auto cells = [table] {
+            int count = 0;
+            for (QQuickItem *cell : table->childItems()) {
+                count += cell->isVisible() && cell->property("text").isValid() ? 1 : 0;
+            }
+            return count;
+        };
+        QTRY_COMPARE(cells(), 16);
+        QQuickItem *pane = findItem(content, QStringLiteral("gameSettingsPane"));
+        QVERIFY(pane);
+        w.window->resize(w.window->minimumWidth(), w.window->height());
+        QTRY_COMPARE(w.window->width(), w.window->minimumWidth());
+        QQuickItem *list = findItem(content, QStringLiteral("sessionList"));
+        QVERIFY(list);
+        QTRY_VERIFY(list->isVisible());
+        QVERIFY(!table->isVisible());
+        QVERIFY2(list->mapToItem(pane, QPointF(list->width(), 0)).x() <= pane->width(),
+                 qPrintable(QStringLiteral("list %1 wide, page %2").arg(list->width()).arg(pane->width())));
+        w.window->resize(w.window->minimumWidth() * 3 / 2, w.window->height());
+        QTRY_VERIFY(table->isVisible());
+        QVERIFY(!list->isVisible());
+        QCOMPARE(cells(), 16);
+        QVERIFY(table->mapToItem(pane, QPointF(table->width(), 0)).x() <= pane->width());
+
+        // A game being played shows in the panel.
+        QVERIFY(test::writeFile(perf + QStringLiteral("/1003/live"), "time=" + QByteArray::number(QDateTime::currentSecsSinceEpoch())
+                                                                         + "\nfps=88\nframe_ms=11.4\nframe_ms_max=19\n"));
+        QTRY_VERIFY(game->isVisible());
+        QCOMPARE(gpu.gameFps(), QStringLiteral("88 FPS"));
+
+        // Measuring is locked with the filters in a game with anti-cheat.
+        editor.setAppId(1004);
+        QTRY_VERIFY(!measure->isEnabled());
+        QVERIFY(!measure->property("checked").toBool());
+        editor.acceptFiltersRisk();
+        QTRY_VERIFY(measure->isEnabled());
+        QVERIFY(measure->property("checked").toBool());
 
         QVERIFY2(w.warnings.isEmpty(), qPrintable(w.describeWarnings()));
     }

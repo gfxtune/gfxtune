@@ -5,6 +5,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QHash>
 #include <QRegularExpression>
 
 #include <algorithm>
@@ -169,7 +170,117 @@ GpuReading readGpu(const AmdGpu &gpu)
         r.fanPercent = (*pwm * 100 + 127) / 255;
     }
     r.voltage = number<int>(h + QStringLiteral("in0_input"));
+
+    QFile metrics(d + QStringLiteral("gpu_metrics"));
+    if (metrics.open(QIODevice::ReadOnly)) {
+        r.heldBackBy = throttleReasons(metrics.read(4096), r.hotspotTemp);
+    }
     return r;
+}
+
+std::optional<QStringList> throttleReasons(const QByteArray &gpuMetrics, std::optional<double> hotspot)
+{
+    // struct gpu_metrics_v1_3 (kgd_pp_interface.h): a 4-byte header with the
+    // size and revision, and the ASIC-independent reasons, a 64-bit field,
+    // at byte 112 of 120.
+    constexpr qsizetype Offset = 112;
+    if (gpuMetrics.size() < Offset + 8 || uchar(gpuMetrics.at(2)) != 1 || uchar(gpuMetrics.at(3)) != 3) {
+        return std::nullopt;
+    }
+    quint64 bits = 0;
+    for (int i = 7; i >= 0; --i) {
+        bits = (bits << 8) | uchar(gpuMetrics.at(Offset + i));
+    }
+    // SMU_THROTTLER_*_BIT in amdgpu_smu.h, grouped the way people read them.
+    constexpr int TempHotspot = 36;
+    if (!hotspot || *hotspot < 90.0) {
+        bits &= ~(quint64(1) << TempHotspot);
+    }
+    const auto any = [bits](int first, int last) {
+        for (int bit = first; bit <= last; ++bit) {
+            if (bits & (quint64(1) << bit)) {
+                return true;
+            }
+        }
+        return false;
+    };
+    QStringList reasons;
+    if (any(0, 7)) {
+        reasons << QStringLiteral("power limit");
+    }
+    if (any(16, 23)) {
+        reasons << QStringLiteral("current limit");
+    }
+    if (any(32, 33) || any(35, 35)) {
+        reasons << QStringLiteral("GPU temperature");
+    }
+    if (any(TempHotspot, TempHotspot)) {
+        reasons << QStringLiteral("hotspot temperature");
+    }
+    if (any(34, 34)) {
+        reasons << QStringLiteral("memory temperature");
+    }
+    if (any(37, 47)) {
+        reasons << QStringLiteral("board temperature");
+    }
+    if (any(56, 57)) {
+        reasons << QStringLiteral("reliability limit");
+    }
+    return reasons;
+}
+
+std::optional<quint64> processVideoMemory(const QList<qint64> &pids, const QString &procRoot)
+{
+    QHash<QByteArray, quint64> clients; // per DRM client, each counted once
+    for (qint64 pid : pids) {
+        const QString dir = procRoot + QStringLiteral("/%1/fdinfo/").arg(pid);
+        const QStringList fds = QDir(dir).entryList(QDir::Files);
+        for (const QString &fd : fds) {
+            QFile file(dir + fd);
+            if (!file.open(QIODevice::ReadOnly)) {
+                continue; // closed meanwhile, or not ours to read
+            }
+            QByteArray client;
+            std::optional<quint64> resident;
+            std::optional<quint64> legacy;
+            bool amdgpu = false;
+            for (const QByteArray &line : file.read(16 * 1024).split('\n')) {
+                const qsizetype colon = line.indexOf(':');
+                if (colon < 0) {
+                    continue;
+                }
+                const QByteArray key = line.left(colon).trimmed();
+                const QByteArray value = line.mid(colon + 1).trimmed();
+                if (key == "drm-driver") {
+                    amdgpu = value == "amdgpu";
+                } else if (key == "drm-client-id") {
+                    client = value;
+                } else if (key == "drm-resident-vram" || key == "drm-memory-vram") {
+                    // "<number> [KiB|MiB]"
+                    const QList<QByteArray> parts = value.split(' ');
+                    bool ok = false;
+                    quint64 amount = parts.value(0).toULongLong(&ok);
+                    if (!ok) {
+                        continue;
+                    }
+                    const QByteArray unit = parts.value(1);
+                    amount *= unit == "KiB" ? 1024ull : unit == "MiB" ? 1024ull * 1024 : unit == "GiB" ? 1024ull * 1024 * 1024 : 1ull;
+                    (key == "drm-resident-vram" ? resident : legacy) = amount;
+                }
+            }
+            if (amdgpu && !client.isEmpty() && (resident || legacy)) {
+                clients.insert(client, resident ? *resident : *legacy);
+            }
+        }
+    }
+    if (clients.isEmpty()) {
+        return std::nullopt;
+    }
+    quint64 total = 0;
+    for (auto it = clients.cbegin(); it != clients.cend(); ++it) {
+        total += it.value();
+    }
+    return total;
 }
 
 } // namespace gfxtune::gpu

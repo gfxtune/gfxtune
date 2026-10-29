@@ -154,7 +154,6 @@ LaunchPlan planLaunch(const GameSettings &s, const LaunchContext &context)
     Planner p(context, plan);
     QStringList dxvk; // options for DXVK_CONFIG
 
-    // gamescope first: for games outside Proton it is what caps the frame rate.
     bool gamescope = false;
     if (s.gamescope) {
         if (context.environment.contains(QStringLiteral("GAMESCOPE_WAYLAND_DISPLAY"))) {
@@ -168,6 +167,29 @@ LaunchPlan planLaunch(const GameSettings &s, const LaunchContext &context)
         }
     }
 
+    // gfxtune's Vulkan layer loads only with GFXTUNE_FILTERS set, for the
+    // filters or for measuring. It follows the settings file while the game
+    // runs, and also takes over the frame cap and texture detail, the same
+    // way for Vulkan, DXVK and VKD3D-Proton games.
+    bool layer = false;
+    if (settings::layerWanted(s, context.facts) && !context.filterSettingsPath.isEmpty()
+        && p.set(QStringLiteral("GFXTUNE_FILTERS"), QStringLiteral("1"))) {
+        layer = true;
+        plan.environment.append({QStringLiteral("GFXTUNE_FILTERS_SETTINGS"), context.filterSettingsPath});
+        if (!context.filterReportPath.isEmpty()) {
+            plan.environment.append({QStringLiteral("GFXTUNE_FILTERS_REPORT"), context.filterReportPath});
+        }
+        if (s.filters.active()) {
+            plan.applied.append(QStringLiteral("In-game filters"));
+        }
+        if (s.measurePerformance && !context.performanceDir.isEmpty()) {
+            plan.environment.append({QStringLiteral("GFXTUNE_PERF_DIR"), context.performanceDir});
+            plan.applied.append(QStringLiteral("Performance measuring"));
+        }
+    } else if (!settings::layerAllowed(s, context.facts) && (s.filters.active() || s.measurePerformance)) {
+        plan.notApplied.append(QStringLiteral("In-game filters and measuring: locked until the anti-cheat risk is accepted"));
+    }
+
     if (s.anisotropicFiltering > 0) {
         const QString level = QString::number(s.anisotropicFiltering);
         const bool driver = p.set(QStringLiteral("RADV_TEX_ANISO"), level);
@@ -177,21 +199,43 @@ LaunchPlan planLaunch(const GameSettings &s, const LaunchContext &context)
         }
     }
 
+    bool lodByDxvk = false;
+    if (s.lodBias != 0) {
+        const QString bias = QString::number(double(s.lodBias) / 100.0, 'f', 2);
+        if (layer) {
+            plan.applied.append(QStringLiteral("Texture detail %1").arg(bias));
+        } else if (context.proton) {
+            dxvk << QStringLiteral("d3d11.samplerLodBias = ") + bias << QStringLiteral("d3d9.samplerLodBias = ") + bias;
+            lodByDxvk = true;
+        } else {
+            plan.notApplied.append(QStringLiteral("Texture detail: needs gfxtune's layer, which is off for this game"));
+        }
+    }
+
     if (s.verticalSync != VerticalSync::GameDefault) {
-        if (p.set(QStringLiteral("MESA_VK_WSI_PRESENT_MODE"), presentMode(s.verticalSync))) {
+        const bool vulkan = p.set(QStringLiteral("MESA_VK_WSI_PRESENT_MODE"), presentMode(s.verticalSync));
+        // OpenGL through Mesa knows only off and on.
+        if (s.verticalSync == VerticalSync::Off || s.verticalSync == VerticalSync::On) {
+            p.set(QStringLiteral("vblank_mode"), s.verticalSync == VerticalSync::Off ? QStringLiteral("0") : QStringLiteral("3"));
+        }
+        if (vulkan) {
             plan.applied.append(QStringLiteral("Vertical sync: %1").arg(verticalSyncWords(s.verticalSync)));
         }
     }
 
-    // DXVK caps DirectX 9 to 11 and VKD3D-Proton DirectX 12, exactly and inside
-    // the game, so under Proton they cap it whether gamescope runs or not.
-    // gamescope's -r only sets the refresh rate of its own screen, which holds
-    // a game back only while the game waits for vertical sync: it is the cap
-    // only for games outside Proton.
-    const bool capWithGamescope = s.frameCapEnabled && gamescope && !context.proton;
-    const bool capInGame = s.frameCapEnabled && !capWithGamescope;
+    // One limiter, never two at once: two on the same rate drift against
+    // each other and stutter. The layer's paces every Vulkan game exactly;
+    // without it, DXVK and VKD3D-Proton cap Proton games inside the game.
+    // gamescope's -r only sets the refresh rate of its own screen, which
+    // holds a game back only while it waits for vertical sync: it is the
+    // cap only for native games the layer does not reach.
+    const bool capByLayer = s.frameCapEnabled && layer;
+    const bool capWithGamescope = s.frameCapEnabled && !layer && gamescope && !context.proton;
+    const bool capInGame = s.frameCapEnabled && !capByLayer && !capWithGamescope;
     bool cappedByVkd3d = false;
-    if (capInGame) {
+    if (capByLayer) {
+        plan.applied.append(QStringLiteral("Frame rate cap %1").arg(s.frameCap));
+    } else if (capInGame) {
         const QString fps = QString::number(s.frameCap);
         dxvk << QStringLiteral("dxgi.maxFrameRate = ") + fps << QStringLiteral("d3d9.maxFrameRate = ") + fps;
         cappedByVkd3d = p.set(QStringLiteral("VKD3D_FRAME_RATE"), fps);
@@ -222,16 +266,36 @@ LaunchPlan planLaunch(const GameSettings &s, const LaunchContext &context)
     if (capInGame && (dxvkSet || cappedByVkd3d)) {
         plan.applied.append(QStringLiteral("Frame rate cap %1").arg(s.frameCap));
     }
+    if (lodByDxvk && dxvkSet) {
+        plan.applied.append(QStringLiteral("Texture detail %1 (DirectX 9 to 11)").arg(QString::number(double(s.lodBias) / 100.0, 'f', 2)));
+    }
 
-    // gfxtune's Vulkan layer loads only with GFXTUNE_FILTERS set, and only
-    // when a filter is on as the game starts. It then follows the settings
-    // file, so later changes show without a restart.
-    if (s.filters.active() && !context.filterSettingsPath.isEmpty() && p.set(QStringLiteral("GFXTUNE_FILTERS"), QStringLiteral("1"))) {
-        plan.environment.append({QStringLiteral("GFXTUNE_FILTERS_SETTINGS"), context.filterSettingsPath});
-        if (!context.filterReportPath.isEmpty()) {
-            plan.environment.append({QStringLiteral("GFXTUNE_FILTERS_REPORT"), context.filterReportPath});
+    // The programs the game starts through, outermost first: GameMode for
+    // everything, then gamescope, then MangoHud right around the game so its
+    // overlay lands in the game's own picture. Inside gamescope MangoHud's
+    // layer is not supported; gamescope starts its mangoapp instead.
+    if (s.gameMode) {
+        if (context.environment.value(QStringLiteral("LD_PRELOAD")).contains(QLatin1String("gamemodeauto"))) {
+            plan.keptFromSteam.append(QStringLiteral("gamemoderun"));
+        } else if (!context.gameModeInstalled) {
+            plan.notApplied.append(QStringLiteral("GameMode: not installed"));
+        } else {
+            plan.wrapper << QStringLiteral("gamemoderun");
+            plan.applied.append(QStringLiteral("GameMode"));
         }
-        plan.applied.append(QStringLiteral("In-game filters"));
+    }
+
+    enum class Hud { None, Wrapper, Gamescope } hud = Hud::None;
+    if (s.mangoHud) {
+        if (context.environment.contains(QStringLiteral("MANGOHUD"))) {
+            plan.keptFromSteam.append(QStringLiteral("MangoHud"));
+        } else if (gamescope && !context.mangoAppInstalled) {
+            plan.notApplied.append(QStringLiteral("MangoHud: inside gamescope it needs mangoapp, which is not installed"));
+        } else if (!gamescope && !context.mangoHudInstalled) {
+            plan.notApplied.append(QStringLiteral("MangoHud: not installed"));
+        } else {
+            hud = gamescope ? Hud::Gamescope : Hud::Wrapper;
+        }
     }
 
     if (gamescope) {
@@ -239,30 +303,45 @@ LaunchPlan planLaunch(const GameSettings &s, const LaunchContext &context)
         const double scale = s.renderScale / 100.0;
         const int width = evenAtLeast(screen.width * scale, 320);
         const int height = evenAtLeast(screen.height * scale, 200);
-        plan.wrapper = {
-            QStringLiteral("gamescope"),
-            QStringLiteral("-W"), QString::number(screen.width),
-            QStringLiteral("-H"), QString::number(screen.height),
-            QStringLiteral("-w"), QString::number(width),
-            QStringLiteral("-h"), QString::number(height),
-        };
+        // Drawn bigger than the screen: scaled down, where upscalers and
+        // their sharpening do not apply.
+        const bool supersampling = s.renderScale > 100;
+        plan.wrapper << QStringLiteral("gamescope")
+                     << QStringLiteral("-W") << QString::number(screen.width)
+                     << QStringLiteral("-H") << QString::number(screen.height)
+                     << QStringLiteral("-w") << QString::number(width)
+                     << QStringLiteral("-h") << QString::number(height);
         if (capWithGamescope) {
             plan.wrapper << QStringLiteral("-r") << QString::number(s.frameCap);
             plan.applied.append(QStringLiteral("Frame rate cap %1 (gamescope, while vertical sync is on)").arg(s.frameCap));
         }
-        plan.wrapper << QStringLiteral("-F") << settings::toKey(s.upscaleFilter);
+        plan.wrapper << QStringLiteral("-F") << (supersampling ? QStringLiteral("linear") : settings::toKey(s.upscaleFilter));
         plan.wrapper << QStringLiteral("-S") << settings::toKey(s.scalingMode);
-        if (s.upscaleFilter == UpscaleFilter::Fsr) {
+        if (!supersampling && s.upscaleFilter == UpscaleFilter::Fsr) {
             // gamescope counts 0 as the strongest and 20 as the weakest.
             plan.wrapper << QStringLiteral("--sharpness") << QString::number(GameSettings::MaxSharpness - s.sharpness);
         }
+        if (hud == Hud::Gamescope) {
+            plan.wrapper << QStringLiteral("--mangoapp");
+        }
         plan.wrapper << QStringLiteral("-f") << QStringLiteral("--");
-        plan.applied.append(QStringLiteral("gamescope: drawn at %1×%2, shown at %3×%4 with %5")
-                                .arg(width)
-                                .arg(height)
-                                .arg(screen.width)
-                                .arg(screen.height)
-                                .arg(filterWords(s.upscaleFilter)));
+        if (supersampling) {
+            plan.applied.append(QStringLiteral("gamescope: drawn at %1×%2, scaled down to %3×%4").arg(width).arg(height).arg(screen.width).arg(screen.height));
+        } else {
+            plan.applied.append(QStringLiteral("gamescope: drawn at %1×%2, shown at %3×%4 with %5")
+                                    .arg(width)
+                                    .arg(height)
+                                    .arg(screen.width)
+                                    .arg(screen.height)
+                                    .arg(filterWords(s.upscaleFilter)));
+        }
+    }
+
+    if (hud == Hud::Gamescope) {
+        plan.applied.append(QStringLiteral("MangoHud (gamescope's mangoapp)"));
+    } else if (hud == Hud::Wrapper) {
+        plan.wrapper << QStringLiteral("mangohud");
+        plan.applied.append(QStringLiteral("MangoHud"));
     }
     return plan;
 }

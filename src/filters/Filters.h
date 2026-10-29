@@ -32,6 +32,11 @@ inline constexpr Range Gamma{50, 200, 100};      // hundredths: 0.50 to 2.00
 inline constexpr Range Saturation{-100, 100, 0}; // -100 is greyscale
 inline constexpr Range Vibrance{-100, 100, 0};   // like saturation, mostly on dull colours
 inline constexpr Range Temperature{-100, 100, 0}; // negative cooler, positive warmer
+inline constexpr Range AntiAliasing{0, 1, 0};    // off, or SMAA (its "high" preset)
+inline constexpr Range LodBias{-200, 100, 0};    // hundredths, added to the game's own
+
+// Anti-aliasing by name, as the settings file writes it.
+inline constexpr const char *AntiAliasingNames[] = {"off", "smaa"};
 
 struct Values {
     bool enabled = true; // the switch for comparing with the original picture
@@ -42,17 +47,27 @@ struct Values {
     int saturation = Saturation.neutral;
     int vibrance = Vibrance.neutral;
     int temperature = Temperature.neutral;
+    int antiAliasing = AntiAliasing.neutral;
 
     bool colourNeutral() const
     {
         return brightness == Brightness.neutral && contrast == Contrast.neutral && gamma == Gamma.neutral
             && saturation == Saturation.neutral && vibrance == Vibrance.neutral && temperature == Temperature.neutral;
     }
-    bool neutral() const { return sharpening == Sharpening.neutral && colourNeutral(); }
+    bool neutral() const { return sharpening == Sharpening.neutral && antiAliasing == AntiAliasing.neutral && colourNeutral(); }
     // Whether the layer has anything to draw.
     bool active() const { return enabled && !neutral(); }
 
     bool operator==(const Values &) const = default;
+};
+
+// What the layer reads from a game's settings file while the game runs.
+struct LayerConfig {
+    Values filters;
+    int frameCap = 0; // frames per second; 0 is no cap
+    int lodBias = 0;  // texture LOD bias in hundredths, added to the game's
+
+    bool operator==(const LayerConfig &) const = default;
 };
 
 // The shader's push constants; the layout matches filters.frag.

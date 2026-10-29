@@ -7,6 +7,7 @@
 
 #include <QList>
 #include <QString>
+#include <QStringList>
 
 namespace gfxtune::settings
 {
@@ -32,6 +33,9 @@ enum class ScalingMode { Auto, Integer, Fit, Fill, Stretch };
 struct GameSettings {
     // 0 means the game decides; otherwise 2, 4, 8 or 16.
     int anisotropicFiltering = 0;
+    // Texture detail: LOD bias in hundredths, added to the game's own.
+    // Negative is sharper (and shimmers more), positive softer.
+    int lodBias = 0;
 
     bool frameCapEnabled = false;
     int frameCap = 60;
@@ -43,7 +47,8 @@ struct GameSettings {
     bool gamescope = false;
     UpscaleFilter upscaleFilter = UpscaleFilter::Fsr;
     ScalingMode scalingMode = ScalingMode::Auto;
-    // Percentage of the display resolution the game renders at.
+    // Percentage of the display resolution the game renders at; above 100
+    // the game renders bigger and gamescope scales it down (supersampling).
     int renderScale = 100;
     // 0 (off) to 20 (strongest). gamescope counts the other way round.
     int sharpness = 10;
@@ -54,23 +59,58 @@ struct GameSettings {
     // anti-cheat; until then they stay locked for it.
     bool filtersRiskAccepted = false;
 
+    // Frame rate, frame times and the card's readings, recorded by the
+    // layer while the game runs.
+    bool measurePerformance = true;
+
+    // Start the game through these programs when installed.
+    bool gameMode = false;
+    bool mangoHud = false;
+
     static constexpr int MinFrameCap = 10;
     static constexpr int MaxFrameCap = 1000;
     static constexpr int MaxSharpness = 20;
     static const QList<int> AnisotropicLevels;
+    static const QList<int> LodBiasLevels;
     static const QList<int> RenderScales;
 
     bool isDefault() const { return *this == GameSettings{}; }
+    bool supersampling() const { return gamescope && renderScale > 100; }
     // Whether anything changes how the game starts or looks. Accepting the
-    // anti-cheat warning alone does not.
+    // anti-cheat warning alone does not, and neither does switching off
+    // measuring alone: without other settings the game starts without
+    // gfxtune, so nothing is measured anyway.
     bool affectsGame() const
     {
-        GameSettings withoutConsent = *this;
-        withoutConsent.filtersRiskAccepted = false;
-        return !withoutConsent.isDefault();
+        GameSettings rest = *this;
+        rest.filtersRiskAccepted = false;
+        rest.measurePerformance = true;
+        return !rest.isDefault();
     }
     bool operator==(const GameSettings &) const = default;
 };
+
+// What gfxtune last found out about a game, kept in its settings file so
+// gfxtune-run, which never scans Steam, knows it at launch.
+struct GameFacts {
+    QStringList antiCheat;
+    bool openGlOnly = false; // a native game whose files only point to OpenGL
+
+    bool operator==(const GameFacts &) const = default;
+};
+
+// gfxtune's Vulkan layer goes into a game for the filters or for measuring,
+// unless the game ships anti-cheat and the user has not accepted the risk.
+// It cannot reach a native game that draws with OpenGL.
+inline bool layerAllowed(const GameSettings &s, const GameFacts &facts)
+{
+    return facts.antiCheat.isEmpty() || s.filtersRiskAccepted;
+}
+
+inline bool layerWanted(const GameSettings &s, const GameFacts &facts)
+{
+    return (s.filters.active() || s.measurePerformance) && layerAllowed(s, facts) && !facts.openGlOnly;
+}
 
 QString toKey(VerticalSync value);
 QString toKey(Fsr4 value);

@@ -5,11 +5,14 @@
 #include "GameSettingsEditor.h"
 #include "launch/LastLaunch.h"
 #include "launch/LaunchLine.h"
+#include "performance/Performance.h"
+#include "shared/FrameHistogram.h"
 #include "support/FakeSteam.h"
 #include "support/Fixtures.h"
 
 #include <QDir>
 #include <QFile>
+#include <QLocale>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -166,7 +169,12 @@ private Q_SLOTS:
         editor.setVerticalSync(99);
         editor.setUpscaleFilter(-1);
         editor.setScalingMode(17);
+        editor.setLodBias(-30);
         QVERIFY(!editor.customized());
+        editor.setAntiAliasing(7);
+        QCOMPARE(editor.antiAliasing(), 0); // no such method
+        editor.setRenderScale(150); // supersampling
+        QCOMPARE(editor.renderScale(), 150);
         editor.setFrameCap(5000);
         QCOMPARE(editor.frameCap(), GameSettings::MaxFrameCap);
         editor.setSharpness(-4);
@@ -187,10 +195,14 @@ private Q_SLOTS:
         QVERIFY(editor.frameCapAvailable());
         QVERIFY(editor.fsr4Available());
 
-        editor.setAppId(1003); // native Vulkan: only gamescope can cap it
-        QVERIFY(!editor.frameCapAvailable());
+        editor.setAppId(1003); // native Vulkan: gfxtune's layer caps it while it measures
+        QVERIFY(editor.measurePerformance());
+        QVERIFY(editor.frameCapAvailable());
         QVERIFY(!editor.fsr4Available());
         QVERIFY(!editor.fsr4Note().isEmpty());
+        // Without the layer only gamescope can.
+        editor.setMeasurePerformance(false);
+        QVERIFY(!editor.frameCapAvailable());
         QSignalSpy availability(&editor, &GameSettingsEditor::availabilityChanged);
         editor.setGamescope(true);
         QVERIFY(availability.count() >= 1);
@@ -399,6 +411,117 @@ private Q_SLOTS:
         QVERIFY(waitUntilIdle(library));
         QCOMPARE(rewritten.count(), 1);
         QVERIFY(setup.store.load(1004).filters.enabled);
+    }
+
+    void editorListsMeasuredSessions()
+    {
+        Setup setup;
+        const QString dir = performance::performanceDir(setup.store.baseDir(), 1003);
+        // Two finished sessions, one without the card's readings...
+        QVERIFY(test::writeFile(dir + s("/history"),
+                                "1789990000,3900.0,468000,120.00,95.40,80.60,60.4,74.6,88.0,210.4,97.0\n"
+                                "1789900000,600.0,36000,60.00,50.00,45.00,0.0,0.0,0.0,0.0,0.0\n"));
+        // ...and the game running now as process 4300.
+        shared::FrameHistogram histogram;
+        for (int i = 0; i < 1500 * 144; ++i) {
+            histogram.add(1'000'000'000 / 144);
+        }
+        const qint64 now = QDateTime::currentSecsSinceEpoch();
+        QVERIFY(test::writeFile(dir + s("/session-4300"), "start=" + QByteArray::number(now - 1500) + "\nupdated=" + QByteArray::number(now)
+                                                              + "\nhistogram=" + QByteArray::fromStdString(histogram.serialize()) + "\n"));
+        QVERIFY(QDir().mkpath(setup.proc.filePath(s("4300"))));
+
+        GameLibrary library(setup.steam.options(), &setup.store, nullptr, setup.proc.path());
+        GameSettingsEditor editor(&library, &setup.store, SystemInfo{true}, nullptr, 50);
+        library.start();
+        QVERIFY(waitUntilIdle(library));
+        QSignalSpy changed(&editor, &GameSettingsEditor::sessionsChanged);
+        editor.setAppId(1003);
+        QVERIFY(changed.count() >= 1);
+
+        const QVariantList rows = editor.sessions();
+        QCOMPARE(rows.size(), 3);
+        const QVariantMap running = rows[0].toMap();
+        QVERIFY(running.value(s("running")).toBool());
+        QCOMPARE(running.value(s("played")).toString(), s("25 min so far"));
+        QCOMPARE(running.value(s("averageFps")).toString(), s("144"));
+        QCOMPARE(running.value(s("power")).toString(), s("—"));
+
+        const QVariantMap full = rows[1].toMap();
+        QVERIFY(!full.value(s("running")).toBool());
+        QCOMPARE(full.value(s("date")).toString(), QLocale().toString(QDateTime::fromSecsSinceEpoch(1789990000).toLocalTime(), QLocale::ShortFormat));
+        QCOMPARE(full.value(s("played")).toString(), s("1 h 5 min"));
+        QCOMPARE(full.value(s("averageFps")).toString(), s("120"));
+        QCOMPARE(full.value(s("low1")).toString(), s("95"));
+        QCOMPARE(full.value(s("low01")).toString(), s("81"));
+        QCOMPARE(full.value(s("temperature")).toString(), s("60 °C"));
+        QCOMPARE(full.value(s("hotspot")).toString(), s("75 °C (88)"));
+        QCOMPARE(full.value(s("power")).toString(), s("210 W"));
+
+        const QVariantMap blind = rows[2].toMap();
+        QCOMPARE(blind.value(s("played")).toString(), s("10 min"));
+        QCOMPARE(blind.value(s("temperature")).toString(), s("—"));
+        QCOMPARE(blind.value(s("hotspot")).toString(), s("—"));
+
+        // Clearing keeps the session still being played.
+        editor.clearSessions();
+        QCOMPARE(editor.sessions().size(), 1);
+        QVERIFY(editor.sessions().first().toMap().value(s("running")).toBool());
+
+        // Every game has its own history.
+        editor.setAppId(1001);
+        QVERIFY(editor.sessions().isEmpty());
+    }
+
+    void editorLocksMeasuringWithAntiCheat()
+    {
+        Setup setup;
+        GameLibrary library(setup.steam.options(), &setup.store, nullptr, setup.proc.path());
+        GameSettingsEditor editor(&library, &setup.store, SystemInfo{true}, nullptr, 50);
+        library.start();
+        QVERIFY(waitUntilIdle(library));
+
+        editor.setAppId(1004); // ships Easy Anti-Cheat
+        QVERIFY(editor.filtersLocked());
+        QVERIFY(editor.measureAvailable());
+        QCOMPARE(editor.measureNote(), s("Locked until you accept the risk under In-game filters."));
+        editor.setMeasurePerformance(false);
+        QVERIFY(editor.measurePerformance()); // refused while locked
+        editor.setAntiAliasing(1);
+        QCOMPARE(editor.antiAliasing(), 0);
+
+        editor.acceptFiltersRisk();
+        editor.setMeasurePerformance(false);
+        QVERIFY(!editor.measurePerformance());
+        QVERIFY(!editor.customized()); // measuring off alone needs no launch line
+        editor.setAntiAliasing(1);
+        QCOMPARE(editor.antiAliasing(), 1);
+        QVERIFY(editor.customized());
+    }
+
+    // gfxtune-run never scans Steam: what the scan found goes into the
+    // game's settings file as soon as there is one.
+    void editorSavesTheGamesFacts()
+    {
+        Setup setup;
+        GameLibrary library(setup.steam.options(), &setup.store, nullptr, setup.proc.path());
+        GameSettingsEditor editor(&library, &setup.store, SystemInfo{true}, nullptr, 50);
+        library.start();
+        QVERIFY(waitUntilIdle(library));
+
+        editor.setAppId(1004);
+        QCOMPARE(setup.store.loadFacts(1004), settings::GameFacts{});
+        editor.acceptFiltersRisk(); // saved at once
+        QCOMPARE(setup.store.loadFacts(1004).antiCheat, QStringList{s("Easy Anti-Cheat")});
+        QCOMPARE(library.factsFor(1004), setup.store.loadFacts(1004));
+
+        editor.setAppId(1001);
+        editor.setGameMode(true);
+        editor.flush();
+        QCOMPARE(setup.store.loadFacts(1001), settings::GameFacts{});
+        QCOMPARE(library.factsFor(9999), settings::GameFacts{}); // not installed
+        QCOMPARE(library.gameName(1001), s("Ashfall Protocol"));
+        QCOMPARE(library.gameName(9999), s("Game 9999"));
     }
 
     void reportsWhatTheFiltersDid()

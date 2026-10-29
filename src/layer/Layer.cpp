@@ -13,10 +13,14 @@
 
 #include "FilterPass.h"
 #include "LayerSettings.h"
+#include "Pacing.h"
+#include "Recorder.h"
+#include "Smaa.h"
 #include "VulkanFunctions.h"
 
 #include <vulkan/vk_layer.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -48,9 +52,11 @@ struct InstanceData {
 
 struct ImageResources {
     VkImage swapchainImage = VK_NULL_HANDLE;
-    VkImage copy = VK_NULL_HANDLE; // what the game drew, read by the shader
-    VkDeviceMemory memory = VK_NULL_HANDLE;
+    OwnImage copy; // what the game drew, read by the filters
     FilterPass::Target target;
+    // With anti-aliasing: SMAA reads the copy, the last step its result.
+    Smaa::Source smaaSource;
+    FilterPass::Target smaaTarget;
     VkCommandBuffer cmd = VK_NULL_HANDLE;
     uint32_t cmdFamily = 0;
     VkSemaphore done = VK_NULL_HANDLE; // the present waits on this
@@ -61,8 +67,22 @@ struct SwapchainData {
     VkFormat format = VK_FORMAT_UNDEFINED;
     VkExtent2D extent{};
     bool linear = false; // an sRGB format: the shader reads linear light
+    // The swapchain was made so the filters can read it. Their images are
+    // only made once a filter is on: measuring alone needs none.
+    bool filterable = false;
+    bool ready = false;
+    bool reported = false;
+    std::string skipped; // why it cannot be filtered
     FilterPass *pass = nullptr;
     std::vector<ImageResources> images;
+    // SMAA's work images, shared by the images; made when it is first on.
+    Smaa *smaa = nullptr;
+    Smaa::Frame smaaFrame;
+    bool smaaReady = false;
+    bool smaaFailed = false;
+    // The queue the last frame was filtered on: the shared work images are
+    // only safe to reuse in order on one queue.
+    VkQueue lastQueue = VK_NULL_HANDLE;
 };
 
 struct DeviceData {
@@ -73,17 +93,29 @@ struct DeviceData {
     PFN_vkSetDeviceLoaderData setLoaderData = nullptr;
     std::vector<VkQueueFamilyProperties> families;
     VkPhysicalDeviceMemoryProperties memory{};
+    std::uint32_t vendorId = 0;
+    std::uint32_t deviceId = 0;
+    float maxLodBias = 0;
 
     std::mutex mutex;
     std::unordered_map<VkQueue, uint32_t> queueFamilies;
     std::unordered_map<uint32_t, VkCommandPool> pools;
     std::unordered_map<VkSwapchainKHR, std::unique_ptr<SwapchainData>> swapchains;
     std::unordered_map<int, std::unique_ptr<FilterPass>> passes; // by VkFormat
+    std::unordered_map<int, std::unique_ptr<Smaa>> smaa;         // by VkFormat
 };
 
 std::mutex g_mutex;
 std::unordered_map<void *, std::unique_ptr<InstanceData>> g_instances;
 std::unordered_map<void *, std::unique_ptr<DeviceData>> g_devices;
+// The game's main window: the biggest swapchain. Only its frames are paced
+// and measured; a launcher or a second window must not count.
+VkSwapchainKHR g_primary = VK_NULL_HANDLE;
+std::uint64_t g_primaryArea = 0;
+std::shared_ptr<PerformanceRecorder> g_recorder;
+
+std::mutex g_limiterMutex;
+FrameLimiter g_limiter;
 
 InstanceData *instanceData(const void *handle)
 {
@@ -117,20 +149,34 @@ void report(bool running, const std::string &detail)
     writeReport(path, running, detail);
 }
 
-// ---- Per-swapchain resources ----
-
-bool memoryType(const DeviceData &d, uint32_t allowed, uint32_t &out)
+// Made on first use when gfxtune-run asked for measuring; stopped with the
+// last Vulkan instance, before the loader unloads the layer.
+std::shared_ptr<PerformanceRecorder> recorder()
 {
-    for (const VkMemoryPropertyFlags wanted : {VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), VkMemoryPropertyFlags(0)}) {
-        for (uint32_t i = 0; i < d.memory.memoryTypeCount; ++i) {
-            if ((allowed & (1u << i)) && (d.memory.memoryTypes[i].propertyFlags & wanted) == wanted) {
-                out = i;
-                return true;
-            }
+    static const std::string dir = environment("GFXTUNE_PERF_DIR");
+    if (dir.empty()) {
+        return nullptr;
+    }
+    std::lock_guard lock(g_mutex);
+    if (!g_recorder) {
+        const std::string root = environment("GFXTUNE_SYSFS_ROOT");
+        g_recorder = std::make_shared<PerformanceRecorder>(dir, root.empty() ? std::string("/sys") : root);
+    }
+    return g_recorder;
+}
+
+bool presentsPrimary(const VkPresentInfoKHR &info)
+{
+    std::lock_guard lock(g_mutex);
+    for (uint32_t i = 0; i < info.swapchainCount; ++i) {
+        if (info.pSwapchains[i] == g_primary) {
+            return true;
         }
     }
     return false;
 }
+
+// ---- Per-swapchain resources ----
 
 void destroyImage(DeviceData &d, SwapchainData &swapchain, ImageResources &image)
 {
@@ -142,11 +188,14 @@ void destroyImage(DeviceData &d, SwapchainData &swapchain, ImageResources &image
     }
     if (swapchain.pass) {
         swapchain.pass->removeTarget(image.target);
+        swapchain.pass->removeTarget(image.smaaTarget);
+    }
+    if (swapchain.smaa) {
+        swapchain.smaa->destroySource(image.smaaSource);
     }
     d.vk.DestroyFence(d.device, image.fence, nullptr);
     d.vk.DestroySemaphore(d.device, image.done, nullptr);
-    d.vk.DestroyImage(d.device, image.copy, nullptr);
-    d.vk.FreeMemory(d.device, image.memory, nullptr);
+    image.copy.destroy(d.vk, d.device);
     image = ImageResources{};
 }
 
@@ -156,38 +205,22 @@ void destroySwapchainData(DeviceData &d, SwapchainData &swapchain)
         destroyImage(d, swapchain, image);
     }
     swapchain.images.clear();
+    if (swapchain.smaa) {
+        swapchain.smaa->destroyFrame(swapchain.smaaFrame);
+    }
+    swapchain.smaaReady = false;
 }
 
 bool createImage(DeviceData &d, SwapchainData &swapchain, VkImage swapchainImage, ImageResources &image, std::string *error)
 {
     image.swapchainImage = swapchainImage;
 
-    auto info = vkStruct<VkImageCreateInfo>(VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);
-    info.imageType = VK_IMAGE_TYPE_2D;
-    info.format = swapchain.format;
-    info.extent = {swapchain.extent.width, swapchain.extent.height, 1};
-    info.mipLevels = 1;
-    info.arrayLayers = 1;
-    info.samples = VK_SAMPLE_COUNT_1_BIT;
-    info.tiling = VK_IMAGE_TILING_OPTIMAL;
-    info.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    if (d.vk.CreateImage(d.device, &info, nullptr, &image.copy) != VK_SUCCESS) {
-        *error = "could not create an image for the copy";
+    // sRGB copies also get a plain view, for SMAA's edge detection.
+    if (!image.copy.create(d.vk, d.device, d.memory, swapchain.format, swapchain.extent,
+                           VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, swapchain.linear, error)) {
         return false;
     }
-    VkMemoryRequirements needs{};
-    d.vk.GetImageMemoryRequirements(d.device, image.copy, &needs);
-    auto allocate = vkStruct<VkMemoryAllocateInfo>(VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO);
-    allocate.allocationSize = needs.size;
-    if (!memoryType(d, needs.memoryTypeBits, allocate.memoryTypeIndex)
-        || d.vk.AllocateMemory(d.device, &allocate, nullptr, &image.memory) != VK_SUCCESS
-        || d.vk.BindImageMemory(d.device, image.copy, image.memory, 0) != VK_SUCCESS) {
-        *error = "not enough video memory for the copy";
-        return false;
-    }
-    if (!swapchain.pass->addTarget(image.copy, swapchainImage, swapchain.extent, image.target, error)) {
+    if (!swapchain.pass->addTarget(image.copy.image, swapchainImage, swapchain.extent, image.target, error)) {
         return false;
     }
     auto semaphore = vkStruct<VkSemaphoreCreateInfo>(VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO);
@@ -234,41 +267,90 @@ bool canFilter(DeviceData &d, const VkSwapchainCreateInfoKHR &info, std::string 
     return true;
 }
 
-std::unique_ptr<SwapchainData> createSwapchainData(DeviceData &d, VkSwapchainKHR swapchain, const VkSwapchainCreateInfoKHR &info,
-                                                   std::string *error)
+// Makes the images the filters need for one swapchain.
+bool prepareFilters(DeviceData &d, VkSwapchainKHR swapchain, SwapchainData &data, std::string *error)
 {
-    auto data = std::make_unique<SwapchainData>();
-    data->format = info.imageFormat;
-    data->extent = info.imageExtent;
-    data->linear = isSrgbFormat(info.imageFormat);
-
-    auto &pass = d.passes[int(info.imageFormat)];
+    auto &pass = d.passes[int(data.format)];
     if (!pass) {
-        pass = FilterPass::create(d.vk, d.device, info.imageFormat, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, error);
+        pass = FilterPass::create(d.vk, d.device, data.format, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, error);
         if (!pass) {
-            return nullptr;
+            return false;
         }
     }
-    data->pass = pass.get();
+    data.pass = pass.get();
 
     uint32_t count = 0;
     if (d.vk.GetSwapchainImagesKHR(d.device, swapchain, &count, nullptr) != VK_SUCCESS) {
         *error = "could not list the swapchain's images";
-        return nullptr;
+        return false;
     }
     std::vector<VkImage> images(count);
     if (d.vk.GetSwapchainImagesKHR(d.device, swapchain, &count, images.data()) != VK_SUCCESS) {
         *error = "could not list the swapchain's images";
-        return nullptr;
+        return false;
     }
-    data->images.resize(count);
+    data.images.resize(count);
     for (uint32_t i = 0; i < count; ++i) {
-        if (!createImage(d, *data, images[i], data->images[i], error)) {
-            destroySwapchainData(d, *data);
-            return nullptr;
+        if (!createImage(d, data, images[i], data.images[i], error)) {
+            destroySwapchainData(d, data);
+            return false;
         }
     }
-    return data;
+    return true;
+}
+
+// The first time a filter is on for a swapchain: make its images, or say
+// once why it cannot be filtered.
+void ensureFilters(DeviceData &d, VkSwapchainKHR swapchain, SwapchainData &data)
+{
+    if (data.ready || data.reported) {
+        return;
+    }
+    if (data.filterable && prepareFilters(d, swapchain, data, &data.skipped)) {
+        data.ready = true;
+        report(true, std::to_string(data.extent.width) + "×" + std::to_string(data.extent.height) + ", " + formatName(data.format));
+    } else {
+        data.filterable = false;
+        report(false, data.skipped);
+    }
+    data.reported = true;
+}
+
+// The first time anti-aliasing is on for a swapchain: SMAA's work images,
+// and for each image a way in and a last step reading SMAA's result. If
+// that fails, the other filters go on without it.
+void ensureSmaa(DeviceData &d, SwapchainData &swapchain)
+{
+    if (swapchain.smaaReady || swapchain.smaaFailed || !swapchain.ready) {
+        return;
+    }
+    std::string error;
+    auto &smaa = d.smaa[int(swapchain.format)];
+    if (!smaa) {
+        smaa = Smaa::create(d.vk, d.device, d.memory, swapchain.format, &error);
+    }
+    swapchain.smaa = smaa.get();
+    bool ok = smaa && smaa->createFrame(swapchain.extent, swapchain.smaaFrame, &error);
+    for (ImageResources &image : swapchain.images) {
+        ok = ok && smaa->createSource(swapchain.smaaFrame, image.copy.image, image.smaaSource, &error)
+            && swapchain.pass->addTarget(swapchain.smaaFrame.output.image, image.swapchainImage, swapchain.extent, image.smaaTarget, &error);
+    }
+    if (!ok) {
+        for (ImageResources &image : swapchain.images) {
+            swapchain.pass->removeTarget(image.smaaTarget);
+            if (smaa) {
+                smaa->destroySource(image.smaaSource);
+            }
+        }
+        if (smaa) {
+            smaa->destroyFrame(swapchain.smaaFrame);
+        }
+        swapchain.smaaFailed = true;
+        report(true, std::to_string(swapchain.extent.width) + "×" + std::to_string(swapchain.extent.height) + ", "
+                         + formatName(swapchain.format) + "; anti-aliasing could not start: " + error);
+        return;
+    }
+    swapchain.smaaReady = true;
 }
 
 // ---- Recording ----
@@ -310,7 +392,8 @@ VkCommandBuffer commandBuffer(DeviceData &d, ImageResources &image, uint32_t fam
     return cmd;
 }
 
-void recordFilter(const DeviceData &d, const SwapchainData &swapchain, const ImageResources &image, const filters::ShaderParams &params)
+void recordFilter(const DeviceData &d, const SwapchainData &swapchain, const ImageResources &image, const filters::ShaderParams &params,
+                  bool antiAlias)
 {
     const VkCommandBuffer cmd = image.cmd;
     auto begin = vkStruct<VkCommandBufferBeginInfo>(VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO);
@@ -334,14 +417,14 @@ void recordFilter(const DeviceData &d, const SwapchainData &swapchain, const Ima
     before[1].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     before[1].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     before[1].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    before[1].image = image.copy;
+    before[1].image = image.copy.image;
     d.vk.CmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 2, before);
 
     VkImageCopy region{};
     region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
     region.dstSubresource = region.srcSubresource;
     region.extent = {swapchain.extent.width, swapchain.extent.height, 1};
-    d.vk.CmdCopyImage(cmd, image.swapchainImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image.copy,
+    d.vk.CmdCopyImage(cmd, image.swapchainImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image.copy.image,
                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
     VkImageMemoryBarrier between[2]{};
@@ -359,7 +442,12 @@ void recordFilter(const DeviceData &d, const SwapchainData &swapchain, const Ima
                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0,
                             nullptr, 2, between);
 
-    swapchain.pass->record(cmd, image.target, params); // leaves the image ready to present
+    if (antiAlias) {
+        swapchain.smaa->record(cmd, swapchain.smaaFrame, image.smaaSource);
+        swapchain.pass->record(cmd, image.smaaTarget, params);
+    } else {
+        swapchain.pass->record(cmd, image.target, params); // leaves the image ready to present
+    }
     d.vk.EndCommandBuffer(cmd);
 }
 
@@ -399,6 +487,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyInstance(VkInstance instance, const VkAllocati
         return;
     }
     std::unique_ptr<InstanceData> data;
+    std::shared_ptr<PerformanceRecorder> lastRecorder;
     {
         std::lock_guard lock(g_mutex);
         const auto found = g_instances.find(dispatchKey(instance));
@@ -407,7 +496,12 @@ VKAPI_ATTR void VKAPI_CALL DestroyInstance(VkInstance instance, const VkAllocati
         }
         data = std::move(found->second);
         g_instances.erase(found);
+        // The loader may unload the layer now: its thread has to go first.
+        if (g_instances.empty()) {
+            lastRecorder = std::move(g_recorder);
+        }
     }
+    lastRecorder.reset();
     data->vk.DestroyInstance(instance, allocator);
 }
 
@@ -454,6 +548,11 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateDevice(VkPhysicalDevice physicalDevice, con
     data->families.resize(familyCount);
     instance->vk.GetPhysicalDeviceQueueFamilyProperties(physicalDevice, &familyCount, data->families.data());
     instance->vk.GetPhysicalDeviceMemoryProperties(physicalDevice, &data->memory);
+    VkPhysicalDeviceProperties properties{};
+    instance->vk.GetPhysicalDeviceProperties(physicalDevice, &properties);
+    data->vendorId = properties.vendorID;
+    data->deviceId = properties.deviceID;
+    data->maxLodBias = properties.limits.maxSamplerLodBias;
 
     std::lock_guard lock(g_mutex);
     g_devices[dispatchKey(*device)] = std::move(data);
@@ -481,6 +580,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyDevice(VkDevice device, const VkAllocationCall
     }
     data->swapchains.clear();
     data->passes.clear();
+    data->smaa.clear();
     for (auto &[family, pool] : data->pools) {
         data->vk.DestroyCommandPool(device, pool, nullptr);
     }
@@ -513,31 +613,47 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateSwapchainKHR(VkDevice device, const VkSwapc
     DeviceData *d = deviceData(device);
     std::lock_guard lock(d->mutex);
 
-    std::string reason;
-    bool filter = canFilter(*d, *info, &reason);
+    auto data = std::make_unique<SwapchainData>();
+    data->format = info->imageFormat;
+    data->extent = info->imageExtent;
+    data->linear = isSrgbFormat(info->imageFormat);
+    data->filterable = canFilter(*d, *info, &data->skipped);
+
     VkSwapchainCreateInfoKHR withCopy = *info;
     // Reading the game's picture needs one more usage; drawing into it is
     // what every game already asks for.
     withCopy.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    VkResult result = d->vk.CreateSwapchainKHR(device, filter ? &withCopy : info, allocator, swapchain);
-    if (result != VK_SUCCESS && filter) {
-        filter = false;
-        reason = "the driver refused a swapchain the filters can read";
+    VkResult result = d->vk.CreateSwapchainKHR(device, data->filterable ? &withCopy : info, allocator, swapchain);
+    if (result != VK_SUCCESS && data->filterable) {
+        data->filterable = false;
+        data->skipped = "the driver refused a swapchain the filters can read";
         result = d->vk.CreateSwapchainKHR(device, info, allocator, swapchain);
     }
     if (result != VK_SUCCESS) {
         return result;
     }
-    if (filter) {
-        std::unique_ptr<SwapchainData> data = createSwapchainData(*d, *swapchain, *info, &reason);
-        if (data) {
-            report(true, std::to_string(info->imageExtent.width) + "×" + std::to_string(info->imageExtent.height) + ", "
-                             + formatName(info->imageFormat));
-            d->swapchains[*swapchain] = std::move(data);
-            return result;
+
+    // A filter on from the start: ready before the first frame.
+    if (settings().config().filters.active()) {
+        ensureFilters(*d, *swapchain, *data);
+    }
+
+    const std::uint64_t area = std::uint64_t(info->imageExtent.width) * info->imageExtent.height;
+    bool primary = false;
+    {
+        std::lock_guard globalLock(g_mutex);
+        if (g_primary == VK_NULL_HANDLE || area >= g_primaryArea) {
+            g_primary = *swapchain;
+            g_primaryArea = area;
+            primary = true;
         }
     }
-    report(false, reason);
+    if (primary) {
+        if (const auto r = recorder()) {
+            r->setDevice(d->vendorId, d->deviceId);
+        }
+    }
+    d->swapchains[*swapchain] = std::move(data);
     return result;
 }
 
@@ -552,58 +668,79 @@ VKAPI_ATTR void VKAPI_CALL DestroySwapchainKHR(VkDevice device, VkSwapchainKHR s
             d->swapchains.erase(found);
         }
     }
+    {
+        std::lock_guard globalLock(g_mutex);
+        if (g_primary == swapchain) {
+            g_primary = VK_NULL_HANDLE;
+            g_primaryArea = 0;
+        }
+    }
     d->vk.DestroySwapchainKHR(device, swapchain, allocator);
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL QueuePresentKHR(VkQueue queue, const VkPresentInfoKHR *info)
+// Draws the filters into every swapchain image being presented that can
+// have them, and collects the semaphores the present then waits on. Returns
+// an error only when nothing was queued and the game's wait is still open.
+VkResult drawFilters(DeviceData &d, VkQueue queue, const VkPresentInfoKHR &info, const filters::Values &values,
+                     std::vector<VkSemaphore> &drawn)
 {
-    DeviceData *d = deviceData(queue);
-    std::unique_lock lock(d->mutex);
-
-    const filters::Values &values = settings().values();
-    const auto family = d->queueFamilies.find(queue);
-    if (!values.active() || d->swapchains.empty() || family == d->queueFamilies.end()
-        || !(d->families[family->second].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
-        lock.unlock();
-        return d->vk.QueuePresentKHR(queue, info);
+    std::lock_guard lock(d.mutex);
+    const auto family = d.queueFamilies.find(queue);
+    if (family == d.queueFamilies.end() || !(d.families[family->second].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+        return VK_SUCCESS;
     }
 
-    std::vector<VkSemaphore> drawn;
     bool waitedForGame = false;
-    for (uint32_t i = 0; i < info->swapchainCount; ++i) {
-        const auto found = d->swapchains.find(info->pSwapchains[i]);
-        if (found == d->swapchains.end() || info->pImageIndices[i] >= found->second->images.size()) {
+    for (uint32_t i = 0; i < info.swapchainCount; ++i) {
+        const auto found = d.swapchains.find(info.pSwapchains[i]);
+        if (found == d.swapchains.end()) {
             continue;
         }
         SwapchainData &swapchain = *found->second;
-        ImageResources &image = swapchain.images[info->pImageIndices[i]];
-        // The last filter draw into this image is long done by the time the
-        // game presents it again; wait briefly in case it is not.
-        if (d->vk.WaitForFences(d->device, 1, &image.fence, VK_TRUE, 1'000'000'000) != VK_SUCCESS
-            || !commandBuffer(*d, image, family->second)) {
+        ensureFilters(d, info.pSwapchains[i], swapchain);
+        if (!swapchain.ready || info.pImageIndices[i] >= swapchain.images.size()) {
             continue;
         }
-        d->vk.ResetFences(d->device, 1, &image.fence);
-        recordFilter(*d, swapchain, image, filters::shaderParams(values, swapchain.linear));
+        const bool antiAlias = values.antiAliasing != filters::AntiAliasing.neutral;
+        if (antiAlias) {
+            ensureSmaa(d, swapchain);
+        }
+        const bool smaa = antiAlias && swapchain.smaaReady;
+        // On another queue than last time, the shared work images may still
+        // be in use there: wait for this swapchain's earlier draws.
+        if (smaa && swapchain.lastQueue != VK_NULL_HANDLE && swapchain.lastQueue != queue) {
+            for (ImageResources &other : swapchain.images) {
+                d.vk.WaitForFences(d.device, 1, &other.fence, VK_TRUE, 1'000'000'000);
+            }
+        }
+        ImageResources &image = swapchain.images[info.pImageIndices[i]];
+        // The last filter draw into this image is long done by the time the
+        // game presents it again; wait briefly in case it is not.
+        if (d.vk.WaitForFences(d.device, 1, &image.fence, VK_TRUE, 1'000'000'000) != VK_SUCCESS
+            || !commandBuffer(d, image, family->second)) {
+            continue;
+        }
+        d.vk.ResetFences(d.device, 1, &image.fence);
+        recordFilter(d, swapchain, image, filters::shaderParams(values, swapchain.linear), smaa);
 
         // The first submit takes over the game's wait; later ones follow it
         // in queue order and through the all-commands barrier.
-        std::vector<VkPipelineStageFlags> stages(waitedForGame ? 0 : info->waitSemaphoreCount, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+        std::vector<VkPipelineStageFlags> stages(waitedForGame ? 0 : info.waitSemaphoreCount, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
         auto submit = vkStruct<VkSubmitInfo>(VK_STRUCTURE_TYPE_SUBMIT_INFO);
-        submit.waitSemaphoreCount = waitedForGame ? 0 : info->waitSemaphoreCount;
-        submit.pWaitSemaphores = info->pWaitSemaphores;
+        submit.waitSemaphoreCount = waitedForGame ? 0 : info.waitSemaphoreCount;
+        submit.pWaitSemaphores = info.pWaitSemaphores;
         submit.pWaitDstStageMask = stages.data();
         submit.commandBufferCount = 1;
         submit.pCommandBuffers = &image.cmd;
         submit.signalSemaphoreCount = 1;
         submit.pSignalSemaphores = &image.done;
-        const VkResult result = d->vk.QueueSubmit(queue, 1, &submit, image.fence);
+        const VkResult result = d.vk.QueueSubmit(queue, 1, &submit, image.fence);
         if (result != VK_SUCCESS) {
             // Nothing was queued: the fence stays unsignalled, so make a new one.
-            d->vk.DestroyFence(d->device, image.fence, nullptr);
+            d.vk.DestroyFence(d.device, image.fence, nullptr);
             auto fence = vkStruct<VkFenceCreateInfo>(VK_STRUCTURE_TYPE_FENCE_CREATE_INFO);
             fence.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-            d->vk.CreateFence(d->device, &fence, nullptr, &image.fence);
+            d.vk.CreateFence(d.device, &fence, nullptr, &image.fence);
             if (waitedForGame) {
                 continue;
             }
@@ -611,16 +748,61 @@ VKAPI_ATTR VkResult VKAPI_CALL QueuePresentKHR(VkQueue queue, const VkPresentInf
         }
         waitedForGame = true;
         drawn.push_back(image.done);
+        swapchain.lastQueue = queue;
+        if (smaa) {
+            swapchain.smaa->uploadSubmitted();
+        }
     }
-    lock.unlock();
+    return VK_SUCCESS;
+}
 
-    if (!waitedForGame) {
-        return d->vk.QueuePresentKHR(queue, info);
-    }
+VKAPI_ATTR VkResult VKAPI_CALL QueuePresentKHR(VkQueue queue, const VkPresentInfoKHR *info)
+{
+    DeviceData *d = deviceData(queue);
+    const filters::LayerConfig config = settings().config();
+
     VkPresentInfoKHR filtered = *info;
-    filtered.waitSemaphoreCount = uint32_t(drawn.size());
-    filtered.pWaitSemaphores = drawn.data();
+    std::vector<VkSemaphore> drawn;
+    if (config.filters.active()) {
+        const VkResult result = drawFilters(*d, queue, *info, config.filters, drawn);
+        if (result != VK_SUCCESS) {
+            return result;
+        }
+        if (!drawn.empty()) {
+            filtered.waitSemaphoreCount = uint32_t(drawn.size());
+            filtered.pWaitSemaphores = drawn.data();
+        }
+    }
+
+    // Pacing and measuring follow the game's main window only. The GPU
+    // works on the filters meanwhile.
+    if (presentsPrimary(*info)) {
+        FrameLimiter::Clock::time_point when;
+        {
+            std::lock_guard lock(g_limiterMutex);
+            when = g_limiter.slot(config.frameCap, FrameLimiter::Clock::now());
+        }
+        FrameLimiter::waitUntil(when);
+        if (const auto r = recorder()) {
+            r->frame(FrameLimiter::Clock::now());
+        }
+    }
     return d->vk.QueuePresentKHR(queue, &filtered);
+}
+
+// Texture detail: the LOD bias added to every sampler the game makes from
+// now on, within what the card allows.
+VKAPI_ATTR VkResult VKAPI_CALL CreateSampler(VkDevice device, const VkSamplerCreateInfo *info, const VkAllocationCallbacks *allocator,
+                                             VkSampler *sampler)
+{
+    DeviceData *d = deviceData(device);
+    const int bias = settings().config().lodBias;
+    if (bias == 0) {
+        return d->vk.CreateSampler(device, info, allocator, sampler);
+    }
+    VkSamplerCreateInfo biased = *info;
+    biased.mipLodBias = biasedLod(info->mipLodBias, bias, d->maxLodBias);
+    return d->vk.CreateSampler(device, &biased, allocator, sampler);
 }
 
 // ---- Lookup ----
@@ -637,6 +819,7 @@ PFN_vkVoidFunction deviceHook(const char *name)
     GFXTUNE_HOOK(CreateSwapchainKHR)
     GFXTUNE_HOOK(DestroySwapchainKHR)
     GFXTUNE_HOOK(QueuePresentKHR)
+    GFXTUNE_HOOK(CreateSampler)
     return nullptr;
 }
 

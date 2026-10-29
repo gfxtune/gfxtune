@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "FullscreenPass.h"
 #include "VulkanFunctions.h"
 #include "filters/Filters.h"
 
@@ -18,9 +19,9 @@ bool supportedFormat(VkFormat format, VkColorSpaceKHR colourSpace, std::string *
 bool isSrgbFormat(VkFormat format);
 std::string formatName(VkFormat format);
 
-// One full-screen draw that reads a source image and writes the filtered
-// picture into a target image of the same size and format. The layer uses it
-// on swapchain images; the tests use it on their own images.
+// The last filter step: sharpening and colour, from a source image into a
+// target of the same size and format. The layer uses it on swapchain
+// images; the tests use it on their own images.
 class FilterPass
 {
 public:
@@ -36,11 +37,8 @@ public:
     // `finalLayout` is the target's layout after the draw.
     static std::unique_ptr<FilterPass> create(const DeviceFunctions &vk, VkDevice device, VkFormat format,
                                               VkImageLayout finalLayout, std::string *error);
-    ~FilterPass();
-    FilterPass(const FilterPass &) = delete;
-    FilterPass &operator=(const FilterPass &) = delete;
 
-    VkFormat format() const { return m_format; }
+    VkFormat format() const { return m_pass->format(); }
 
     bool addTarget(VkImage source, VkImage target, VkExtent2D extent, Target &out, std::string *error);
     void removeTarget(Target &target);
@@ -50,18 +48,11 @@ public:
     void record(VkCommandBuffer cmd, const Target &target, const filters::ShaderParams &params) const;
 
 private:
-    FilterPass(const DeviceFunctions &vk, VkDevice device, VkFormat format);
-    bool build(VkImageLayout finalLayout, std::string *error);
+    FilterPass(const DeviceFunctions &vk, VkDevice device, std::unique_ptr<FullscreenPass> pass);
 
     const DeviceFunctions &m_vk;
     VkDevice m_device;
-    VkFormat m_format;
-    VkSampler m_sampler = VK_NULL_HANDLE;
-    VkDescriptorSetLayout m_setLayout = VK_NULL_HANDLE;
-    VkDescriptorPool m_pool = VK_NULL_HANDLE;
-    VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
-    VkRenderPass m_renderPass = VK_NULL_HANDLE;
-    VkPipeline m_pipeline = VK_NULL_HANDLE;
+    std::unique_ptr<FullscreenPass> m_pass;
 };
 
 } // namespace gfxtune::layer

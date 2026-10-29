@@ -3,6 +3,8 @@
 
 #include "GameLibrary.h"
 
+#include "settings/Availability.h"
+
 #include "launch/LaunchLine.h"
 #include "launch/LaunchLines.h"
 #include "steam/RunningGames.h"
@@ -129,12 +131,26 @@ void GameLibrary::scanFinished()
     syncLaunchLines();
 }
 
+settings::GameFacts GameLibrary::factsFor(quint32 appId) const
+{
+    const steam::Game *found = game(appId);
+    return found ? settings::factsOf(*found) : settings::GameFacts{};
+}
+
+QString GameLibrary::gameName(int appId) const
+{
+    const steam::Game *found = appId > 0 ? game(quint32(appId)) : nullptr;
+    return found ? found->name : QStringLiteral("Game %1").arg(appId);
+}
+
+// gfxtune-run reads what the scan found from each game's settings file.
 // Filters stay locked in games with anti-cheat until the user accepts the
-// risk. A game that gained anti-cheat in an update after filters were set
+// risk; a game that gained anti-cheat in an update after filters were set
 // gets them switched off (the values stay) until the user decides.
 void GameLibrary::lockFiltersForAntiCheat()
 {
     for (const steam::Game &game : std::as_const(m_scan.games)) {
+        m_store->saveFacts(game.appId, settings::factsOf(game));
         if (game.antiCheat.isEmpty()) {
             continue;
         }

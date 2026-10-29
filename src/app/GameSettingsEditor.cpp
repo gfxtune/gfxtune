@@ -8,8 +8,10 @@
 #include "launch/LaunchLine.h"
 
 #include <QClipboard>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QLocale>
+#include <QVariantMap>
 
 namespace gfxtune
 {
@@ -52,6 +54,7 @@ GameSettingsEditor::GameSettingsEditor(GameLibrary *library, settings::SettingsS
             m_filterReport = report;
             Q_EMIT launchChanged();
         }
+        reloadSessions(); // the layer updates the running session every five seconds
         if (!m_library->isRunning(m_appId)) {
             m_reportPoll.stop();
         }
@@ -72,6 +75,7 @@ void GameSettingsEditor::setAppId(int appId)
     m_appId = quint32(appId);
     load();
     reloadLastLaunch();
+    reloadSessions();
     Q_EMIT gameChanged();
 }
 
@@ -260,6 +264,93 @@ void GameSettingsEditor::setSharpness(int value)
     edit([bounded](GameSettings &s) { s.sharpness = bounded; });
 }
 
+void GameSettingsEditor::setLodBias(int hundredths)
+{
+    if (GameSettings::LodBiasLevels.contains(hundredths)) {
+        edit([hundredths](GameSettings &s) { s.lodBias = hundredths; });
+    }
+}
+
+void GameSettingsEditor::setAntiAliasing(int mode)
+{
+    // A choice, not an amount: an unknown method is ignored.
+    if (mode == filters::AntiAliasing.clamp(mode)) {
+        editFilters([mode](filters::Values &v) { v.antiAliasing = mode; });
+    }
+}
+
+void GameSettingsEditor::setMeasurePerformance(bool on)
+{
+    // Measuring runs inside the game like the filters: the same lock.
+    if (m_availability.measurePerformance.available && !m_availability.filtersLocked) {
+        edit([on](GameSettings &s) { s.measurePerformance = on; });
+    }
+}
+
+void GameSettingsEditor::setGameMode(bool on)
+{
+    edit([on](GameSettings &s) { s.gameMode = on; });
+}
+
+void GameSettingsEditor::setMangoHud(bool on)
+{
+    edit([on](GameSettings &s) { s.mangoHud = on; });
+}
+
+QVariantList GameSettingsEditor::sessions() const
+{
+    // Readings of 0 could not be taken.
+    const auto reading = [](double value, const QString &unit) {
+        return value > 0 ? QStringLiteral("%1 %2").arg(qRound(value)).arg(unit) : QStringLiteral("—");
+    };
+    const QString degrees = QStringLiteral("°C");
+    QVariantList list;
+    for (const performance::Session &s : m_sessions) {
+        const int minutes = std::max(qRound(s.seconds / 60.0), 1);
+        QString played = minutes >= 60 ? QStringLiteral("%1 h %2 min").arg(minutes / 60).arg(minutes % 60)
+                                       : QStringLiteral("%1 min").arg(minutes);
+        if (s.running) {
+            played += QStringLiteral(" so far");
+        }
+        QString hotspot = reading(s.hotspot, degrees);
+        if (s.hotspot > 0 && s.hotspotMax > 0) {
+            hotspot += QStringLiteral(" (%1)").arg(qRound(s.hotspotMax));
+        }
+        QVariantMap row;
+        row.insert(QStringLiteral("date"), QLocale().toString(s.start.toLocalTime(), QLocale::ShortFormat));
+        row.insert(QStringLiteral("played"), played);
+        row.insert(QStringLiteral("averageFps"), QString::number(qRound(s.averageFps)));
+        row.insert(QStringLiteral("low1"), QString::number(qRound(s.low1Fps)));
+        row.insert(QStringLiteral("low01"), QString::number(qRound(s.low01Fps)));
+        row.insert(QStringLiteral("temperature"), reading(s.edge, degrees));
+        row.insert(QStringLiteral("hotspot"), hotspot);
+        row.insert(QStringLiteral("power"), reading(s.power, QStringLiteral("W")));
+        row.insert(QStringLiteral("running"), s.running);
+        list.append(row);
+    }
+    return list;
+}
+
+std::function<bool(qint64)> GameSettingsEditor::processAlive() const
+{
+    return [proc = m_library->procRoot()](qint64 pid) { return QFileInfo::exists(proc + QStringLiteral("/%1").arg(pid)); };
+}
+
+void GameSettingsEditor::reloadSessions()
+{
+    m_sessions = m_appId != 0 ? performance::loadHistory(performance::performanceDir(m_store->baseDir(), m_appId), processAlive())
+                              : QList<performance::Session>{};
+    Q_EMIT sessionsChanged();
+}
+
+void GameSettingsEditor::clearSessions()
+{
+    if (m_appId != 0) {
+        performance::clearHistory(performance::performanceDir(m_store->baseDir(), m_appId), processAlive());
+    }
+    reloadSessions();
+}
+
 void GameSettingsEditor::setFiltersEnabled(bool on)
 {
     editFilters([on](filters::Values &v) { v.enabled = on; });
@@ -361,6 +452,8 @@ void GameSettingsEditor::flush()
         setProblem(QStringLiteral("Could not save the settings: %1").arg(error));
     } else {
         setProblem({});
+        // gfxtune-run reads these at launch; a new file needs them at once.
+        m_store->saveFacts(m_appId, m_library->factsFor(m_appId));
     }
     m_library->settingsChanged();
 }

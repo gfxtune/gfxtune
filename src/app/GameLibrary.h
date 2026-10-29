@@ -61,6 +61,11 @@ public:
 
     bool steamRunning() const { return m_steamRunning; }
     bool isRunning(quint32 appId) const { return m_running.contains(appId); }
+    QString procRoot() const { return m_procRoot; }
+    // What gfxtune-run needs to know about the game at launch.
+    settings::GameFacts factsFor(quint32 appId) const;
+    // The game's name, or a placeholder for one that is not installed.
+    Q_INVOKABLE QString gameName(int appId) const;
     const settings::SettingsStore *store() const { return m_store; }
 
     // Where a game stands with gfxtune-run in its Steam launch options.

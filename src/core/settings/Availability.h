@@ -24,6 +24,10 @@ struct Availability {
     Option frameCap;
     Option fsr4;
     Option gamescope;
+    Option lodBias;
+    Option measurePerformance;
+    Option gameMode;
+    Option mangoHud;
     // The in-game filters as a whole.
     Option filters;
     // Anti-cheat found in the game while the user has not accepted the risk:
@@ -34,11 +38,17 @@ struct Availability {
 
 struct SystemInfo {
     bool gamescopeInstalled = false;
+    bool gameModeInstalled = false;
+    bool mangoHudInstalled = false;
+    bool mangoAppInstalled = false; // MangoHud for gamescope
 
     // Looks at this computer.
     static SystemInfo detect();
 };
 
 Availability availabilityFor(const steam::Game &game, const GameSettings &settings, const SystemInfo &system);
+
+// What gfxtune-run needs to know about a game, from what the scan found.
+GameFacts factsOf(const steam::Game &game);
 
 } // namespace gfxtune::settings

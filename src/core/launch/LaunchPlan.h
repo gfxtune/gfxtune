@@ -36,6 +36,13 @@ struct LaunchContext {
     // runs, and where it reports back.
     QString filterSettingsPath;
     QString filterReportPath;
+    // Where the layer keeps its frame-time measurements for this game.
+    QString performanceDir;
+    // What gfxtune found out about the game when it last looked.
+    settings::GameFacts facts;
+    bool gameModeInstalled = false;
+    bool mangoHudInstalled = false;
+    bool mangoAppInstalled = false; // MangoHud for gamescope
 };
 
 struct LaunchPlan {

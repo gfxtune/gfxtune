@@ -11,8 +11,10 @@ namespace gfxtune::settings
 
 const QList<int> GameSettings::AnisotropicLevels{0, 2, 4, 8, 16};
 // Native, then the usual upscaler presets: ultra quality, quality, balanced,
-// performance, ultra performance.
-const QList<int> GameSettings::RenderScales{100, 77, 67, 59, 50, 33};
+// performance, ultra performance, then supersampling.
+const QList<int> GameSettings::RenderScales{100, 77, 67, 59, 50, 33, 125, 150, 200};
+// Game decides, sharper in quarter steps, then softer.
+const QList<int> GameSettings::LodBiasLevels{0, -25, -50, -75, -100, -150, -200, 50, 100};
 
 namespace
 {

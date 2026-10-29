@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "cpu/Cpu.h"
 #include "gpu/AmdGpu.h"
 
 #include <QElapsedTimer>
@@ -40,6 +41,19 @@ class GpuMonitor : public QObject
     Q_PROPERTY(QString memoryClock READ memoryClock NOTIFY readingChanged)
     Q_PROPERTY(QString fan READ fan NOTIFY readingChanged)
     Q_PROPERTY(QString voltage READ voltage NOTIFY readingChanged)
+    Q_PROPERTY(QString heldBackBy READ heldBackBy NOTIFY readingChanged)
+
+    Q_PROPERTY(QString cpuLoad READ cpuLoad NOTIFY readingChanged)
+    Q_PROPERTY(QString cpuTemperature READ cpuTemperature NOTIFY readingChanged)
+    Q_PROPERTY(QString cpuClock READ cpuClock NOTIFY readingChanged)
+
+    // The game being measured right now; 0 when none.
+    Q_PROPERTY(int gameAppId READ gameAppId NOTIFY readingChanged)
+    Q_PROPERTY(QString gameFps READ gameFps NOTIFY readingChanged)
+    Q_PROPERTY(QString gameFrameTime READ gameFrameTime NOTIFY readingChanged)
+    Q_PROPERTY(QString gameVideoMemory READ gameVideoMemory NOTIFY readingChanged)
+    Q_PROPERTY(QList<qreal> fpsHistory READ fpsHistory NOTIFY readingChanged)
+    Q_PROPERTY(qreal fpsHigh READ fpsHigh NOTIFY readingChanged)
 
     Q_PROPERTY(QList<qreal> edgeHistory READ edgeHistory NOTIFY readingChanged)
     Q_PROPERTY(QList<qreal> hotspotHistory READ hotspotHistory NOTIFY readingChanged)
@@ -80,6 +94,21 @@ public:
     QString memoryClock() const;
     QString fan() const;
     QString voltage() const;
+    QString heldBackBy() const;
+    QString cpuLoad() const { return m_cpuLoad ? QStringLiteral("%1 %").arg(*m_cpuLoad) : QStringLiteral("—"); }
+    QString cpuTemperature() const;
+    QString cpuClock() const;
+
+    int gameAppId() const { return int(m_gameAppId); }
+    QString gameFps() const;
+    QString gameFrameTime() const;
+    QString gameVideoMemory() const;
+    QList<qreal> fpsHistory() const { return m_fps; }
+    qreal fpsHigh() const;
+
+    // Where to look for a game being measured (the layer's live files under
+    // <gfxtune folder>/performance) and for its processes.
+    void setGameSources(QString performanceBase, QString procRoot = QStringLiteral("/proc"));
 
     QList<qreal> edgeHistory() const { return m_edge; }
     QList<qreal> hotspotHistory() const { return m_hotspot; }
@@ -102,6 +131,7 @@ Q_SIGNALS:
 
 private:
     void clearHistory();
+    void sampleGame();
 
     QString m_sysRoot;
     gpu::GpuScan m_scan;
@@ -115,6 +145,21 @@ private:
     QList<qreal> m_edge;
     QList<qreal> m_hotspot;
     QList<qreal> m_power;
+
+    std::optional<cpu::CpuTimes> m_cpuTimes;
+    std::optional<int> m_cpuLoad;
+    std::optional<double> m_cpuTemperature;
+    std::optional<int> m_cpuClock;
+
+    QString m_performanceBase;
+    QString m_procRoot = QStringLiteral("/proc");
+    quint32 m_gameAppId = 0;
+    double m_gameFps = 0;
+    double m_gameFrameMs = 0;
+    double m_gameFrameMsMax = 0;
+    std::optional<quint64> m_gameVideoMemory;
+    int m_videoMemoryCountdown = 0;
+    QList<qreal> m_fps;
 };
 
 } // namespace gfxtune

@@ -4,6 +4,7 @@
 #pragma once
 
 #include "launch/LastLaunch.h"
+#include "performance/Performance.h"
 #include "settings/Availability.h"
 #include "settings/GameSettings.h"
 #include "settings/SettingsStore.h"
@@ -11,6 +12,7 @@
 #include <QObject>
 #include <QTimer>
 #include <QUrl>
+#include <QVariantList>
 #include <QtQmlIntegration>
 
 #include <functional>
@@ -45,6 +47,11 @@ class GameSettingsEditor : public QObject
     Q_PROPERTY(int scalingMode READ scalingMode WRITE setScalingMode NOTIFY settingsChanged)
     Q_PROPERTY(int renderScale READ renderScale WRITE setRenderScale NOTIFY settingsChanged)
     Q_PROPERTY(int sharpness READ sharpness WRITE setSharpness NOTIFY settingsChanged)
+    Q_PROPERTY(int lodBias READ lodBias WRITE setLodBias NOTIFY settingsChanged)
+    Q_PROPERTY(int antiAliasing READ antiAliasing WRITE setAntiAliasing NOTIFY settingsChanged)
+    Q_PROPERTY(bool measurePerformance READ measurePerformance WRITE setMeasurePerformance NOTIFY settingsChanged)
+    Q_PROPERTY(bool gameMode READ gameMode WRITE setGameMode NOTIFY settingsChanged)
+    Q_PROPERTY(bool mangoHud READ mangoHud WRITE setMangoHud NOTIFY settingsChanged)
     Q_PROPERTY(bool customized READ customized NOTIFY settingsChanged)
 
     // In-game filters (see src/filters/Filters.h for the ranges).
@@ -73,6 +80,14 @@ class GameSettingsEditor : public QObject
     Q_PROPERTY(bool filtersAvailable READ filtersAvailable NOTIFY availabilityChanged)
     Q_PROPERTY(QString filtersNote READ filtersNote NOTIFY availabilityChanged)
     Q_PROPERTY(bool filtersLocked READ filtersLocked NOTIFY availabilityChanged)
+    Q_PROPERTY(bool lodBiasAvailable READ lodBiasAvailable NOTIFY availabilityChanged)
+    Q_PROPERTY(QString lodBiasNote READ lodBiasNote NOTIFY availabilityChanged)
+    Q_PROPERTY(bool measureAvailable READ measureAvailable NOTIFY availabilityChanged)
+    Q_PROPERTY(QString measureNote READ measureNote NOTIFY availabilityChanged)
+    Q_PROPERTY(bool gameModeAvailable READ gameModeAvailable NOTIFY availabilityChanged)
+    Q_PROPERTY(QString gameModeNote READ gameModeNote NOTIFY availabilityChanged)
+    Q_PROPERTY(bool mangoHudAvailable READ mangoHudAvailable NOTIFY availabilityChanged)
+    Q_PROPERTY(QString mangoHudNote READ mangoHudNote NOTIFY availabilityChanged)
     Q_PROPERTY(QString filtersWarning READ filtersWarning NOTIFY availabilityChanged)
 
     Q_PROPERTY(QString problem READ problem NOTIFY problemChanged)
@@ -89,6 +104,10 @@ class GameSettingsEditor : public QObject
     Q_PROPERTY(QString lastLaunchNotApplied READ lastLaunchNotApplied NOTIFY launchChanged)
     // What the filter layer reported from inside the game, in words.
     Q_PROPERTY(QString lastLaunchFilters READ lastLaunchFilters NOTIFY launchChanged)
+
+    // The game's measured sessions, newest first; each a map with date,
+    // duration, averageFps, low1, low01, temperature, hotspot, power, running.
+    Q_PROPERTY(QVariantList sessions READ sessions NOTIFY sessionsChanged)
 
 public:
     GameSettingsEditor(GameLibrary *library, settings::SettingsStore *store, settings::SystemInfo system,
@@ -123,6 +142,16 @@ public:
     void setRenderScale(int percent);
     int sharpness() const { return m_settings.sharpness; }
     void setSharpness(int value);
+    int lodBias() const { return m_settings.lodBias; }
+    void setLodBias(int hundredths);
+    int antiAliasing() const { return m_settings.filters.antiAliasing; }
+    void setAntiAliasing(int mode);
+    bool measurePerformance() const { return m_settings.measurePerformance; }
+    void setMeasurePerformance(bool on);
+    bool gameMode() const { return m_settings.gameMode; }
+    void setGameMode(bool on);
+    bool mangoHud() const { return m_settings.mangoHud; }
+    void setMangoHud(bool on);
     bool customized() const { return m_settings.affectsGame(); }
 
     bool filtersEnabled() const { return m_settings.filters.enabled; }
@@ -161,6 +190,14 @@ public:
     QString filtersNote() const { return m_availability.filters.note; }
     bool filtersLocked() const { return m_availability.filtersLocked; }
     QString filtersWarning() const { return m_availability.filtersWarning; }
+    bool lodBiasAvailable() const { return m_availability.lodBias.available; }
+    QString lodBiasNote() const { return m_availability.lodBias.note; }
+    bool measureAvailable() const { return m_availability.measurePerformance.available; }
+    QString measureNote() const { return m_availability.measurePerformance.note; }
+    bool gameModeAvailable() const { return m_availability.gameMode.available; }
+    QString gameModeNote() const { return m_availability.gameMode.note; }
+    bool mangoHudAvailable() const { return m_availability.mangoHud.available; }
+    QString mangoHudNote() const { return m_availability.mangoHud.note; }
 
     QString problem() const { return m_problem; }
 
@@ -174,6 +211,11 @@ public:
     QString lastLaunchKept() const { return m_lastLaunch ? m_lastLaunch->keptFromSteam.join(QStringLiteral(", ")) : QString(); }
     QString lastLaunchNotApplied() const { return m_lastLaunch ? m_lastLaunch->notApplied.join(QStringLiteral("; ")) : QString(); }
     QString lastLaunchFilters() const;
+
+    QVariantList sessions() const;
+    Q_INVOKABLE void clearSessions();
+    // Reads the game's measured sessions again.
+    Q_INVOKABLE void reloadSessions();
     Q_INVOKABLE void copyLaunchLine() const;
 
     const settings::GameSettings &current() const { return m_settings; }
@@ -189,6 +231,7 @@ Q_SIGNALS:
     void availabilityChanged();
     void problemChanged();
     void launchChanged();
+    void sessionsChanged();
 
 private:
     void edit(const std::function<void(settings::GameSettings &)> &change);
@@ -197,6 +240,8 @@ private:
     void load();
     void updateAvailability();
     void setProblem(const QString &problem);
+    // Whether a process of the game still runs, for its session files.
+    std::function<bool(qint64)> processAlive() const;
     void reloadLastLaunch();
 
     GameLibrary *m_library;
@@ -211,6 +256,7 @@ private:
     QString m_problem;
     std::optional<launch::LastLaunch> m_lastLaunch;
     std::optional<launch::FilterReport> m_filterReport;
+    QList<performance::Session> m_sessions;
     // While the selected game runs, its filter report can still arrive.
     QTimer m_reportPoll;
 };

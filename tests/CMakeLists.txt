@@ -12,7 +12,7 @@ target_include_directories(gfxtune_test_support PUBLIC .)
 target_link_libraries(gfxtune_test_support PUBLIC gfxtune_core Qt6::Test)
 
 # Tests of the parts without a window.
-foreach(name textvdf binaryvdf appinfo imports gamefiles steamscan running settings launch vdfedit)
+foreach(name textvdf binaryvdf appinfo imports gamefiles steamscan running settings launch vdfedit performance)
     qt_add_executable(tst_${name} tst_${name}.cpp)
     target_link_libraries(tst_${name} PRIVATE gfxtune_test_support)
     add_test(NAME ${name} COMMAND tst_${name})
@@ -40,9 +40,20 @@ add_dependencies(tst_commands gfxtune)
 add_test(NAME commands COMMAND tst_commands)
 
 # The in-game filters on a real Vulkan device, and the layer through the loader.
-find_package(Vulkan REQUIRED)
-qt_add_executable(tst_layer tst_layer.cpp)
-target_link_libraries(tst_layer PRIVATE gfxtune_filters_vk Vulkan::Vulkan Qt6::Test)
+find_package(Vulkan REQUIRED COMPONENTS glslangValidator)
+set(test_shader ${CMAKE_CURRENT_BINARY_DIR}/shaders/first_level_frag.h)
+add_custom_command(
+    OUTPUT ${test_shader}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/shaders
+    COMMAND Vulkan::glslangValidator -V --target-env vulkan1.0 --quiet --vn first_level_frag
+            -o ${test_shader} ${CMAKE_CURRENT_SOURCE_DIR}/shaders/first_level.frag
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/first_level.frag
+    COMMENT "Compiling test shader first_level.frag"
+    VERBATIM)
+qt_add_executable(tst_layer tst_layer.cpp ${test_shader})
+# The layer's compiled shaders, for drawing test passes.
+target_include_directories(tst_layer PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/shaders ${PROJECT_BINARY_DIR}/src/layer/shaders)
+target_link_libraries(tst_layer PRIVATE gfxtune_filters_vk gfxtune_test_support Vulkan::Vulkan Qt6::Test)
 target_compile_definitions(tst_layer PRIVATE GFXTUNE_LAYER_MANIFEST_DIR="${CMAKE_BINARY_DIR}/layer")
 add_dependencies(tst_layer VkLayer_gfxtune)
 add_test(NAME layer COMMAND tst_layer)

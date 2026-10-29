@@ -12,7 +12,9 @@ add_library(gfxtune_core STATIC
     core/launch/LaunchLines.cpp
     core/launch/LaunchPlan.cpp
     core/binaries/ExecutableImports.cpp
+    core/cpu/Cpu.cpp
     core/gpu/AmdGpu.cpp
+    core/performance/Performance.cpp
     core/settings/Availability.cpp
     core/settings/GameSettings.cpp
     core/settings/SettingsStore.cpp
@@ -56,6 +58,7 @@ qt_add_qml_module(gfxtune_ui
         qml/Cover.qml
         qml/FilterSlider.qml
         qml/Note.qml
+        qml/PerformanceHistory.qml
         qml/SettingSwitch.qml
         qml/ValueComboBox.qml
 )

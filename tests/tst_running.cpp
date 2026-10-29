@@ -9,6 +9,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <algorithm>
+
 using namespace gfxtune;
 
 namespace
@@ -49,6 +51,39 @@ private Q_SLOTS:
         fakeProcess(proc, QStringLiteral("self"), "reaper", {reaper, "SteamLaunch", "AppId=7000"});
 
         QCOMPARE(steam::runningSteamApps(proc), (QSet<quint32>{1001, 1002}));
+        QCOMPARE(steam::steamGameReapers(proc), (QHash<quint32, qint64>{{1001, 100}, {1002, 101}}));
+    }
+
+    // A game's processes: its reaper and everything below it.
+    void followsAProcessTree()
+    {
+        QTemporaryDir dir;
+        const QString proc = dir.path();
+        const auto stat = [&proc](int pid, const QByteArray &name, int parent) {
+            test::writeFile(proc + QStringLiteral("/%1/stat").arg(pid),
+                            QByteArray::number(pid) + " (" + name + ") S " + QByteArray::number(parent) + " 1 1 0 -1 4194560\n");
+        };
+        stat(100, "reaper", 1);
+        stat(101, "pressure-vessel", 100);
+        stat(102, "wineserver", 101);
+        stat(103, "Game.exe", 101);
+        // Names may hold spaces and brackets.
+        stat(104, "Game (Main) Thread)", 103);
+        stat(200, "steam", 1); // not the game's
+        stat(201, "steamwebhelper", 200);
+        // A damaged file, one naming itself as its parent, and an ended process.
+        test::writeFile(proc + QStringLiteral("/105/stat"), "105 garbage");
+        stat(106, "odd", 106);
+        QDir().mkpath(proc + QStringLiteral("/107"));
+        test::writeFile(proc + QStringLiteral("/self/stat"), "1 (self) S 100\n");
+
+        QList<qint64> tree = steam::processTree(100, proc);
+        std::sort(tree.begin(), tree.end());
+        QCOMPARE(tree, (QList<qint64>{100, 101, 102, 103, 104}));
+        QCOMPARE(steam::processTree(102, proc), QList<qint64>{102});
+        QCOMPARE(steam::processTree(106, proc), QList<qint64>{106});
+        QCOMPARE(steam::processTree(999, proc), QList<qint64>{999}); // ended
+        QCOMPARE(steam::processTree(100, QStringLiteral("/does/not/exist")), QList<qint64>{100});
     }
 
     void handlesAMissingProcFolder()

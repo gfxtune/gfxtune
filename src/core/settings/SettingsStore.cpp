@@ -78,6 +78,23 @@ public:
         return value;
     }
 
+    // One of a list of names, as its index.
+    template<std::size_t N>
+    int named(const QString &key, int fallback, const char *const (&names)[N])
+    {
+        if (!m_file.contains(key)) {
+            return fallback;
+        }
+        const QString text = m_file.value(key).toString().trimmed().toLower();
+        for (std::size_t i = 0; i < N; ++i) {
+            if (text == QLatin1String(names[i])) {
+                return int(i);
+            }
+        }
+        warn(QStringLiteral("%1: unknown value").arg(key));
+        return fallback;
+    }
+
     template<typename Enum>
     Enum choice(const QString &key, Enum fallback)
     {
@@ -132,6 +149,7 @@ GameSettings SettingsStore::load(quint32 appId, QStringList *warnings) const
     Reader in(path, warnings);
     s.anisotropicFiltering = in.oneOf(QStringLiteral("image/anisotropic_filtering"), defaults.anisotropicFiltering,
                                       GameSettings::AnisotropicLevels);
+    s.lodBias = in.oneOf(QStringLiteral("image/lod_bias"), defaults.lodBias, GameSettings::LodBiasLevels);
     s.frameCapEnabled = in.flag(QStringLiteral("frames/frame_cap_enabled"), defaults.frameCapEnabled);
     s.frameCap = in.number(QStringLiteral("frames/frame_cap"), defaults.frameCap, GameSettings::MinFrameCap, GameSettings::MaxFrameCap);
     s.verticalSync = in.choice(QStringLiteral("frames/vertical_sync"), defaults.verticalSync);
@@ -155,7 +173,11 @@ GameSettings SettingsStore::load(quint32 appId, QStringList *warnings) const
     s.filters.saturation = ranged("saturation", filters::Saturation);
     s.filters.vibrance = ranged("vibrance", filters::Vibrance);
     s.filters.temperature = ranged("temperature", filters::Temperature);
+    s.filters.antiAliasing = in.named(QStringLiteral("filters/anti_aliasing"), defaults.filters.antiAliasing, filters::AntiAliasingNames);
     s.filtersRiskAccepted = in.flag(QStringLiteral("filters/risk_accepted"), defaults.filtersRiskAccepted);
+    s.measurePerformance = in.flag(QStringLiteral("performance/measure"), defaults.measurePerformance);
+    s.gameMode = in.flag(QStringLiteral("launch/gamemode"), defaults.gameMode);
+    s.mangoHud = in.flag(QStringLiteral("launch/mangohud"), defaults.mangoHud);
     return s;
 }
 
@@ -169,11 +191,19 @@ bool SettingsStore::save(quint32 appId, const GameSettings &s, const QString &ga
         return fail(error, QStringLiteral("could not create %1").arg(QFileInfo(path).path()));
     }
 
+    const GameFacts facts = loadFacts(appId); // kept across a save
     QSettings out(path, QSettings::IniFormat);
     out.clear();
     out.setValue(QStringLiteral("game/name"), gameName);
     out.setValue(QStringLiteral("game/steam_app_id"), appId);
+    if (!facts.antiCheat.isEmpty()) {
+        out.setValue(QStringLiteral("game/anti_cheat"), facts.antiCheat);
+    }
+    if (facts.openGlOnly) {
+        out.setValue(QStringLiteral("game/opengl_only"), true);
+    }
     out.setValue(QStringLiteral("image/anisotropic_filtering"), s.anisotropicFiltering);
+    out.setValue(QStringLiteral("image/lod_bias"), s.lodBias);
     out.setValue(QStringLiteral("frames/frame_cap_enabled"), s.frameCapEnabled);
     out.setValue(QStringLiteral("frames/frame_cap"), s.frameCap);
     out.setValue(QStringLiteral("frames/vertical_sync"), toKey(s.verticalSync));
@@ -193,8 +223,53 @@ bool SettingsStore::save(quint32 appId, const GameSettings &s, const QString &ga
     out.setValue(QStringLiteral("filters/saturation"), s.filters.saturation);
     out.setValue(QStringLiteral("filters/vibrance"), s.filters.vibrance);
     out.setValue(QStringLiteral("filters/temperature"), s.filters.temperature);
+    out.setValue(QStringLiteral("filters/anti_aliasing"), QLatin1String(filters::AntiAliasingNames[filters::AntiAliasing.clamp(s.filters.antiAliasing)]));
     out.setValue(QStringLiteral("filters/risk_accepted"), s.filtersRiskAccepted);
+    out.setValue(QStringLiteral("performance/measure"), s.measurePerformance);
+    out.setValue(QStringLiteral("launch/gamemode"), s.gameMode);
+    out.setValue(QStringLiteral("launch/mangohud"), s.mangoHud);
     out.sync(); // QSettings writes through a temporary file and renames it
+    if (out.status() != QSettings::NoError) {
+        return fail(error, QStringLiteral("could not write %1").arg(path));
+    }
+    return true;
+}
+
+GameFacts SettingsStore::loadFacts(quint32 appId) const
+{
+    GameFacts facts;
+    const QString path = pathFor(appId);
+    if (!QFileInfo::exists(path)) {
+        return facts;
+    }
+    const QSettings in(path, QSettings::IniFormat);
+    for (const QString &name : in.value(QStringLiteral("game/anti_cheat")).toStringList()) {
+        if (!name.trimmed().isEmpty()) {
+            facts.antiCheat.append(name.trimmed());
+        }
+    }
+    facts.openGlOnly = in.value(QStringLiteral("game/opengl_only")).toString().trimmed().toLower() == QLatin1String("true");
+    return facts;
+}
+
+bool SettingsStore::saveFacts(quint32 appId, const GameFacts &facts, QString *error) const
+{
+    const QString path = pathFor(appId);
+    if (!QFileInfo::exists(path) || loadFacts(appId) == facts) {
+        return true; // only games with settings need them, and only when they changed
+    }
+    QSettings out(path, QSettings::IniFormat);
+    if (facts.antiCheat.isEmpty()) {
+        out.remove(QStringLiteral("game/anti_cheat"));
+    } else {
+        out.setValue(QStringLiteral("game/anti_cheat"), facts.antiCheat);
+    }
+    if (facts.openGlOnly) {
+        out.setValue(QStringLiteral("game/opengl_only"), true);
+    } else {
+        out.remove(QStringLiteral("game/opengl_only"));
+    }
+    out.sync();
     if (out.status() != QSettings::NoError) {
         return fail(error, QStringLiteral("could not write %1").arg(path));
     }

@@ -5,6 +5,7 @@
 #include "GameSettingsEditor.h"
 #include "GpuMonitor.h"
 #include "Commands.h"
+#include "performance/Performance.h"
 
 #include <QApplication>
 #include <QCommandLineParser>
@@ -84,6 +85,7 @@ int main(int argc, char *argv[])
     // GFXTUNE_SYSFS_ROOT points the card panel at a saved copy of /sys, for
     // testing and for reproducing reports.
     gfxtune::GpuMonitor gpu(qEnvironmentVariable("GFXTUNE_SYSFS_ROOT", QStringLiteral("/sys")));
+    gpu.setGameSources(gfxtune::performance::performanceRoot(store.baseDir()));
 
     QQmlApplicationEngine engine;
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,

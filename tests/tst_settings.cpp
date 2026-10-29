@@ -43,7 +43,12 @@ GameSettings sample()
     s.filters.saturation = -100;
     s.filters.vibrance = 100;
     s.filters.temperature = -35;
+    s.filters.antiAliasing = 1;
     s.filtersRiskAccepted = true;
+    s.lodBias = -75;
+    s.measurePerformance = false;
+    s.gameMode = true;
+    s.mangoHud = true;
     return s;
 }
 
@@ -119,6 +124,11 @@ private Q_SLOTS:
         QVERIFY(text.contains("[filters]"));
         QVERIFY(text.contains("sharpening=45"));
         QVERIFY(text.contains("temperature=-35"));
+        QVERIFY(text.contains("anti_aliasing=smaa"));
+        QVERIFY(text.contains("lod_bias=-75"));
+        QVERIFY(text.contains("[performance]\nmeasure=false"));
+        QVERIFY(text.contains("gamemode=true"));
+        QVERIFY(text.contains("mangohud=true"));
         // Nothing left behind by the atomic write.
         QCOMPARE(QDir(dir.filePath(QStringLiteral("gfxtune/games"))).entryList(QDir::Files), QStringList{QStringLiteral("1091.ini")});
     }
@@ -143,8 +153,10 @@ private Q_SLOTS:
                                                   "[frames]\nframe_cap_enabled=yes\nframe_cap=5\nvertical_sync=sometimes\n"
                                                   "[upscaling]\nfsr4_upgrade=true\n"
                                                   "[gamescope]\nenabled=TRUE\nrender_scale=66\nsharpness=21\nfilter=xbr\nscaling=fill\n"
-                                                  "[filters]\nenabled=maybe\nsharpening=500\ncontrast=x\ngamma=150\n"
-                                                  "[other]\nunknown_key=1\n"));
+                                                  "[filters]\nenabled=maybe\nsharpening=500\ncontrast=x\ngamma=150\nanti_aliasing=fxaa\n"
+                                                  "[performance]\nmeasure=often\n"
+                                                  "[launch]\ngamemode=1\nmangohud=true\n"
+                                                  "[other]\nunknown_key=1\nlod_bias=-50\n"));
         QStringList warnings;
         const GameSettings loaded = store.load(7, &warnings);
         const GameSettings defaults;
@@ -163,7 +175,13 @@ private Q_SLOTS:
         QCOMPARE(loaded.filters.sharpening, defaults.filters.sharpening);
         QCOMPARE(loaded.filters.contrast, defaults.filters.contrast);
         QCOMPARE(loaded.filters.gamma, 150);
-        QCOMPARE(warnings.size(), 10);
+        QCOMPARE(loaded.filters.antiAliasing, 0);
+        QCOMPARE(loaded.measurePerformance, true);
+        QCOMPARE(loaded.gameMode, false);
+        QVERIFY(loaded.mangoHud);
+        // A key in the wrong section is not read.
+        QCOMPARE(loaded.lodBias, 0);
+        QCOMPARE(warnings.size(), 13);
     }
 
     void survivesGarbageFiles()
@@ -234,7 +252,11 @@ private Q_SLOTS:
         QTest::addColumn<bool>("gamescopeOn");
         QTest::addColumn<bool>("gamescopeInstalled");
         QTest::addColumn<bool>("aniso");
+        QTest::addColumn<bool>("vsync");
+        // The cap with performance measuring on (the default: gfxtune's layer
+        // caps every Vulkan game), and with it off.
         QTest::addColumn<bool>("frameCap");
+        QTest::addColumn<bool>("frameCapWithoutLayer");
         QTest::addColumn<bool>("fsr4");
         QTest::addColumn<bool>("gamescope");
 
@@ -244,20 +266,21 @@ private Q_SLOTS:
         const int gl = int(GraphicsApi::OpenGL);
         const int proton = int(Runtime::Proton);
         const int native = int(Runtime::Native);
-        QTest::newRow("Proton DX11") << proton << dx11 << false << false << true << true << true << false << true;
-        QTest::newRow("Proton DX12 with FSR 3.1") << proton << dx12 << true << false << true << true << true << true << true;
-        QTest::newRow("Proton DX12, gamescope on") << proton << dx12 << false << true << true << true << true << false << true;
-        QTest::newRow("Proton, gamescope on but missing") << proton << dx12 << false << true << false << true << true << false << false;
-        QTest::newRow("Proton Vulkan, no gamescope") << proton << vulkan << false << false << false << true << false << false << false;
-        QTest::newRow("Proton, graphics unknown") << proton << 0 << false << false << true << true << true << false << true;
-        QTest::newRow("Proton DX11 and 12") << proton << (dx11 | dx12) << true << false << true << true << true << true << true;
-        QTest::newRow("native Vulkan") << native << vulkan << false << false << true << true << false << false << true;
-        QTest::newRow("native OpenGL") << native << gl << false << false << false << false << false << false << false;
+        QTest::newRow("Proton DX11") << proton << dx11 << false << false << true << true << true << true << true << false << true;
+        QTest::newRow("Proton DX12 with FSR 3.1") << proton << dx12 << true << false << true << true << true << true << true << true << true;
+        QTest::newRow("Proton DX12, gamescope on") << proton << dx12 << false << true << true << true << true << true << true << false << true;
+        QTest::newRow("Proton, gamescope on but missing") << proton << dx12 << false << true << false << true << true << true << true << false << false;
+        QTest::newRow("Proton Vulkan, no gamescope") << proton << vulkan << false << false << false << true << true << true << false << false << false;
+        QTest::newRow("Proton, graphics unknown") << proton << 0 << false << false << true << true << true << true << true << false << true;
+        QTest::newRow("Proton DX11 and 12") << proton << (dx11 | dx12) << true << false << true << true << true << true << true << true << true;
+        QTest::newRow("native Vulkan") << native << vulkan << false << false << true << true << true << true << false << false << true;
+        // Mesa's own switch reaches OpenGL vertical sync; nothing else does.
+        QTest::newRow("native OpenGL") << native << gl << false << false << false << false << true << false << false << false << false;
         // Windows games often link OpenGL without using it: only a note.
-        QTest::newRow("Proton, OpenGL guess") << proton << gl << false << false << true << true << true << false << true;
-        QTest::newRow("native OpenGL, gamescope on") << native << gl << false << true << true << false << true << false << true;
-        QTest::newRow("native, FSR DLL present") << native << vulkan << true << false << true << true << false << false << true;
-        QTest::newRow("unknown runtime") << int(Runtime::Unknown) << 0 << false << false << true << true << false << false << true;
+        QTest::newRow("Proton, OpenGL guess") << proton << gl << false << false << true << true << true << true << true << false << true;
+        QTest::newRow("native OpenGL, gamescope on") << native << gl << false << true << true << false << true << true << true << false << true;
+        QTest::newRow("native, FSR DLL present") << native << vulkan << true << false << true << true << true << true << false << false << true;
+        QTest::newRow("unknown runtime") << int(Runtime::Unknown) << 0 << false << false << true << true << true << false << false << false << true;
     }
 
     void decidesWhatAppliesToAGame()
@@ -268,7 +291,9 @@ private Q_SLOTS:
         QFETCH(bool, gamescopeOn);
         QFETCH(bool, gamescopeInstalled);
         QFETCH(bool, aniso);
+        QFETCH(bool, vsync);
         QFETCH(bool, frameCap);
+        QFETCH(bool, frameCapWithoutLayer);
         QFETCH(bool, fsr4);
         QFETCH(bool, gamescope);
 
@@ -276,16 +301,21 @@ private Q_SLOTS:
         s.gamescope = gamescopeOn;
         SystemInfo system;
         system.gamescopeInstalled = gamescopeInstalled;
-        const Availability a = availabilityFor(game(Runtime(runtime), GraphicsApis::fromInt(GraphicsApis::Int(apis)), fsr31), s, system);
+        const Game g = game(Runtime(runtime), GraphicsApis::fromInt(GraphicsApis::Int(apis)), fsr31);
+        const Availability a = availabilityFor(g, s, system);
         QCOMPARE(a.anisotropicFiltering.available, aniso);
-        QCOMPARE(a.verticalSync.available, aniso);
+        QCOMPARE(a.verticalSync.available, vsync);
         QCOMPARE(a.frameCap.available, frameCap);
         QCOMPARE(a.fsr4.available, fsr4);
         QCOMPARE(a.gamescope.available, gamescope);
         // Every unavailable setting says why.
-        for (const Option &option : {a.anisotropicFiltering, a.verticalSync, a.frameCap, a.fsr4, a.gamescope}) {
+        for (const Option &option : {a.anisotropicFiltering, a.verticalSync, a.frameCap, a.fsr4, a.gamescope, a.lodBias,
+                                     a.measurePerformance, a.gameMode, a.mangoHud, a.filters}) {
             QVERIFY(option.available || !option.note.isEmpty());
         }
+
+        s.measurePerformance = false;
+        QCOMPARE(availabilityFor(g, s, system).frameCap.available, frameCapWithoutLayer);
     }
 
     void capsProtonGamesInsideTheGame()
@@ -300,12 +330,16 @@ private Q_SLOTS:
         QVERIFY(a.frameCap.available);
         QCOMPARE(a.frameCap.note, QString());
 
-        // Vulkan used directly under Proton: nothing reaches it.
+        // Vulkan used directly under Proton: only gfxtune's layer reaches it.
+        a = availabilityFor(game(Runtime::Proton, GraphicsApi::Vulkan), withGamescope, system);
+        QVERIFY(a.frameCap.available);
+        withGamescope.measurePerformance = false;
         a = availabilityFor(game(Runtime::Proton, GraphicsApi::Vulkan), withGamescope, system);
         QVERIFY(!a.frameCap.available);
-        QVERIFY(a.frameCap.note.contains(QLatin1String("Vulkan")));
+        QVERIFY(a.frameCap.note.contains(QLatin1String("measuring")));
 
-        // Outside Proton only gamescope can, and only with vertical sync on.
+        // Outside Proton without the layer only gamescope can, and only with
+        // vertical sync on.
         a = availabilityFor(game(Runtime::Native, GraphicsApi::Vulkan), withGamescope, system);
         QVERIFY(a.frameCap.available);
         QVERIFY(a.frameCap.note.contains(QLatin1String("vertical sync")));
@@ -387,6 +421,197 @@ private Q_SLOTS:
         QVERIFY(s.affectsGame());
         QVERIFY(store.save(3, s, {}));
         QCOMPARE(store.customizedGames(), QSet<quint32>{3});
+
+        // Measuring switched off alone: kept, but the game needs no line for it.
+        GameSettings quiet;
+        quiet.measurePerformance = false;
+        QVERIFY(!quiet.isDefault());
+        QVERIFY(!quiet.affectsGame());
+        QVERIFY(store.save(4, quiet, {}));
+        QVERIFY(!store.load(4).measurePerformance);
+        QCOMPARE(store.customizedGames(), QSet<quint32>{3});
+        quiet.gameMode = true;
+        QVERIFY(quiet.affectsGame());
+    }
+
+    void onlyOffersListedTextureDetail()
+    {
+        QTemporaryDir dir;
+        const SettingsStore store(dir.filePath(QStringLiteral("gfxtune")));
+        // One file each: QSettings rereads a file only when its size or
+        // time changed, which a quick rewrite of the same length may not.
+        quint32 appId = 100;
+        for (int level : GameSettings::LodBiasLevels) {
+            QVERIFY(test::writeFile(store.pathFor(++appId), "[image]\nlod_bias=" + QByteArray::number(level) + "\n"));
+            QCOMPARE(store.load(appId).lodBias, level);
+        }
+        for (const QByteArray &bad : {QByteArray("-30"), QByteArray("-300"), QByteArray("1000"), QByteArray("-0.5")}) {
+            QVERIFY(test::writeFile(store.pathFor(++appId), "[image]\nlod_bias=" + bad + "\n"));
+            QCOMPARE(store.load(appId).lodBias, 0);
+        }
+        // Supersampling sizes are kept too.
+        for (int scale : {125, 150, 200}) {
+            QVERIFY(test::writeFile(store.pathFor(++appId), "[gamescope]\nenabled=true\nrender_scale=" + QByteArray::number(scale) + "\n"));
+            QCOMPARE(store.load(appId).renderScale, scale);
+            QVERIFY(store.load(appId).supersampling());
+        }
+        QVERIFY(!GameSettings{}.supersampling());
+        GameSettings withoutGamescope;
+        withoutGamescope.renderScale = 150; // the size gamescope would use
+        QVERIFY(!withoutGamescope.supersampling());
+    }
+
+    // What the scan found about a game, kept in its settings file for
+    // gfxtune-run.
+    void keepsTheGamesFacts()
+    {
+        QTemporaryDir dir;
+        const SettingsStore store(dir.filePath(QStringLiteral("gfxtune")));
+        const GameFacts facts{{QStringLiteral("Easy Anti-Cheat"), QStringLiteral("BattlEye")}, true};
+        QCOMPARE(store.loadFacts(4), GameFacts{});
+        // Only games with settings have a file to keep them in.
+        QVERIFY(store.saveFacts(4, facts));
+        QVERIFY(!QFile::exists(store.pathFor(4)));
+
+        GameSettings s;
+        s.frameCapEnabled = true;
+        QVERIFY(store.save(4, s, QStringLiteral("Hollow Orbit")));
+        QVERIFY(store.saveFacts(4, facts));
+        QCOMPARE(store.loadFacts(4), facts);
+        // Saving the settings keeps them, and they are not settings.
+        s.frameCap = 90;
+        QVERIFY(store.save(4, s, QStringLiteral("Hollow Orbit")));
+        QCOMPARE(store.loadFacts(4), facts);
+        QCOMPARE(store.load(4), s);
+
+        // Unchanged facts do not touch the file.
+        QFileInfo before(store.pathFor(4));
+        const QDateTime written = before.lastModified();
+        QVERIFY(setAge(store.pathFor(4), 100));
+        QVERIFY(store.saveFacts(4, facts));
+        QVERIFY(QFileInfo(store.pathFor(4)).lastModified() < written);
+
+        QVERIFY(store.saveFacts(4, GameFacts{}));
+        QCOMPARE(store.loadFacts(4), GameFacts{});
+        QFile file(store.pathFor(4));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QVERIFY(!file.readAll().contains("anti_cheat"));
+
+        // Blank names in a hand-edited file are skipped.
+        QVERIFY(test::writeFile(store.pathFor(5), "[game]\nanti_cheat=\" \", BattlEye\nopengl_only=TRUE\n"));
+        QCOMPARE(store.loadFacts(5), (GameFacts{{QStringLiteral("BattlEye")}, true}));
+    }
+
+    void decidesWhereTextureDetailWorks()
+    {
+        SystemInfo system;
+        GameSettings measuring; // the layer loads
+        GameSettings plain;
+        plain.measurePerformance = false;
+        const auto lod = [&system](const Game &g, const GameSettings &s) { return availabilityFor(g, s, system).lodBias; };
+
+        QVERIFY(lod(game(Runtime::Native, GraphicsApi::Vulkan), measuring).available);
+        QVERIFY(lod(game(Runtime::Native, GraphicsApi::Vulkan), measuring).note.contains(QLatin1String("next time")));
+        QVERIFY(!lod(game(Runtime::Native, GraphicsApi::Vulkan), plain).available);
+        QVERIFY(lod(game(Runtime::Native, GraphicsApi::Vulkan), plain).note.contains(QLatin1String("Needs performance measuring")));
+        // DXVK can set it for DirectX 9 to 11 without the layer.
+        QVERIFY(lod(game(Runtime::Proton, GraphicsApi::DirectX11), plain).available);
+        QVERIFY(lod(game(Runtime::Proton, GraphicsApi::DirectX11), plain).note.contains(QLatin1String("DirectX 9 to 11")));
+        QVERIFY(!lod(game(Runtime::Native, GraphicsApi::OpenGL), measuring).available);
+
+        Game own = game(Runtime::Proton, GraphicsApi::DirectX11);
+        own.launchOptions = QStringLiteral("DXVK_CONFIG=\"d3d11.samplerLodBias = -1\" %command%");
+        QVERIFY(!lod(own, measuring).available);
+
+        // Locked by anti-cheat, the layer does not load.
+        Game locked = game(Runtime::Native, GraphicsApi::Vulkan);
+        locked.antiCheat = {QStringLiteral("Easy Anti-Cheat")};
+        QVERIFY(!lod(locked, measuring).available);
+        QVERIFY(lod(locked, measuring).note.contains(QLatin1String("accept the risk")));
+        GameSettings capped;
+        capped.frameCapEnabled = true;
+        system.gamescopeInstalled = true;
+        QVERIFY(availabilityFor(locked, capped, system).frameCap.note.contains(QLatin1String("accept the risk")));
+        locked.runtime = Runtime::Proton;
+        QVERIFY(availabilityFor(locked, capped, system).frameCap.note.contains(QLatin1String("accept the risk")));
+    }
+
+    void decidesWhereMeasuringWorks()
+    {
+        SystemInfo system;
+        const auto measure = [&system](const Game &g) { return availabilityFor(g, GameSettings{}, system).measurePerformance; };
+        QVERIFY(measure(game(Runtime::Native, GraphicsApi::Vulkan)).available);
+        QVERIFY(measure(game(Runtime::Proton, GraphicsApi::DirectX12)).available);
+        QVERIFY(measure(game(Runtime::Proton, GraphicsApi::OpenGL)).available); // may still draw through DXVK
+        QVERIFY(!measure(game(Runtime::Native, GraphicsApi::OpenGL)).available);
+        QVERIFY(measure(game(Runtime::Native, GraphicsApi::OpenGL)).note.contains(QLatin1String("OpenGL")));
+        QVERIFY(!measure(game(Runtime::Unknown, {})).available);
+
+        Game locked = game(Runtime::Proton, GraphicsApi::DirectX11);
+        locked.antiCheat = {QStringLiteral("BattlEye")};
+        const Availability a = availabilityFor(locked, GameSettings{}, system);
+        QVERIFY(a.filtersLocked);
+        QVERIFY(a.measurePerformance.available);
+        QCOMPARE(a.measurePerformance.note, QStringLiteral("Locked until you accept the risk under In-game filters."));
+        QVERIFY(a.filtersWarning.contains(QLatin1String("performance measuring")));
+    }
+
+    void offersGameModeAndMangoHudWhenInstalled()
+    {
+        SystemInfo none;
+        Game g = game(Runtime::Proton, GraphicsApi::DirectX11);
+        Availability a = availabilityFor(g, GameSettings{}, none);
+        QVERIFY(!a.gameMode.available);
+        QCOMPARE(a.gameMode.note, QStringLiteral("GameMode is not installed."));
+        QVERIFY(!a.mangoHud.available);
+        QCOMPARE(a.mangoHud.note, QStringLiteral("MangoHud is not installed."));
+
+        SystemInfo system;
+        system.gameModeInstalled = true;
+        system.mangoHudInstalled = true;
+        system.gamescopeInstalled = true;
+        a = availabilityFor(g, GameSettings{}, system);
+        QVERIFY(a.gameMode.available);
+        QVERIFY(a.mangoHud.available);
+        QVERIFY(a.mangoHud.note.contains(QLatin1String("Right Shift+F12")));
+
+        // Started by the game's own launch options already.
+        g.launchOptions = QStringLiteral("gamemoderun mangohud %command%");
+        a = availabilityFor(g, GameSettings{}, system);
+        QVERIFY(!a.gameMode.available);
+        QVERIFY(!a.mangoHud.available);
+        g.launchOptions = QStringLiteral("MANGOHUD=1 %command%");
+        QVERIFY(!availabilityFor(g, GameSettings{}, system).mangoHud.available);
+
+        // Inside gamescope, MangoHud needs gamescope's mangoapp.
+        g.launchOptions.clear();
+        GameSettings inGamescope;
+        inGamescope.gamescope = true;
+        a = availabilityFor(g, inGamescope, system);
+        QVERIFY(!a.mangoHud.available);
+        QVERIFY(a.mangoHud.note.contains(QLatin1String("mangoapp, which is not installed")));
+        system.mangoAppInstalled = true;
+        a = availabilityFor(g, inGamescope, system);
+        QVERIFY(a.mangoHud.available);
+        QVERIFY(a.mangoHud.note.contains(QLatin1String("mangoapp")));
+        g.launchOptions = QStringLiteral("gamescope -f -- %command%");
+        a = availabilityFor(g, GameSettings{}, system);
+        QVERIFY(!a.mangoHud.available);
+        QVERIFY(a.mangoHud.note.contains(QLatin1String("--mangoapp")));
+    }
+
+    void explainsSupersampling()
+    {
+        SystemInfo system;
+        system.gamescopeInstalled = true;
+        GameSettings s;
+        s.gamescope = true;
+        s.renderScale = 150;
+        const Availability a = availabilityFor(game(Runtime::Proton, GraphicsApi::DirectX11), s, system);
+        QVERIFY(a.gamescope.available);
+        QVERIFY(a.gamescope.note.startsWith(QLatin1String("Supersampling")));
+        s.renderScale = 67;
+        QCOMPARE(availabilityFor(game(Runtime::Proton, GraphicsApi::DirectX11), s, system).gamescope.note, QString());
     }
 
     void decidesWhereFiltersWork()
@@ -469,7 +694,9 @@ private Q_SLOTS:
 
         g.apis = GraphicsApi::DirectX11;
         g.launchOptions = QStringLiteral("DXVK_CONFIG=\"dxgi.syncInterval = 0\" %command%");
-        a = availabilityFor(g, GameSettings{}, system);
+        GameSettings withoutLayer;
+        withoutLayer.measurePerformance = false;
+        a = availabilityFor(g, withoutLayer, system);
         QVERIFY(a.frameCap.available);
         QVERIFY(a.frameCap.note.contains(QLatin1String("DXVK_CONFIG")));
 
