@@ -363,4 +363,11 @@ QByteArray mutate(const QByteArray &data, std::mt19937 &random)
     return out;
 }
 
+bool saveGame(const settings::SettingsStore &store, quint32 appId, const settings::GameSettings &settings, const QString &name)
+{
+    settings::GameProfile profile = settings::profileFrom(settings);
+    profile.usesGlobal = store.loadProfile(appId).usesGlobal;
+    return store.saveProfile(appId, profile, name);
+}
+
 } // namespace gfxtune::test

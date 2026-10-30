@@ -35,6 +35,9 @@ struct LaunchContext {
     // Where gfxtune's Vulkan layer reads the game's filter settings while it
     // runs, and where it reports back.
     QString filterSettingsPath;
+    // The global settings, which the layer reads first, when the game
+    // follows them.
+    QString globalSettingsPath;
     QString filterReportPath;
     // Where the layer keeps its frame-time measurements for this game.
     QString performanceDir;

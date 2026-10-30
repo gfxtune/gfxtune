@@ -47,6 +47,9 @@ struct SystemInfo {
 };
 
 Availability availabilityFor(const steam::Game &game, const GameSettings &settings, const SystemInfo &system);
+// For the global settings: what this computer allows, with notes on where
+// a setting does not reach. Each game's page says what applies to it.
+Availability availabilityForAll(const GameSettings &settings, const SystemInfo &system);
 
 // What gfxtune-run needs to know about a game, from what the scan found.
 GameFacts factsOf(const steam::Game &game);

@@ -6,6 +6,7 @@
 #include "GameLibrary.h"
 
 #include "launch/LaunchLine.h"
+#include "settings/Profile.h"
 
 #include <QClipboard>
 #include <QFileInfo>
@@ -37,13 +38,6 @@ GameSettingsEditor::GameSettingsEditor(GameLibrary *library, settings::SettingsS
     connect(m_library, &GameLibrary::stateChanged, this, &GameSettingsEditor::launchChanged);
     // A game that just started has a fresh last-launch report.
     connect(m_library, &GameLibrary::runningChanged, this, &GameSettingsEditor::reloadLastLaunch);
-    connect(m_library, &GameLibrary::settingsRewritten, this, [this](quint32 appId) {
-        if (appId == m_appId) {
-            m_saveTimer.stop();
-            m_unsaved = false;
-            load();
-        }
-    });
     // The layer reports once the game has its first frame, a few seconds in.
     m_reportPoll.setInterval(2000);
     connect(&m_reportPoll, &QTimer::timeout, this, [this] {
@@ -68,11 +62,26 @@ GameSettingsEditor::~GameSettingsEditor()
 
 void GameSettingsEditor::setAppId(int appId)
 {
-    if (appId < 0 || quint32(appId) == m_appId) {
+    if (appId < 0 || (quint32(appId) == m_appId && !m_global)) {
         return;
     }
     flush();
     m_appId = quint32(appId);
+    m_global = false;
+    load();
+    reloadLastLaunch();
+    reloadSessions();
+    Q_EMIT gameChanged();
+}
+
+void GameSettingsEditor::selectGlobal()
+{
+    if (m_global) {
+        return;
+    }
+    flush();
+    m_appId = 0;
+    m_global = true;
     load();
     reloadLastLaunch();
     reloadSessions();
@@ -188,32 +197,32 @@ QUrl GameSettingsEditor::cover() const
 void GameSettingsEditor::setAnisotropicFiltering(int level)
 {
     if (GameSettings::AnisotropicLevels.contains(level)) {
-        edit([level](GameSettings &s) { s.anisotropicFiltering = level; });
+        edit(QStringLiteral("anisotropicFiltering"), [level](GameSettings &s) { s.anisotropicFiltering = level; });
     }
 }
 
 void GameSettingsEditor::setFrameCapEnabled(bool on)
 {
-    edit([on](GameSettings &s) { s.frameCapEnabled = on; });
+    edit(QStringLiteral("frameCap"), [on](GameSettings &s) { s.frameCapEnabled = on; });
 }
 
 void GameSettingsEditor::setFrameCap(int fps)
 {
     const int value = qBound(GameSettings::MinFrameCap, fps, GameSettings::MaxFrameCap);
-    edit([value](GameSettings &s) { s.frameCap = value; });
+    edit(QStringLiteral("frameCap"), [value](GameSettings &s) { s.frameCap = value; });
 }
 
 void GameSettingsEditor::setVerticalSync(int mode)
 {
     if (mode >= int(settings::VerticalSync::GameDefault) && mode <= int(settings::VerticalSync::Adaptive)) {
-        edit([mode](GameSettings &s) { s.verticalSync = settings::VerticalSync(mode); });
+        edit(QStringLiteral("verticalSync"), [mode](GameSettings &s) { s.verticalSync = settings::VerticalSync(mode); });
     }
 }
 
 void GameSettingsEditor::setFsr4(int choice)
 {
     if (choice >= int(settings::Fsr4::ProtonDefault) && choice <= int(settings::Fsr4::Off)) {
-        edit([choice](GameSettings &s) { s.fsr4 = settings::Fsr4(choice); });
+        edit(QStringLiteral("fsr4"), [choice](GameSettings &s) { s.fsr4 = settings::Fsr4(choice); });
     }
 }
 
@@ -234,40 +243,40 @@ QString GameSettingsEditor::fsr4ProtonChoice() const
 
 void GameSettingsEditor::setGamescope(bool on)
 {
-    edit([on](GameSettings &s) { s.gamescope = on; });
+    edit(QStringLiteral("gamescope"), [on](GameSettings &s) { s.gamescope = on; });
 }
 
 void GameSettingsEditor::setUpscaleFilter(int filter)
 {
     if (filter >= int(settings::UpscaleFilter::Fsr) && filter <= int(settings::UpscaleFilter::Pixel)) {
-        edit([filter](GameSettings &s) { s.upscaleFilter = settings::UpscaleFilter(filter); });
+        edit(QStringLiteral("upscaleFilter"), [filter](GameSettings &s) { s.upscaleFilter = settings::UpscaleFilter(filter); });
     }
 }
 
 void GameSettingsEditor::setScalingMode(int mode)
 {
     if (mode >= int(settings::ScalingMode::Auto) && mode <= int(settings::ScalingMode::Stretch)) {
-        edit([mode](GameSettings &s) { s.scalingMode = settings::ScalingMode(mode); });
+        edit(QStringLiteral("scalingMode"), [mode](GameSettings &s) { s.scalingMode = settings::ScalingMode(mode); });
     }
 }
 
 void GameSettingsEditor::setRenderScale(int percent)
 {
     if (GameSettings::RenderScales.contains(percent)) {
-        edit([percent](GameSettings &s) { s.renderScale = percent; });
+        edit(QStringLiteral("renderScale"), [percent](GameSettings &s) { s.renderScale = percent; });
     }
 }
 
 void GameSettingsEditor::setSharpness(int value)
 {
     const int bounded = qBound(0, value, GameSettings::MaxSharpness);
-    edit([bounded](GameSettings &s) { s.sharpness = bounded; });
+    edit(QStringLiteral("sharpness"), [bounded](GameSettings &s) { s.sharpness = bounded; });
 }
 
 void GameSettingsEditor::setLodBias(int hundredths)
 {
     if (GameSettings::LodBiasLevels.contains(hundredths)) {
-        edit([hundredths](GameSettings &s) { s.lodBias = hundredths; });
+        edit(QStringLiteral("lodBias"), [hundredths](GameSettings &s) { s.lodBias = hundredths; });
     }
 }
 
@@ -275,7 +284,7 @@ void GameSettingsEditor::setAntiAliasing(int mode)
 {
     // A choice, not an amount: an unknown method is ignored.
     if (mode == filters::AntiAliasing.clamp(mode)) {
-        editFilters([mode](filters::Values &v) { v.antiAliasing = mode; });
+        editFilters(QStringLiteral("antiAliasing"), [mode](filters::Values &v) { v.antiAliasing = mode; });
     }
 }
 
@@ -283,18 +292,18 @@ void GameSettingsEditor::setMeasurePerformance(bool on)
 {
     // Measuring runs inside the game like the filters: the same lock.
     if (m_availability.measurePerformance.available && !m_availability.filtersLocked) {
-        edit([on](GameSettings &s) { s.measurePerformance = on; });
+        edit(QStringLiteral("measurePerformance"), [on](GameSettings &s) { s.measurePerformance = on; });
     }
 }
 
 void GameSettingsEditor::setGameMode(bool on)
 {
-    edit([on](GameSettings &s) { s.gameMode = on; });
+    edit(QStringLiteral("gameMode"), [on](GameSettings &s) { s.gameMode = on; });
 }
 
 void GameSettingsEditor::setMangoHud(bool on)
 {
-    edit([on](GameSettings &s) { s.mangoHud = on; });
+    edit(QStringLiteral("mangoHud"), [on](GameSettings &s) { s.mangoHud = on; });
 }
 
 QVariantList GameSettingsEditor::sessions() const
@@ -353,74 +362,152 @@ void GameSettingsEditor::clearSessions()
 
 void GameSettingsEditor::setFiltersEnabled(bool on)
 {
-    editFilters([on](filters::Values &v) { v.enabled = on; });
+    editFilters(QStringLiteral("filtersEnabled"), [on](filters::Values &v) { v.enabled = on; });
 }
 
 void GameSettingsEditor::setFilterSharpening(int value)
 {
-    editFilters([value](filters::Values &v) { v.sharpening = filters::Sharpening.clamp(value); });
+    editFilters(QStringLiteral("filterSharpening"), [value](filters::Values &v) { v.sharpening = filters::Sharpening.clamp(value); });
 }
 
 void GameSettingsEditor::setFilterBrightness(int value)
 {
-    editFilters([value](filters::Values &v) { v.brightness = filters::Brightness.clamp(value); });
+    editFilters(QStringLiteral("filterBrightness"), [value](filters::Values &v) { v.brightness = filters::Brightness.clamp(value); });
 }
 
 void GameSettingsEditor::setFilterContrast(int value)
 {
-    editFilters([value](filters::Values &v) { v.contrast = filters::Contrast.clamp(value); });
+    editFilters(QStringLiteral("filterContrast"), [value](filters::Values &v) { v.contrast = filters::Contrast.clamp(value); });
 }
 
 void GameSettingsEditor::setFilterGamma(int value)
 {
-    editFilters([value](filters::Values &v) { v.gamma = filters::Gamma.clamp(value); });
+    editFilters(QStringLiteral("filterGamma"), [value](filters::Values &v) { v.gamma = filters::Gamma.clamp(value); });
 }
 
 void GameSettingsEditor::setFilterSaturation(int value)
 {
-    editFilters([value](filters::Values &v) { v.saturation = filters::Saturation.clamp(value); });
+    editFilters(QStringLiteral("filterSaturation"), [value](filters::Values &v) { v.saturation = filters::Saturation.clamp(value); });
 }
 
 void GameSettingsEditor::setFilterVibrance(int value)
 {
-    editFilters([value](filters::Values &v) { v.vibrance = filters::Vibrance.clamp(value); });
+    editFilters(QStringLiteral("filterVibrance"), [value](filters::Values &v) { v.vibrance = filters::Vibrance.clamp(value); });
 }
 
 void GameSettingsEditor::setFilterTemperature(int value)
 {
-    editFilters([value](filters::Values &v) { v.temperature = filters::Temperature.clamp(value); });
+    editFilters(QStringLiteral("filterTemperature"), [value](filters::Values &v) { v.temperature = filters::Temperature.clamp(value); });
 }
 
 void GameSettingsEditor::resetFilterColours()
 {
-    editFilters([](filters::Values &v) {
-        const filters::Values neutral;
-        v.brightness = neutral.brightness;
-        v.contrast = neutral.contrast;
-        v.gamma = neutral.gamma;
-        v.saturation = neutral.saturation;
-        v.vibrance = neutral.vibrance;
-        v.temperature = neutral.temperature;
-    });
+    const filters::Values neutral;
+    setFilterBrightness(neutral.brightness);
+    setFilterContrast(neutral.contrast);
+    setFilterGamma(neutral.gamma);
+    setFilterSaturation(neutral.saturation);
+    setFilterVibrance(neutral.vibrance);
+    setFilterTemperature(neutral.temperature);
 }
 
 void GameSettingsEditor::acceptFiltersRisk()
 {
-    edit([](GameSettings &s) { s.filtersRiskAccepted = true; });
+    if (m_global || m_appId == 0 || m_profile.own.filtersRiskAccepted) {
+        return;
+    }
+    m_profile.own.filtersRiskAccepted = true;
+    changed();
     flush(); // a decision like this is saved at once
 }
 
-void GameSettingsEditor::editFilters(const std::function<void(filters::Values &)> &change)
+void GameSettingsEditor::editFilters(const QString &setting, const std::function<void(filters::Values &)> &change)
 {
     if (!m_availability.filters.available || m_availability.filtersLocked) {
         return;
     }
-    edit([&change](GameSettings &s) { change(s.filters); });
+    edit(setting, [&change](GameSettings &s) { change(s.filters); });
+}
+
+GameSettings GameSettingsEditor::base() const
+{
+    return m_profile.usesGlobal ? m_globalSettings : settings::untouchedSettings();
+}
+
+bool GameSettingsEditor::customized() const
+{
+    return m_global ? !m_globalSettings.isDefault() : !m_profile.changed.isEmpty();
+}
+
+void GameSettingsEditor::setUsesGlobal(bool on)
+{
+    if (m_global || m_appId == 0 || on == m_profile.usesGlobal) {
+        return;
+    }
+    m_profile.usesGlobal = on;
+    changed();
+}
+
+QStringList GameSettingsEditor::changedSettings() const
+{
+    QStringList ids;
+    for (const settings::SettingKind &kind : settings::settingKinds()) {
+        if (!m_global && m_profile.changed.contains(kind.id)) {
+            ids.append(kind.id);
+        }
+    }
+    return ids;
+}
+
+QVariantMap GameSettingsEditor::baseValues() const
+{
+    const GameSettings b = base();
+    const filters::Values &f = b.filters;
+    return {
+        {QStringLiteral("anisotropicFiltering"), b.anisotropicFiltering},
+        {QStringLiteral("lodBias"), b.lodBias},
+        {QStringLiteral("frameCapEnabled"), b.frameCapEnabled},
+        {QStringLiteral("frameCap"), b.frameCap},
+        {QStringLiteral("verticalSync"), int(b.verticalSync)},
+        {QStringLiteral("fsr4"), int(b.fsr4)},
+        {QStringLiteral("gamescope"), b.gamescope},
+        {QStringLiteral("upscaleFilter"), int(b.upscaleFilter)},
+        {QStringLiteral("scalingMode"), int(b.scalingMode)},
+        {QStringLiteral("renderScale"), b.renderScale},
+        {QStringLiteral("sharpness"), b.sharpness},
+        {QStringLiteral("filtersEnabled"), f.enabled},
+        {QStringLiteral("antiAliasing"), f.antiAliasing},
+        {QStringLiteral("filterSharpening"), f.sharpening},
+        {QStringLiteral("filterBrightness"), f.brightness},
+        {QStringLiteral("filterContrast"), f.contrast},
+        {QStringLiteral("filterGamma"), f.gamma},
+        {QStringLiteral("filterSaturation"), f.saturation},
+        {QStringLiteral("filterVibrance"), f.vibrance},
+        {QStringLiteral("filterTemperature"), f.temperature},
+        {QStringLiteral("measurePerformance"), b.measurePerformance},
+        {QStringLiteral("gameMode"), b.gameMode},
+        {QStringLiteral("mangoHud"), b.mangoHud},
+    };
+}
+
+void GameSettingsEditor::useBase(const QString &setting)
+{
+    if (!m_global && m_profile.changed.remove(setting)) {
+        changed();
+    }
 }
 
 void GameSettingsEditor::resetToDefaults()
 {
-    edit([](GameSettings &s) { s = GameSettings{}; });
+    if (m_global) {
+        if (!m_globalSettings.isDefault()) {
+            m_globalSettings = GameSettings{};
+            changed();
+        }
+    } else if (m_appId != 0 && !m_profile.changed.isEmpty()) {
+        m_profile.changed.clear();
+        changed();
+    }
     flush();
 }
 
@@ -443,24 +530,20 @@ bool GameSettingsEditor::removeAllSettings()
 void GameSettingsEditor::flush()
 {
     m_saveTimer.stop();
-    if (!m_unsaved || m_appId == 0) {
+    if (!m_unsaved || (!m_global && m_appId == 0)) {
         return;
     }
     m_unsaved = false;
     QString error;
-    if (!m_store->save(m_appId, m_settings, gameName(), &error)) {
-        setProblem(QStringLiteral("Could not save the settings: %1").arg(error));
-    } else {
-        setProblem({});
-        // gfxtune-run reads these at launch; a new file needs them at once.
-        m_store->saveFacts(m_appId, m_library->factsFor(m_appId));
-    }
+    const bool saved = m_global ? m_store->saveGlobal(m_globalSettings, &error)
+                                : m_store->saveProfile(m_appId, m_profile, gameName(), &error);
+    setProblem(saved ? QString() : QStringLiteral("Could not save the settings: %1").arg(error));
     m_library->settingsChanged();
 }
 
-void GameSettingsEditor::edit(const std::function<void(GameSettings &)> &change)
+void GameSettingsEditor::edit(const QString &setting, const std::function<void(GameSettings &)> &change)
 {
-    if (m_appId == 0) {
+    if (!m_global && m_appId == 0) {
         return;
     }
     GameSettings next = m_settings;
@@ -468,7 +551,24 @@ void GameSettingsEditor::edit(const std::function<void(GameSettings &)> &change)
     if (next == m_settings) {
         return;
     }
-    m_settings = next;
+    if (m_global) {
+        m_globalSettings = next;
+    } else if (const settings::SettingKind *kind = settings::findSetting(setting)) {
+        // Set back to what the game has anyway: no longer a change.
+        kind->copy(next, m_profile.own);
+        if (settings::sameSetting(*kind, next, base())) {
+            m_profile.changed.remove(setting);
+        } else {
+            m_profile.changed.insert(setting);
+        }
+    }
+    changed();
+}
+
+// After an edit: what the page shows follows, and a save is due.
+void GameSettingsEditor::changed()
+{
+    m_settings = m_global ? m_globalSettings : settings::effectiveSettings(m_globalSettings, m_profile);
     m_unsaved = true;
     Q_EMIT settingsChanged();
     updateAvailability();
@@ -478,7 +578,9 @@ void GameSettingsEditor::edit(const std::function<void(GameSettings &)> &change)
 void GameSettingsEditor::load()
 {
     QStringList warnings;
-    m_settings = m_appId != 0 ? m_store->load(m_appId, &warnings) : GameSettings{};
+    m_globalSettings = m_store->loadGlobal(&warnings);
+    m_profile = m_appId != 0 ? m_store->loadProfile(m_appId, &warnings) : settings::GameProfile{};
+    m_settings = m_global ? m_globalSettings : settings::effectiveSettings(m_globalSettings, m_profile);
     setProblem(warnings.isEmpty() ? QString()
                                   : QStringLiteral("Some saved values could not be read and were reset: %1").arg(warnings.join(QStringLiteral("; "))));
     Q_EMIT settingsChanged();
@@ -488,7 +590,9 @@ void GameSettingsEditor::load()
 void GameSettingsEditor::updateAvailability()
 {
     const steam::Game *game = m_library->game(m_appId);
-    m_availability = game ? settings::availabilityFor(*game, m_settings, m_system) : settings::Availability{};
+    m_availability = m_global ? settings::availabilityForAll(m_settings, m_system)
+                   : game     ? settings::availabilityFor(*game, m_settings, m_system)
+                              : settings::Availability{};
     Q_EMIT availabilityChanged();
 }
 

@@ -49,12 +49,9 @@ void readFlag(std::string_view text, bool &out)
 
 } // namespace
 
-filters::LayerConfig parseLayerConfig(std::string_view text)
+void readLayerSettings(std::string_view text, LayerSettings &settings)
 {
-    filters::LayerConfig config;
-    filters::Values &values = config.filters;
-    bool capEnabled = false;
-    int cap = 0;
+    filters::Values &values = settings.filters;
     std::string_view section;
     while (!text.empty()) {
         const std::size_t newline = text.find('\n');
@@ -77,15 +74,15 @@ filters::LayerConfig parseLayerConfig(std::string_view text)
 
         if (section == "[frames]") {
             if (key == "frame_cap_enabled") {
-                readFlag(value, capEnabled);
+                readFlag(value, settings.frameCapEnabled);
             } else if (key == "frame_cap") {
-                readNumber(value, filters::Range{10, 1000, 0}, cap);
+                readNumber(value, filters::Range{10, 1000, 0}, settings.frameCap);
             }
             continue;
         }
         if (section == "[image]") {
             if (key == "lod_bias") {
-                readNumber(value, filters::LodBias, config.lodBias);
+                readNumber(value, filters::LodBias, settings.lodBias);
             }
             continue;
         }
@@ -116,14 +113,23 @@ filters::LayerConfig parseLayerConfig(std::string_view text)
             }
         }
     }
-    config.frameCap = capEnabled ? cap : 0;
-    return config;
 }
 
-SettingsFile::SettingsFile(std::string path, std::chrono::milliseconds interval)
-    : m_path(std::move(path))
-    , m_interval(interval)
+filters::LayerConfig parseLayerConfig(std::string_view text)
 {
+    LayerSettings settings;
+    readLayerSettings(text, settings);
+    return settings.config();
+}
+
+SettingsFile::SettingsFile(std::vector<std::string> paths, std::chrono::milliseconds interval)
+    : m_interval(interval)
+{
+    for (std::string &path : paths) {
+        if (!path.empty()) {
+            m_sources.push_back({std::move(path)});
+        }
+    }
 }
 
 filters::LayerConfig SettingsFile::config(std::chrono::steady_clock::time_point now)
@@ -135,16 +141,20 @@ filters::LayerConfig SettingsFile::config(std::chrono::steady_clock::time_point 
     m_checked = true;
     m_lastCheck = now;
 
-    struct stat info{};
-    if (::stat(m_path.c_str(), &info) != 0) {
-        // Deleted, as "Reset" or "Remove All" do: back to the original picture.
-        m_config = filters::LayerConfig{};
-        m_size = -1;
-        return m_config;
+    // A file deleted, as "Reset" or "Remove All" do, simply adds nothing.
+    bool changed = false;
+    for (Source &source : m_sources) {
+        struct stat info{};
+        const bool exists = ::stat(source.path.c_str(), &info) == 0;
+        const long long size = exists ? static_cast<long long>(info.st_size) : -1;
+        const timespec modified = exists ? info.st_mtim : timespec{};
+        if (size != source.size || modified.tv_sec != source.modified.tv_sec || modified.tv_nsec != source.modified.tv_nsec) {
+            source.size = size;
+            source.modified = modified;
+            changed = true;
+        }
     }
-    if (info.st_mtim.tv_sec != m_modified.tv_sec || info.st_mtim.tv_nsec != m_modified.tv_nsec || info.st_size != m_size) {
-        m_modified = info.st_mtim;
-        m_size = info.st_size;
+    if (changed) {
         reload();
     }
     return m_config;
@@ -154,11 +164,18 @@ void SettingsFile::reload()
 {
     // The app writes a few hundred bytes; never read much more than that.
     constexpr std::streamsize MaxSize = 64 * 1024;
-    std::ifstream file(m_path, std::ios::binary);
-    std::string text(static_cast<std::size_t>(MaxSize), '\0');
-    file.read(text.data(), MaxSize);
-    text.resize(static_cast<std::size_t>(file.gcount()));
-    m_config = parseLayerConfig(text);
+    LayerSettings settings;
+    for (const Source &source : m_sources) {
+        if (source.size < 0) {
+            continue;
+        }
+        std::ifstream file(source.path, std::ios::binary);
+        std::string text(static_cast<std::size_t>(MaxSize), '\0');
+        file.read(text.data(), MaxSize);
+        text.resize(static_cast<std::size_t>(file.gcount()));
+        readLayerSettings(text, settings);
+    }
+    m_config = settings.config();
 }
 
 bool writeReport(const std::string &path, bool running, const std::string &detail)

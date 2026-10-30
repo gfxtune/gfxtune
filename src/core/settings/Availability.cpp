@@ -213,4 +213,33 @@ Availability availabilityFor(const steam::Game &game, const GameSettings &settin
     return a;
 }
 
+Availability availabilityForAll(const GameSettings &settings, const SystemInfo &system)
+{
+    Availability a;
+    a.verticalSync.note = QStringLiteral("OpenGL games know only Off and On.");
+    a.lodBias.note = QStringLiteral("Reaches every game gfxtune measures or filters, OpenGL ones aside; otherwise only DirectX 9 to 11 games under Proton.");
+    a.frameCap.note = QStringLiteral("Exact in every game gfxtune measures; otherwise through DXVK and VKD3D-Proton, or gamescope.");
+    a.fsr4.note = QStringLiteral("Reaches games that run through Proton and ship FSR 3.1.");
+    a.filters.note = QStringLiteral("Reach games that draw with Vulkan or DirectX, not while a game shows HDR. Locked in games with anti-cheat until you accept the risk on their page.");
+    a.measurePerformance.note = QStringLiteral("Frame rate, frame times and the card's readings while you play, kept for each session. Games with anti-cheat only after you accept the risk on their page.");
+    if (!system.gamescopeInstalled) {
+        a.gamescope = {false, QStringLiteral("gamescope is not installed.")};
+    } else if (settings.supersampling()) {
+        a.gamescope.note = QStringLiteral("Supersampling: games draw bigger than the screen and are scaled down smoothly; the upscaler and its sharpness are not used.");
+    }
+    if (!system.gameModeInstalled) {
+        a.gameMode = {false, QStringLiteral("GameMode is not installed.")};
+    }
+    if (settings.gamescope && a.gamescope.available) {
+        a.mangoHud = system.mangoAppInstalled
+            ? Option{true, QStringLiteral("Inside gamescope, gamescope shows it through mangoapp.")}
+            : Option{false, QStringLiteral("Inside gamescope MangoHud needs mangoapp, which is not installed.")};
+    } else if (!system.mangoHudInstalled) {
+        a.mangoHud = {false, QStringLiteral("MangoHud is not installed.")};
+    } else {
+        a.mangoHud.note = QStringLiteral("MangoHud's own settings decide what it shows; Right Shift+F12 shows or hides it.");
+    }
+    return a;
+}
+
 } // namespace gfxtune::settings

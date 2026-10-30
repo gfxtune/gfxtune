@@ -14,6 +14,17 @@ QQC2.ScrollView {
     // The scroll bar is drawn over the content; keep the settings clear of it.
     readonly property real barWidth: QQC2.ScrollBar.vertical.visible ? QQC2.ScrollBar.vertical.width : 0
 
+    readonly property var base: editor.baseValues
+
+    // The words a list of {text, value} choices shows for a value.
+    function textOf(choices, value) {
+        const found = choices.find(choice => choice.value === value);
+        return found ? found.text : String(value);
+    }
+    function onOff(on) {
+        return on ? "On" : "Off";
+    }
+
     leftPadding: mirrored ? barWidth : 0
     rightPadding: mirrored ? 0 : barWidth
     contentWidth: availableWidth
@@ -22,9 +33,30 @@ QQC2.ScrollView {
         width: pane.availableWidth
         spacing: Kirigami.Units.largeSpacing
 
+        // The global page's header.
+        ColumnLayout {
+            objectName: "globalHeader"
+            Layout.fillWidth: true
+            Layout.margins: Kirigami.Units.gridUnit
+            visible: pane.editor.global
+            spacing: Kirigami.Units.smallSpacing
+
+            Kirigami.Heading {
+                Layout.fillWidth: true
+                level: 1
+                text: "All Games"
+            }
+            QQC2.Label {
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                text: "These settings apply to every game. What you change on a game's own page wins over them for that game, and a game can stop using them there."
+            }
+        }
+
         RowLayout {
             Layout.fillWidth: true
             Layout.margins: Kirigami.Units.gridUnit
+            visible: !pane.editor.global
             spacing: Kirigami.Units.gridUnit
 
             Cover {
@@ -52,6 +84,24 @@ QQC2.ScrollView {
                     text: pane.editor.graphics
                     opacity: 0.7
                 }
+                QQC2.CheckBox {
+                    objectName: "usesGlobal"
+                    Layout.topMargin: Kirigami.Units.smallSpacing
+                    text: "Use the global settings"
+                    checked: pane.editor.usesGlobal
+                    onToggled: {
+                        pane.editor.usesGlobal = checked;
+                        checked = Qt.binding(() => pane.editor.usesGlobal);
+                    }
+                }
+                Note {
+                    readonly property int changes: pane.editor.changedSettings.length
+                    text: !pane.editor.usesGlobal
+                        ? "This game ignores the settings for All Games: gfxtune leaves it alone apart from its own changes."
+                        : changes === 0 ? "Every setting comes from All Games."
+                        : changes === 1 ? "1 setting is changed for this game; the rest come from All Games."
+                        : changes + " settings are changed for this game; the rest come from All Games."
+                }
             }
         }
 
@@ -65,7 +115,7 @@ QQC2.ScrollView {
             Layout.fillWidth: true
             Layout.leftMargin: Kirigami.Units.gridUnit
             Layout.rightMargin: Kirigami.Units.gridUnit
-            visible: true
+            visible: !pane.editor.global
             type: launch === 1 ? Kirigami.MessageType.Positive
                 : launch === 4 ? Kirigami.MessageType.Error
                 : Kirigami.MessageType.Information
@@ -84,24 +134,26 @@ QQC2.ScrollView {
                 case 4:
                     return "Steam's launch options could not be updated: " + pane.editor.launchProblem;
                 default:
-                    return "The game uses its own settings. Change something below and gfxtune adds itself to the game's Steam launch options.";
+                    return "gfxtune has nothing to do in this game, so Steam starts it as usual. Change something below and gfxtune adds itself to the game's Steam launch options.";
                 }
             }
-            actions: [
-                Kirigami.Action {
-                    visible: launchMessage.launch === 2 && pane.editor.steamRunning
-                    text: "Copy Line"
-                    icon.name: "edit-copy"
-                    onTriggered: pane.editor.copyLaunchLine()
-                }
-            ]
+            // Only when it shows: Kirigami counts a hidden action too, and then
+            // moves it below and back as the text wraps.
+            actions: launch === 2 && pane.editor.steamRunning ? [copyLineAction] : []
+
+            Kirigami.Action {
+                id: copyLineAction
+                text: "Copy Line"
+                icon.name: "edit-copy"
+                onTriggered: pane.editor.copyLaunchLine()
+            }
         }
 
         QQC2.TextField {
             Layout.fillWidth: true
             Layout.leftMargin: Kirigami.Units.gridUnit
             Layout.rightMargin: Kirigami.Units.gridUnit
-            visible: launchMessage.launch === 2 && pane.editor.steamRunning
+            visible: launchMessage.visible && launchMessage.launch === 2 && pane.editor.steamRunning
             readOnly: true
             text: pane.editor.launchLine
             font.family: "monospace"
@@ -126,40 +178,56 @@ QQC2.ScrollView {
                 Kirigami.FormData.isSection: true
                 Kirigami.FormData.label: "Image"
             }
-            ValueComboBox {
+            RowLayout {
                 Kirigami.FormData.label: "Anisotropic filtering:"
-                enabled: pane.editor.anisotropicAvailable
-                model: [
-                    {text: "Game decides", value: 0},
-                    {text: "2×", value: 2},
-                    {text: "4×", value: 4},
-                    {text: "8×", value: 8},
-                    {text: "16×", value: 16}
-                ]
-                value: pane.editor.anisotropicFiltering
-                onPicked: value => pane.editor.anisotropicFiltering = value
+                ValueComboBox {
+                    id: anisotropicBox
+                    enabled: pane.editor.anisotropicAvailable
+                    model: [
+                        {text: "Game decides", value: 0},
+                        {text: "2×", value: 2},
+                        {text: "4×", value: 4},
+                        {text: "8×", value: 8},
+                        {text: "16×", value: 16}
+                    ]
+                    value: pane.editor.anisotropicFiltering
+                    onPicked: value => pane.editor.anisotropicFiltering = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "anisotropicFiltering"
+                    value: pane.textOf(anisotropicBox.model, pane.base.anisotropicFiltering)
+                }
             }
             Note {
                 text: pane.editor.anisotropicNote
             }
-            ValueComboBox {
-                objectName: "lodBias"
+            RowLayout {
                 Kirigami.FormData.label: "Texture detail:"
-                enabled: pane.editor.lodBiasAvailable
-                // Hundredths of a mip level, added to the game's own bias.
-                model: [
-                    {text: "Game decides", value: 0},
-                    {text: "Sharper (−0.25)", value: -25},
-                    {text: "Sharper (−0.5)", value: -50},
-                    {text: "Sharper (−0.75)", value: -75},
-                    {text: "Sharper (−1)", value: -100},
-                    {text: "Sharper (−1.5)", value: -150},
-                    {text: "Sharpest (−2)", value: -200},
-                    {text: "Softer (+0.5)", value: 50},
-                    {text: "Softer (+1)", value: 100}
-                ]
-                value: pane.editor.lodBias
-                onPicked: value => pane.editor.lodBias = value
+                ValueComboBox {
+                    id: lodBiasBox
+                    objectName: "lodBias"
+                    enabled: pane.editor.lodBiasAvailable
+                    // Hundredths of a mip level, added to the game's own bias.
+                    model: [
+                        {text: "Game decides", value: 0},
+                        {text: "Sharper (−0.25)", value: -25},
+                        {text: "Sharper (−0.5)", value: -50},
+                        {text: "Sharper (−0.75)", value: -75},
+                        {text: "Sharper (−1)", value: -100},
+                        {text: "Sharper (−1.5)", value: -150},
+                        {text: "Sharpest (−2)", value: -200},
+                        {text: "Softer (+0.5)", value: 50},
+                        {text: "Softer (+1)", value: 100}
+                    ]
+                    value: pane.editor.lodBias
+                    onPicked: value => pane.editor.lodBias = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "lodBias"
+                    value: pane.textOf(lodBiasBox.model, pane.base.lodBias)
+                }
             }
             Note {
                 text: pane.editor.lodBiasNote
@@ -194,23 +262,36 @@ QQC2.ScrollView {
                     text: "FPS"
                     enabled: capBox.enabled
                 }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "frameCap"
+                    value: pane.base.frameCapEnabled ? pane.base.frameCap + " FPS" : "Off"
+                }
             }
             Note {
                 text: pane.editor.frameCapNote
             }
-            ValueComboBox {
-                objectName: "verticalSync"
+            RowLayout {
                 Kirigami.FormData.label: "Vertical sync:"
-                enabled: pane.editor.verticalSyncAvailable
-                model: [
-                    {text: "Game decides", value: 0},
-                    {text: "Off (may tear)", value: 1},
-                    {text: "On", value: 2},
-                    {text: "Fast (no tearing)", value: 3},
-                    {text: "Adaptive", value: 4}
-                ]
-                value: pane.editor.verticalSync
-                onPicked: value => pane.editor.verticalSync = value
+                ValueComboBox {
+                    id: verticalSyncBox
+                    objectName: "verticalSync"
+                    enabled: pane.editor.verticalSyncAvailable
+                    model: [
+                        {text: "Game decides", value: 0},
+                        {text: "Off (may tear)", value: 1},
+                        {text: "On", value: 2},
+                        {text: "Fast (no tearing)", value: 3},
+                        {text: "Adaptive", value: 4}
+                    ]
+                    value: pane.editor.verticalSync
+                    onPicked: value => pane.editor.verticalSync = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "verticalSync"
+                    value: pane.textOf(verticalSyncBox.model, pane.base.verticalSync)
+                }
             }
             Note {
                 text: pane.editor.verticalSyncNote
@@ -220,17 +301,25 @@ QQC2.ScrollView {
                 Kirigami.FormData.isSection: true
                 Kirigami.FormData.label: "Upscaling"
             }
-            ValueComboBox {
-                objectName: "fsr4"
+            RowLayout {
                 Kirigami.FormData.label: "FSR 4:"
-                enabled: pane.editor.fsr4Available
-                model: [
-                    {text: pane.editor.fsr4ProtonChoice, value: 0},
-                    {text: "On", value: 1},
-                    {text: "Off (keep FSR 3.1)", value: 2}
-                ]
-                value: pane.editor.fsr4
-                onPicked: value => pane.editor.fsr4 = value
+                ValueComboBox {
+                    id: fsr4Box
+                    objectName: "fsr4"
+                    enabled: pane.editor.fsr4Available
+                    model: [
+                        {text: pane.editor.fsr4ProtonChoice, value: 0},
+                        {text: "On", value: 1},
+                        {text: "Off (keep FSR 3.1)", value: 2}
+                    ]
+                    value: pane.editor.fsr4
+                    onPicked: value => pane.editor.fsr4 = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "fsr4"
+                    value: pane.textOf(fsr4Box.model, pane.base.fsr4)
+                }
             }
             Note {
                 text: pane.editor.fsr4Note
@@ -242,6 +331,9 @@ QQC2.ScrollView {
             }
             Kirigami.InlineMessage {
                 objectName: "filtersWarning"
+                // A set width: sized by its own text, it would chase the form's
+                // width around (Kirigami lays out its message by that width).
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 24
                 Layout.fillWidth: true
                 Layout.maximumWidth: Kirigami.Units.gridUnit * 24
                 visible: pane.editor.filtersLocked
@@ -255,93 +347,165 @@ QQC2.ScrollView {
                     }
                 ]
             }
-            SettingSwitch {
-                id: filtersSwitch
-                objectName: "filtersSwitch"
+            RowLayout {
                 Kirigami.FormData.label: "Filters:"
-                enabled: pane.editor.filtersAvailable && !pane.editor.filtersLocked
-                text: checked ? "On" : "Off"
-                value: pane.editor.filtersEnabled
-                onPicked: value => pane.editor.filtersEnabled = value
+                SettingSwitch {
+                    id: filtersSwitch
+                    objectName: "filtersSwitch"
+                    enabled: pane.editor.filtersAvailable && !pane.editor.filtersLocked
+                    text: checked ? "On" : "Off"
+                    // Locked by anti-cheat, nothing is drawn whatever is saved.
+                    value: pane.editor.filtersEnabled && enabled
+                    onPicked: value => pane.editor.filtersEnabled = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "filtersEnabled"
+                    value: pane.onOff(pane.base.filtersEnabled)
+                }
             }
             Note {
                 visible: filtersSwitch.enabled
                 text: "Changes show in the game within a second while it runs. Switch off to compare with the original picture."
             }
-            ValueComboBox {
-                objectName: "antiAliasing"
+            RowLayout {
                 Kirigami.FormData.label: "Anti-aliasing:"
-                enabled: filtersSwitch.enabled
-                model: [
-                    {text: "Off", value: 0},
-                    {text: "SMAA", value: 1}
-                ]
-                value: pane.editor.antiAliasing
-                onPicked: value => pane.editor.antiAliasing = value
+                ValueComboBox {
+                    id: antiAliasingBox
+                    objectName: "antiAliasing"
+                    enabled: filtersSwitch.enabled
+                    model: [
+                        {text: "Off", value: 0},
+                        {text: "SMAA", value: 1}
+                    ]
+                    value: pane.editor.antiAliasing
+                    onPicked: value => pane.editor.antiAliasing = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "antiAliasing"
+                    value: pane.textOf(antiAliasingBox.model, pane.base.antiAliasing)
+                }
             }
             Note {
                 visible: filtersSwitch.enabled && pane.editor.antiAliasing !== 0
                 text: "Smooths jagged edges in the finished picture. Costs a little performance and can soften small text."
             }
-            FilterSlider {
-                objectName: "filterSharpening"
+            RowLayout {
                 Kirigami.FormData.label: "Sharpening:"
-                enabled: filtersSwitch.enabled
-                from: 0
-                to: 100
-                value: pane.editor.filterSharpening
-                describe: v => v === 0 ? "Off" : v + " %"
-                onPicked: value => pane.editor.filterSharpening = value
+                FilterSlider {
+                    id: filterSharpeningSlider
+                    objectName: "filterSharpening"
+                    enabled: filtersSwitch.enabled
+                    from: 0
+                    to: 100
+                    value: pane.editor.filterSharpening
+                    describe: v => v === 0 ? "Off" : v + " %"
+                    onPicked: value => pane.editor.filterSharpening = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "filterSharpening"
+                    value: filterSharpeningSlider.describe(pane.base.filterSharpening)
+                }
             }
-            FilterSlider {
+            RowLayout {
                 Kirigami.FormData.label: "Brightness:"
-                enabled: filtersSwitch.enabled
-                from: -50
-                to: 50
-                value: pane.editor.filterBrightness
-                onPicked: value => pane.editor.filterBrightness = value
+                FilterSlider {
+                    id: filterBrightnessSlider
+                    enabled: filtersSwitch.enabled
+                    from: -50
+                    to: 50
+                    value: pane.editor.filterBrightness
+                    onPicked: value => pane.editor.filterBrightness = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "filterBrightness"
+                    value: filterBrightnessSlider.describe(pane.base.filterBrightness)
+                }
             }
-            FilterSlider {
+            RowLayout {
                 Kirigami.FormData.label: "Contrast:"
-                enabled: filtersSwitch.enabled
-                from: -50
-                to: 50
-                value: pane.editor.filterContrast
-                onPicked: value => pane.editor.filterContrast = value
+                FilterSlider {
+                    id: filterContrastSlider
+                    enabled: filtersSwitch.enabled
+                    from: -50
+                    to: 50
+                    value: pane.editor.filterContrast
+                    onPicked: value => pane.editor.filterContrast = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "filterContrast"
+                    value: filterContrastSlider.describe(pane.base.filterContrast)
+                }
             }
-            FilterSlider {
+            RowLayout {
                 Kirigami.FormData.label: "Gamma:"
-                enabled: filtersSwitch.enabled
-                from: 50
-                to: 200
-                value: pane.editor.filterGamma
-                describe: v => (v / 100).toFixed(2)
-                onPicked: value => pane.editor.filterGamma = value
+                FilterSlider {
+                    id: filterGammaSlider
+                    enabled: filtersSwitch.enabled
+                    from: 50
+                    to: 200
+                    value: pane.editor.filterGamma
+                    describe: v => (v / 100).toFixed(2)
+                    onPicked: value => pane.editor.filterGamma = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "filterGamma"
+                    value: filterGammaSlider.describe(pane.base.filterGamma)
+                }
             }
-            FilterSlider {
+            RowLayout {
                 Kirigami.FormData.label: "Saturation:"
-                enabled: filtersSwitch.enabled
-                from: -100
-                to: 100
-                value: pane.editor.filterSaturation
-                onPicked: value => pane.editor.filterSaturation = value
+                FilterSlider {
+                    id: filterSaturationSlider
+                    enabled: filtersSwitch.enabled
+                    from: -100
+                    to: 100
+                    value: pane.editor.filterSaturation
+                    onPicked: value => pane.editor.filterSaturation = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "filterSaturation"
+                    value: filterSaturationSlider.describe(pane.base.filterSaturation)
+                }
             }
-            FilterSlider {
+            RowLayout {
                 Kirigami.FormData.label: "Vibrance:"
-                enabled: filtersSwitch.enabled
-                from: -100
-                to: 100
-                value: pane.editor.filterVibrance
-                onPicked: value => pane.editor.filterVibrance = value
+                FilterSlider {
+                    id: filterVibranceSlider
+                    enabled: filtersSwitch.enabled
+                    from: -100
+                    to: 100
+                    value: pane.editor.filterVibrance
+                    onPicked: value => pane.editor.filterVibrance = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "filterVibrance"
+                    value: filterVibranceSlider.describe(pane.base.filterVibrance)
+                }
             }
-            FilterSlider {
+            RowLayout {
                 Kirigami.FormData.label: "Colour temperature:"
-                enabled: filtersSwitch.enabled
-                from: -100
-                to: 100
-                value: pane.editor.filterTemperature
-                describe: v => v === 0 ? "Neutral" : (v > 0 ? "Warmer " : "Cooler ") + Math.abs(v)
-                onPicked: value => pane.editor.filterTemperature = value
+                FilterSlider {
+                    id: filterTemperatureSlider
+                    enabled: filtersSwitch.enabled
+                    from: -100
+                    to: 100
+                    value: pane.editor.filterTemperature
+                    describe: v => v === 0 ? "Neutral" : (v > 0 ? "Warmer " : "Cooler ") + Math.abs(v)
+                    onPicked: value => pane.editor.filterTemperature = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "filterTemperature"
+                    value: filterTemperatureSlider.describe(pane.base.filterTemperature)
+                }
             }
             QQC2.Button {
                 enabled: filtersSwitch.enabled && !pane.editor.filterColoursNeutral
@@ -358,52 +522,76 @@ QQC2.ScrollView {
                 Kirigami.FormData.isSection: true
                 Kirigami.FormData.label: "gamescope"
             }
-            SettingSwitch {
+            RowLayout {
                 Kirigami.FormData.label: "Run in gamescope:"
-                enabled: pane.editor.gamescopeAvailable
-                value: pane.editor.gamescope
-                onPicked: value => pane.editor.gamescope = value
+                SettingSwitch {
+                    enabled: pane.editor.gamescopeAvailable
+                    value: pane.editor.gamescope
+                    onPicked: value => pane.editor.gamescope = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "gamescope"
+                    value: pane.onOff(pane.base.gamescope)
+                }
             }
             Note {
                 text: pane.editor.gamescopeNote
             }
             Kirigami.InlineMessage {
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 24 // see the filters warning
                 Layout.fillWidth: true
                 Layout.maximumWidth: Kirigami.Units.gridUnit * 24
                 visible: pane.editor.gamescope
                 type: Kirigami.MessageType.Warning
                 text: "gamescope can lower performance and add input latency. Turn it off if the game feels slower."
             }
-            ValueComboBox {
+            RowLayout {
                 Kirigami.FormData.label: "Render resolution:"
-                enabled: pane.editor.gamescope && pane.editor.gamescopeAvailable
-                model: [
-                    {text: "Supersampling (200%)", value: 200},
-                    {text: "Supersampling (150%)", value: 150},
-                    {text: "Supersampling (125%)", value: 125},
-                    {text: "Native (100%)", value: 100},
-                    {text: "Ultra quality (77%)", value: 77},
-                    {text: "Quality (67%)", value: 67},
-                    {text: "Balanced (59%)", value: 59},
-                    {text: "Performance (50%)", value: 50},
-                    {text: "Ultra performance (33%)", value: 33}
-                ]
-                value: pane.editor.renderScale
-                onPicked: value => pane.editor.renderScale = value
+                ValueComboBox {
+                    id: renderScaleBox
+                    enabled: pane.editor.gamescope && pane.editor.gamescopeAvailable
+                    model: [
+                        {text: "Supersampling (200%)", value: 200},
+                        {text: "Supersampling (150%)", value: 150},
+                        {text: "Supersampling (125%)", value: 125},
+                        {text: "Native (100%)", value: 100},
+                        {text: "Ultra quality (77%)", value: 77},
+                        {text: "Quality (67%)", value: 67},
+                        {text: "Balanced (59%)", value: 59},
+                        {text: "Performance (50%)", value: 50},
+                        {text: "Ultra performance (33%)", value: 33}
+                    ]
+                    value: pane.editor.renderScale
+                    onPicked: value => pane.editor.renderScale = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "renderScale"
+                    value: pane.textOf(renderScaleBox.model, pane.base.renderScale)
+                }
             }
-            ValueComboBox {
+            RowLayout {
                 Kirigami.FormData.label: "Upscaler:"
-                enabled: pane.editor.gamescope && pane.editor.gamescopeAvailable && pane.editor.renderScale <= 100
-                model: [
-                    {text: "FSR 1", value: 0},
-                    {text: "NIS", value: 1},
-                    {text: "Snapdragon GSR", value: 2},
-                    {text: "Linear", value: 3},
-                    {text: "Nearest neighbor", value: 4},
-                    {text: "Pixel art", value: 5}
-                ]
-                value: pane.editor.upscaleFilter
-                onPicked: value => pane.editor.upscaleFilter = value
+                ValueComboBox {
+                    id: upscalerBox
+                    enabled: pane.editor.gamescope && pane.editor.gamescopeAvailable && pane.editor.renderScale <= 100
+                    model: [
+                        {text: "FSR 1", value: 0},
+                        {text: "NIS", value: 1},
+                        {text: "Snapdragon GSR", value: 2},
+                        {text: "Linear", value: 3},
+                        {text: "Nearest neighbor", value: 4},
+                        {text: "Pixel art", value: 5}
+                    ]
+                    value: pane.editor.upscaleFilter
+                    onPicked: value => pane.editor.upscaleFilter = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "upscaleFilter"
+                    value: pane.textOf(upscalerBox.model, pane.base.upscaleFilter)
+                }
             }
             RowLayout {
                 Kirigami.FormData.label: "Upscaler sharpness:"
@@ -427,41 +615,68 @@ QQC2.ScrollView {
                     text: pane.editor.sharpness + " / 20"
                     font.features: { "tnum": 1 }
                 }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "sharpness"
+                    value: pane.base.sharpness + " / 20"
+                }
             }
-            ValueComboBox {
+            RowLayout {
                 Kirigami.FormData.label: "Scaling:"
-                enabled: pane.editor.gamescope && pane.editor.gamescopeAvailable
-                model: [
-                    {text: "Automatic", value: 0},
-                    {text: "Whole multiples (sharp pixels)", value: 1},
-                    {text: "Fit, keep shape", value: 2},
-                    {text: "Fill, crop edges", value: 3},
-                    {text: "Stretch", value: 4}
-                ]
-                value: pane.editor.scalingMode
-                onPicked: value => pane.editor.scalingMode = value
+                ValueComboBox {
+                    id: scalingBox
+                    enabled: pane.editor.gamescope && pane.editor.gamescopeAvailable
+                    model: [
+                        {text: "Automatic", value: 0},
+                        {text: "Whole multiples (sharp pixels)", value: 1},
+                        {text: "Fit, keep shape", value: 2},
+                        {text: "Fill, crop edges", value: 3},
+                        {text: "Stretch", value: 4}
+                    ]
+                    value: pane.editor.scalingMode
+                    onPicked: value => pane.editor.scalingMode = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "scalingMode"
+                    value: pane.textOf(scalingBox.model, pane.base.scalingMode)
+                }
             }
 
             Kirigami.Separator {
                 Kirigami.FormData.isSection: true
                 Kirigami.FormData.label: "Launch"
             }
-            SettingSwitch {
-                objectName: "gameMode"
+            RowLayout {
                 Kirigami.FormData.label: "GameMode:"
-                enabled: pane.editor.gameModeAvailable
-                value: pane.editor.gameMode
-                onPicked: value => pane.editor.gameMode = value
+                SettingSwitch {
+                    objectName: "gameMode"
+                    enabled: pane.editor.gameModeAvailable
+                    value: pane.editor.gameMode
+                    onPicked: value => pane.editor.gameMode = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "gameMode"
+                    value: pane.onOff(pane.base.gameMode)
+                }
             }
             Note {
                 text: pane.editor.gameModeNote
             }
-            SettingSwitch {
-                objectName: "mangoHud"
+            RowLayout {
                 Kirigami.FormData.label: "MangoHud:"
-                enabled: pane.editor.mangoHudAvailable
-                value: pane.editor.mangoHud
-                onPicked: value => pane.editor.mangoHud = value
+                SettingSwitch {
+                    objectName: "mangoHud"
+                    enabled: pane.editor.mangoHudAvailable
+                    value: pane.editor.mangoHud
+                    onPicked: value => pane.editor.mangoHud = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "mangoHud"
+                    value: pane.onOff(pane.base.mangoHud)
+                }
             }
             Note {
                 text: pane.editor.mangoHudNote
@@ -471,13 +686,20 @@ QQC2.ScrollView {
                 Kirigami.FormData.isSection: true
                 Kirigami.FormData.label: "Performance"
             }
-            SettingSwitch {
-                objectName: "measurePerformance"
+            RowLayout {
                 Kirigami.FormData.label: "Measure performance:"
-                enabled: pane.editor.measureAvailable && !pane.editor.filtersLocked
-                // Locked by anti-cheat, nothing is measured whatever is saved.
-                value: pane.editor.measurePerformance && enabled
-                onPicked: value => pane.editor.measurePerformance = value
+                SettingSwitch {
+                    objectName: "measurePerformance"
+                    enabled: pane.editor.measureAvailable && !pane.editor.filtersLocked
+                    // Locked by anti-cheat, nothing is measured whatever is saved.
+                    value: pane.editor.measurePerformance && enabled
+                    onPicked: value => pane.editor.measurePerformance = value
+                }
+                BackToBase {
+                    editor: pane.editor
+                    setting: "measurePerformance"
+                    value: pane.onOff(pane.base.measurePerformance)
+                }
             }
             Note {
                 text: pane.editor.measureNote
@@ -485,6 +707,7 @@ QQC2.ScrollView {
         }
 
         PerformanceHistory {
+            visible: !pane.editor.global
             Layout.fillWidth: true
             // A column is otherwise no wider than its widest child; filling
             // the page centres the table under the settings.
@@ -500,6 +723,7 @@ QQC2.ScrollView {
             // Narrow pages put the labels above the settings, edge to edge.
             Layout.leftMargin: Kirigami.Units.gridUnit
             Layout.rightMargin: Kirigami.Units.gridUnit
+            visible: !pane.editor.global
 
             Kirigami.Separator {
                 Kirigami.FormData.isSection: true
@@ -553,7 +777,10 @@ QQC2.ScrollView {
         QQC2.Button {
             Layout.alignment: Qt.AlignHCenter
             Layout.bottomMargin: Kirigami.Units.gridUnit
-            text: "Reset This Game to Defaults"
+            objectName: "resetButton"
+            text: pane.editor.global ? "Reset Global Settings to Defaults"
+                : pane.editor.usesGlobal ? "Use Global Settings for Everything"
+                : "Clear This Game's Changes"
             icon.name: "edit-undo"
             enabled: pane.editor.customized
             onClicked: pane.editor.resetToDefaults()

@@ -320,6 +320,71 @@ private Q_SLOTS:
         QVERIFY2(w.warnings.isEmpty(), qPrintable(w.describeWarnings()));
     }
 
+    // "All Games" opens the global page; on a game's page a changed setting
+    // offers the global value back.
+    void showsGlobalSettingsAndAGamesChanges()
+    {
+        test::FakeSteam steam;
+        steam.build();
+        writeRealCovers(steam);
+        QTemporaryDir config;
+        QTemporaryDir proc;
+        settings::SettingsStore store(config.filePath(QStringLiteral("gfxtune")));
+        GameLibrary library(steam.options(), &store, nullptr, proc.path());
+        GameSettingsEditor editor(&library, &store, settings::SystemInfo{true});
+        QTemporaryDir sys;
+        test::addCard(sys.path(), 0);
+        GpuMonitor gpu(sys.path());
+
+        Window w(library, editor, gpu);
+        QVERIFY(w.window);
+        w.window->show();
+        library.start();
+        QVERIFY(QTest::qWaitFor([&] { return library.loaded() && !library.scanning(); }, 10000));
+        QTRY_VERIFY(editor.hasGame());
+
+        QQuickItem *content = w.window->contentItem();
+        QQuickItem *allGames = findItem(content, QStringLiteral("allGames"));
+        QQuickItem *header = findItem(content, QStringLiteral("globalHeader"));
+        QQuickItem *usesGlobal = findItem(content, QStringLiteral("usesGlobal"));
+        QQuickItem *backTo = findItem(content, QStringLiteral("backTo:anisotropicFiltering"));
+        QQuickItem *history = findItem(content, QStringLiteral("sessionTable"));
+        QVERIFY(allGames && header && usesGlobal && backTo && history);
+        QTRY_VERIFY(allGames->isVisible() && allGames->width() > 0);
+        QVERIFY(!header->isVisible());
+        QVERIFY(usesGlobal->isVisible());
+
+        QTest::mouseClick(w.window, Qt::LeftButton, {}, allGames->mapToScene(QPointF(allGames->width() / 2, allGames->height() / 2)).toPoint());
+        QTRY_VERIFY(editor.isGlobal());
+        QTRY_VERIFY(header->isVisible());
+        QVERIFY(!usesGlobal->isVisible());
+        QVERIFY(allGames->property("highlighted").toBool());
+        QCOMPARE(w.window->title(), QStringLiteral("All Games — gfxtune"));
+        editor.setAnisotropicFiltering(16);
+        QVERIFY(!backTo->isVisible()); // nothing to go back to here
+
+        editor.setAppId(1003);
+        QTRY_VERIFY(!header->isVisible());
+        QVERIFY(!allGames->property("highlighted").toBool());
+        QVERIFY(!backTo->isVisible());
+        editor.setAnisotropicFiltering(4);
+        QTRY_VERIFY(backTo->isVisible());
+        QCOMPARE(backTo->property("text").toString(), QStringLiteral("Global: 16×"));
+        QTest::mouseClick(w.window, Qt::LeftButton, {}, backTo->mapToScene(QPointF(backTo->width() / 2, backTo->height() / 2)).toPoint());
+        QTRY_COMPARE(editor.anisotropicFiltering(), 16);
+        QTRY_VERIFY(!backTo->isVisible());
+
+        // Out of the global settings, a change is measured against "left alone".
+        QTest::mouseClick(w.window, Qt::LeftButton, {}, usesGlobal->mapToScene(QPointF(usesGlobal->height() / 2, usesGlobal->height() / 2)).toPoint());
+        QTRY_VERIFY(!editor.usesGlobal());
+        QCOMPARE(editor.anisotropicFiltering(), 0);
+        editor.setAnisotropicFiltering(8);
+        QTRY_VERIFY(backTo->isVisible());
+        QCOMPARE(backTo->property("text").toString(), QStringLiteral("Without gfxtune: Game decides"));
+
+        QVERIFY2(w.warnings.isEmpty(), qPrintable(w.describeWarnings()));
+    }
+
     void readsTheCardOnlyWhileVisible()
     {
         test::FakeSteam steam;

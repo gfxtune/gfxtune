@@ -142,13 +142,13 @@ private Q_SLOTS:
         QVERIFY(editor.customized());
         QVERIFY(!QFile::exists(setup.store.pathFor(1001))); // not yet: waits for a pause
         QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(setup.store.pathFor(1001)), 3000);
-        QTRY_VERIFY(role(library, 1001, GameListModel::CustomizedRole).toBool());
+        QTRY_COMPARE(role(library, 1001, GameListModel::SettingsNoteRole).toString(), s("2 changes"));
 
         // Switching games saves the pending change at once.
         editor.setVerticalSync(int(settings::VerticalSync::Off));
         editor.setAppId(1002);
         QCOMPARE(setup.store.load(1001).verticalSync, settings::VerticalSync::Off);
-        QCOMPARE(editor.anisotropicFiltering(), 0); // 1002 has its own settings
+        QCOMPARE(editor.anisotropicFiltering(), 0); // 1002 did not change it
 
         editor.setAppId(1001);
         QCOMPARE(editor.anisotropicFiltering(), 16);
@@ -231,12 +231,19 @@ private Q_SLOTS:
         editor.flush();
         editor.setAppId(1004);
         editor.setFrameCapEnabled(true); // still waiting to be saved
+        editor.selectGlobal();
+        editor.setAnisotropicFiltering(8);
+        editor.flush();
+        QVERIFY(QFile::exists(setup.store.globalPath()));
+        editor.setAppId(1004);
+        editor.setFrameCapEnabled(true);
         QVERIFY(editor.removeAllSettings());
         QVERIFY(!QFileInfo::exists(setup.store.baseDir()));
-        QTest::qWait(200); // the pending save must not bring a file back
-        QVERIFY(!QFileInfo::exists(setup.store.baseDir()));
+        QTest::qWait(200); // the pending save must not bring a setting back
+        QVERIFY(setup.store.loadProfile(1004).isEmpty());
+        QCOMPARE(setup.store.loadGlobal(), GameSettings{});
         QVERIFY(!editor.frameCapEnabled());
-        QVERIFY(!role(library, 1002, GameListModel::CustomizedRole).toBool());
+        QCOMPARE(role(library, 1002, GameListModel::SettingsNoteRole).toString(), QString());
     }
 
     void reportsDamagedSettingsFiles()
@@ -263,13 +270,30 @@ private Q_SLOTS:
         QVERIFY(waitUntilIdle(library));
         using State = GameLibrary::LaunchState;
 
-        // Steam closed: the line goes in at once, after the user's own options.
+        // By default every game is measured: with Steam closed each gets the
+        // line at once, after the user's own options.
+        QTRY_COMPARE_WITH_TIMEOUT(library.game(1001)->launchOptions, s("gamemoderun gfxtune-run %command% -dx12 \"quoted arg\""), 8000);
+        QVERIFY(launch::hasHelper(library.game(1003)->launchOptions));
+        // Not where anti-cheat keeps measuring out and nothing else applies.
+        QVERIFY(!launch::hasHelper(library.game(1004)->launchOptions));
+        QVERIFY(!library.wantsLaunchLine(1004));
+        editor.setAppId(1001);
+        QCOMPARE(editor.launchState(), int(State::Added));
+
+        // Measuring off for all games: nothing left to do, the lines come out.
+        editor.selectGlobal();
+        editor.setMeasurePerformance(false);
+        editor.flush();
+        QTRY_COMPARE_WITH_TIMEOUT(library.game(1001)->launchOptions, s("gamemoderun %command% -dx12 \"quoted arg\""), 8000);
+        QVERIFY(!launch::hasHelper(library.game(1003)->launchOptions));
+
+        // A setting of the game's own brings it back.
         editor.setAppId(1001);
         QCOMPARE(editor.launchState(), int(State::NotNeeded));
         editor.setAnisotropicFiltering(16);
         editor.flush();
         QTRY_COMPARE_WITH_TIMEOUT(editor.launchState(), int(State::Added), 8000);
-        QCOMPARE(library.game(1001)->launchOptions, s("gamemoderun gfxtune-run %command% -dx12 \"quoted arg\""));
+        QVERIFY(!launch::hasHelper(library.game(1003)->launchOptions));
 
         // Steam opens: a reset waits, and the line stays for now.
         const QString pid = setup.proc.filePath(s("777"));
@@ -285,6 +309,16 @@ private Q_SLOTS:
         QVERIFY(QDir(pid).removeRecursively());
         QTRY_COMPARE_WITH_TIMEOUT(editor.launchState(), int(State::NotNeeded), 8000);
         QCOMPARE(library.game(1001)->launchOptions, s("gamemoderun %command% -dx12 \"quoted arg\""));
+
+        // A global setting reaches every game, but not one that stopped
+        // using the global settings.
+        editor.setUsesGlobal(false);
+        editor.selectGlobal();
+        editor.setFsr4(int(settings::Fsr4::On));
+        editor.flush();
+        QTRY_VERIFY_WITH_TIMEOUT(launch::hasHelper(library.game(1003)->launchOptions), 8000);
+        QVERIFY(launch::hasHelper(library.game(1004)->launchOptions));
+        QVERIFY(!launch::hasHelper(library.game(1001)->launchOptions));
     }
 
     void offersTheLineToCopyWhileSteamIsOpen()
@@ -337,7 +371,7 @@ private Q_SLOTS:
         GameSettingsEditor editor(&library, &setup.store, SystemInfo{true}, nullptr, 50);
         library.start();
         QVERIFY(waitUntilIdle(library));
-        QVERIFY(test::writeFile(setup.store.baseDir() + s("/games"), "a file where a folder belongs"));
+        QVERIFY(QDir().mkpath(setup.store.pathFor(1001))); // a folder where the game's file belongs
         editor.setAppId(1001);
         editor.setFsr4(int(settings::Fsr4::On));
         editor.flush();
@@ -382,35 +416,140 @@ private Q_SLOTS:
         QVERIFY(editor.filtersLocked());
     }
 
-    void switchesFiltersOffWhenAGameGainsAntiCheat()
+    // Filters set while the game had no anti-cheat, then an update added
+    // it: they stay set but locked, and come back once the risk is accepted.
+    void locksFiltersWhenAGameGainsAntiCheat()
     {
         Setup setup;
-        // Filters set while the game had no anti-cheat; an update added it.
         GameSettings before;
         before.filters.sharpening = 60;
-        QVERIFY(setup.store.save(1004, before, s("Hollow Orbit")));
+        QVERIFY(test::saveGame(setup.store, 1004, before, s("Hollow Orbit")));
 
         GameLibrary library(setup.steam.options(), &setup.store, nullptr, setup.proc.path());
         GameSettingsEditor editor(&library, &setup.store, SystemInfo{true}, nullptr, 50);
         editor.setAppId(1004);
-        QSignalSpy rewritten(&library, &GameLibrary::settingsRewritten);
         library.start();
         QVERIFY(waitUntilIdle(library));
 
-        QCOMPARE(rewritten.count(), 1);
-        const GameSettings after = setup.store.load(1004);
-        QVERIFY(!after.filters.enabled);
-        QCOMPARE(after.filters.sharpening, 60); // the values stay
-        QVERIFY(!editor.filtersEnabled());      // and the page shows it
+        // gfxtune-run learns of it from the game's file.
+        QCOMPARE(setup.store.loadFacts(1004).antiCheat, QStringList{s("Easy Anti-Cheat")});
+        QVERIFY(!settings::layerAllowed(setup.store.load(1004), setup.store.loadFacts(1004)));
+        QVERIFY(editor.filtersLocked());
+        QCOMPARE(editor.filterSharpening(), 60); // the values stay
 
-        // Once accepted, the user's choice stands.
         editor.acceptFiltersRisk();
-        editor.setFiltersEnabled(true);
-        editor.flush();
-        library.refresh();
+        QVERIFY(!editor.filtersLocked());
+        QVERIFY(settings::layerAllowed(setup.store.load(1004), setup.store.loadFacts(1004)));
+        QCOMPARE(setup.store.load(1004).filters.sharpening, 60);
+    }
+
+    // The global page edits the settings for all games; a game's page edits
+    // its own changes over them.
+    void editorEditsGlobalSettingsAndAGamesChanges()
+    {
+        Setup setup;
+        GameLibrary library(setup.steam.options(), &setup.store, nullptr, setup.proc.path());
+        GameSettingsEditor editor(&library, &setup.store, SystemInfo{true}, nullptr, 50);
+        library.start();
         QVERIFY(waitUntilIdle(library));
-        QCOMPARE(rewritten.count(), 1);
-        QVERIFY(setup.store.load(1004).filters.enabled);
+        const int games = library.gameCount();
+        QCOMPARE(library.gamesUsingGlobal(), games);
+
+        QSignalSpy pages(&editor, &GameSettingsEditor::gameChanged);
+        editor.selectGlobal();
+        QVERIFY(editor.isGlobal());
+        QVERIFY(!editor.hasGame());
+        QCOMPARE(pages.count(), 1);
+        QVERIFY(editor.filtersAvailable());
+        QVERIFY(!editor.filtersLocked());
+        QVERIFY(editor.changedSettings().isEmpty());
+        QVERIFY(!editor.customized());
+        editor.setAnisotropicFiltering(16);
+        editor.setFrameCapEnabled(true);
+        editor.setFilterSaturation(20);
+        QVERIFY(editor.customized());
+        editor.acceptFiltersRisk(); // a game's own decision: nothing here
+        editor.flush();
+        GameSettings global = setup.store.loadGlobal();
+        QCOMPARE(global.anisotropicFiltering, 16);
+        QVERIFY(global.frameCapEnabled);
+        QVERIFY(!global.filtersRiskAccepted);
+
+        // A game follows them until it changes one.
+        editor.setAppId(1003);
+        QVERIFY(!editor.isGlobal());
+        QCOMPARE(editor.anisotropicFiltering(), 16);
+        QCOMPARE(editor.filterSaturation(), 20);
+        QVERIFY(editor.changedSettings().isEmpty());
+        QCOMPARE(editor.baseName(), s("Global"));
+        QCOMPARE(editor.baseValues().value(s("anisotropicFiltering")).toInt(), 16);
+        QCOMPARE(editor.baseValues().size(), 23);
+        editor.setAnisotropicFiltering(4);
+        editor.setFrameCap(90);
+        QCOMPARE(editor.changedSettings(), (QStringList{s("anisotropicFiltering"), s("frameCap")}));
+        // Back to the global value by hand: no longer a change.
+        editor.setAnisotropicFiltering(16);
+        QCOMPARE(editor.changedSettings(), QStringList{s("frameCap")});
+        editor.setAnisotropicFiltering(4);
+        editor.useBase(s("anisotropicFiltering"));
+        QCOMPARE(editor.anisotropicFiltering(), 16);
+        editor.useBase(s("nothing")); // ignored
+        editor.flush();
+        QCOMPARE(setup.store.loadProfile(1003).changed, QSet<QString>{s("frameCap")});
+        QCOMPARE(role(library, 1003, GameListModel::SettingsNoteRole).toString(), s("1 change"));
+
+        // Later global changes reach it, except what it changed.
+        editor.selectGlobal();
+        editor.setAnisotropicFiltering(8);
+        editor.setFrameCap(144);
+        editor.flush();
+        editor.setAppId(1003);
+        QCOMPARE(editor.anisotropicFiltering(), 8);
+        QCOMPARE(editor.frameCap(), 90);
+
+        // Out of the global settings: left alone, apart from its own changes.
+        editor.setUsesGlobal(false);
+        QVERIFY(!editor.usesGlobal());
+        QCOMPARE(editor.anisotropicFiltering(), 0);
+        QCOMPARE(editor.frameCap(), 90);
+        QVERIFY(!editor.measurePerformance());
+        QCOMPARE(editor.baseName(), s("Without gfxtune"));
+        QCOMPARE(editor.baseValues().value(s("anisotropicFiltering")).toInt(), 0);
+        editor.flush();
+        QCOMPARE(library.gamesUsingGlobal(), games - 1);
+        QCOMPARE(role(library, 1003, GameListModel::SettingsNoteRole).toString(), s("own settings only"));
+        QCOMPARE(setup.store.load(1003).anisotropicFiltering, 0);
+        editor.setUsesGlobal(true);
+        editor.flush();
+        QCOMPARE(library.gamesUsingGlobal(), games);
+
+        // "Use Global Settings for Everything" drops the game's changes.
+        editor.resetToDefaults();
+        QVERIFY(editor.changedSettings().isEmpty());
+        QCOMPARE(editor.frameCap(), 144);
+        QVERIFY(!QFile::exists(setup.store.pathFor(1003)));
+
+        // The global page's reset goes back to gfxtune's defaults.
+        editor.selectGlobal();
+        editor.resetToDefaults();
+        QVERIFY(!QFile::exists(setup.store.globalPath()));
+        QCOMPARE(editor.anisotropicFiltering(), 0);
+        const qsizetype before = pages.count();
+        editor.selectGlobal(); // already there: nothing happens
+        QCOMPARE(pages.count(), before);
+    }
+
+    void reportsDamagedGlobalSettings()
+    {
+        Setup setup;
+        QVERIFY(test::writeFile(setup.store.globalPath(), "[frames]\nframe_cap=-3\n"));
+        GameLibrary library(setup.steam.options(), &setup.store, nullptr, setup.proc.path());
+        GameSettingsEditor editor(&library, &setup.store, SystemInfo{true}, nullptr, 50);
+        library.start();
+        QVERIFY(waitUntilIdle(library));
+        editor.selectGlobal();
+        QVERIFY(!editor.problem().isEmpty());
+        QCOMPARE(editor.frameCap(), GameSettings{}.frameCap);
     }
 
     void editorListsMeasuredSessions()
@@ -491,12 +630,16 @@ private Q_SLOTS:
         QCOMPARE(editor.antiAliasing(), 0);
 
         editor.acceptFiltersRisk();
+        QVERIFY(library.wantsLaunchLine(1004)); // measured now
         editor.setMeasurePerformance(false);
         QVERIFY(!editor.measurePerformance());
-        QVERIFY(!editor.customized()); // measuring off alone needs no launch line
+        QVERIFY(editor.customized());
+        editor.flush();
+        QVERIFY(!library.wantsLaunchLine(1004)); // nothing left to do in it
         editor.setAntiAliasing(1);
         QCOMPARE(editor.antiAliasing(), 1);
-        QVERIFY(editor.customized());
+        editor.flush();
+        QVERIFY(library.wantsLaunchLine(1004));
     }
 
     // gfxtune-run never scans Steam: what the scan found goes into the
@@ -509,11 +652,15 @@ private Q_SLOTS:
         library.start();
         QVERIFY(waitUntilIdle(library));
 
-        editor.setAppId(1004);
-        QCOMPARE(setup.store.loadFacts(1004), settings::GameFacts{});
-        editor.acceptFiltersRisk(); // saved at once
+        // Saved with the scan, for every game that has any.
         QCOMPARE(setup.store.loadFacts(1004).antiCheat, QStringList{s("Easy Anti-Cheat")});
         QCOMPARE(library.factsFor(1004), setup.store.loadFacts(1004));
+        QVERIFY(setup.store.loadProfile(1004).isEmpty());
+        QVERIFY(!QFile::exists(setup.store.pathFor(1001)));
+        editor.setAppId(1004);
+        editor.acceptFiltersRisk(); // saved at once, next to them
+        QVERIFY(setup.store.loadProfile(1004).own.filtersRiskAccepted);
+        QCOMPARE(setup.store.loadFacts(1004), library.factsFor(1004));
 
         editor.setAppId(1001);
         editor.setGameMode(true);

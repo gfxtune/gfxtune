@@ -6,6 +6,7 @@
 // Builders for made-up Steam files and programs. Tests never read a real
 // Steam installation.
 
+#include "settings/SettingsStore.h"
 #include "vdf/KeyValues.h"
 
 #include <QByteArray>
@@ -45,6 +46,11 @@ bool writeFile(const QString &path, const QByteArray &data, bool executable = fa
 inline constexpr QFileDevice::Permissions FileModeBits =
     QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner | QFileDevice::ReadGroup
     | QFileDevice::WriteGroup | QFileDevice::ExeGroup | QFileDevice::ReadOther | QFileDevice::WriteOther | QFileDevice::ExeOther;
+
+// Saves `settings` as a game's own: every setting that differs from the
+// defaults becomes one of its changes.
+bool saveGame(const settings::SettingsStore &store, quint32 appId, const settings::GameSettings &settings,
+              const QString &name = QStringLiteral("Made-up Game"));
 
 // Damaged copies of `data` for robustness tests: flipped bytes, cuts and
 // inserted junk, from a fixed seed so failures can be reproduced.

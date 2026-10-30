@@ -106,18 +106,18 @@ private Q_SLOTS:
     {
         QTemporaryDir dir;
         const SettingsStore store(dir.filePath(QStringLiteral("gfxtune")));
-        QString error;
-        QVERIFY2(store.save(1091, sample(), QStringLiteral("Ashfall Protocol"), &error), qPrintable(error));
+        QVERIFY(test::saveGame(store, 1091, sample(), QStringLiteral("Ashfall Protocol")));
         QStringList warnings;
         QCOMPARE(store.load(1091, &warnings), sample());
         QVERIFY(warnings.isEmpty());
-        QCOMPARE(store.customizedGames(), QSet<quint32>{1091});
+        QCOMPARE(store.loadProfile(1091).changed.size(), settingKinds().size());
 
         // Readable by people: plain keys and words.
         QFile file(store.pathFor(1091));
         QVERIFY(file.open(QIODevice::ReadOnly));
         const QByteArray text = file.readAll();
         QVERIFY(text.contains("name=Ashfall Protocol"));
+        QVERIFY(text.contains("format=2"));
         QVERIFY(text.contains("vertical_sync=fast"));
         QVERIFY(text.contains("filter=nis"));
         // The section the Vulkan layer reads while the game runs.
@@ -137,12 +137,19 @@ private Q_SLOTS:
     {
         QTemporaryDir dir;
         const SettingsStore store(dir.filePath(QStringLiteral("gfxtune")));
-        QVERIFY(store.save(5, sample(), {}));
+        QVERIFY(test::saveGame(store, 5, sample()));
         QVERIFY(QFile::exists(store.pathFor(5)));
-        QVERIFY(store.save(5, GameSettings{}, {}));
+        QVERIFY(test::saveGame(store, 5, GameSettings{}));
         QVERIFY(!QFile::exists(store.pathFor(5)));
         QCOMPARE(store.load(5), GameSettings{});
-        QVERIFY(store.customizedGames().isEmpty());
+        // Not following the global settings is the game's own, and kept.
+        GameProfile own;
+        own.usesGlobal = false;
+        QVERIFY(store.saveProfile(5, own, {}));
+        QVERIFY(QFile::exists(store.pathFor(5)));
+        QCOMPARE(store.loadProfile(5), own);
+        QVERIFY(store.saveProfile(5, GameProfile{}, {}));
+        QVERIFY(!QFile::exists(store.pathFor(5)));
     }
 
     void fallsBackOnDamagedValues()
@@ -199,17 +206,6 @@ private Q_SLOTS:
         }
     }
 
-    void ignoresStrayFilesWhenListing()
-    {
-        QTemporaryDir dir;
-        const SettingsStore store(dir.filePath(QStringLiteral("gfxtune")));
-        QVERIFY(store.save(12, sample(), {}));
-        QVERIFY(test::writeFile(dir.filePath(QStringLiteral("gfxtune/games/notes.txt")), "x"));
-        QVERIFY(test::writeFile(dir.filePath(QStringLiteral("gfxtune/games/abc.ini")), "x"));
-        QVERIFY(test::writeFile(dir.filePath(QStringLiteral("gfxtune/games/0.ini")), "x"));
-        QCOMPARE(store.customizedGames(), QSet<quint32>{12});
-    }
-
     void reportsWriteFailures()
     {
         QTemporaryDir dir;
@@ -217,7 +213,12 @@ private Q_SLOTS:
         QVERIFY(test::writeFile(dir.filePath(QStringLiteral("gfxtune/games")), "not a folder"));
         const SettingsStore store(dir.filePath(QStringLiteral("gfxtune")));
         QString error;
-        QVERIFY(!store.save(1, sample(), {}, &error));
+        QVERIFY(!store.saveProfile(1, profileFrom(sample()), {}, &error));
+        QVERIFY(!error.isEmpty());
+        error.clear();
+        // A folder where the global file should be.
+        QVERIFY(QDir().mkpath(store.globalPath()));
+        QVERIFY(!store.saveGlobal(sample(), &error));
         QVERIFY(!error.isEmpty());
     }
 
@@ -226,8 +227,9 @@ private Q_SLOTS:
         QTemporaryDir dir;
         QVERIFY(test::writeFile(dir.filePath(QStringLiteral("neighbour.txt")), "keep me"));
         const SettingsStore store(dir.filePath(QStringLiteral("gfxtune")));
-        QVERIFY(store.save(1, sample(), {}));
-        QVERIFY(store.save(2, sample(), {}));
+        QVERIFY(test::saveGame(store, 1, sample()));
+        QVERIFY(test::saveGame(store, 2, sample()));
+        QVERIFY(store.saveGlobal(sample()));
         QVERIFY(store.removeAll());
         QVERIFY(!QFileInfo::exists(dir.filePath(QStringLiteral("gfxtune"))));
         QVERIFY(QFileInfo::exists(dir.filePath(QStringLiteral("neighbour.txt"))));
@@ -398,7 +400,7 @@ private Q_SLOTS:
         // Saving writes only the new key.
         GameSettings s;
         s.fsr4 = Fsr4::Off;
-        QVERIFY(store.save(9, s, {}));
+        QVERIFY(test::saveGame(store, 9, s));
         QFile file(store.pathFor(9));
         QVERIFY(file.open(QIODevice::ReadOnly));
         const QByteArray saved = file.readAll();
@@ -406,32 +408,27 @@ private Q_SLOTS:
         QVERIFY(!saved.contains("fsr4_upgrade"));
     }
 
-    void acceptingTheWarningAloneChangesNothing()
+    // gfxtune-run goes into a game when it has something to do there:
+    // measuring (on by default), or any setting.
+    void decidesWhenGfxtuneRunIsNeeded()
     {
-        QTemporaryDir dir;
-        const SettingsStore store(dir.filePath(QStringLiteral("gfxtune")));
+        const GameFacts none;
+        const GameFacts antiCheat{{QStringLiteral("Easy Anti-Cheat")}, false};
+        const GameFacts openGl{{}, true};
         GameSettings s;
+        QVERIFY(!s.affectsGame());
+        QVERIFY(needsGfxtuneRun(s, none)); // measuring
+        QVERIFY(!needsGfxtuneRun(s, antiCheat));
+        QVERIFY(!needsGfxtuneRun(s, openGl));
         s.filtersRiskAccepted = true;
-        QVERIFY(!s.isDefault()); // kept in a file...
-        QVERIFY(!s.affectsGame()); // ...but no reason for a launch line
-        QVERIFY(store.save(3, s, {}));
-        QVERIFY(store.load(3).filtersRiskAccepted);
-        QVERIFY(store.customizedGames().isEmpty());
-        s.filters.sharpening = 20;
-        QVERIFY(s.affectsGame());
-        QVERIFY(store.save(3, s, {}));
-        QCOMPARE(store.customizedGames(), QSet<quint32>{3});
-
-        // Measuring switched off alone: kept, but the game needs no line for it.
-        GameSettings quiet;
-        quiet.measurePerformance = false;
-        QVERIFY(!quiet.isDefault());
-        QVERIFY(!quiet.affectsGame());
-        QVERIFY(store.save(4, quiet, {}));
-        QVERIFY(!store.load(4).measurePerformance);
-        QCOMPARE(store.customizedGames(), QSet<quint32>{3});
-        quiet.gameMode = true;
-        QVERIFY(quiet.affectsGame());
+        QVERIFY(!s.affectsGame()); // the consent alone is no setting
+        QVERIFY(needsGfxtuneRun(s, antiCheat));
+        s.measurePerformance = false;
+        QVERIFY(!s.affectsGame());
+        QVERIFY(!needsGfxtuneRun(s, none));
+        s.gameMode = true;
+        QVERIFY(needsGfxtuneRun(s, openGl));
+        QVERIFY(needsGfxtuneRun(s, antiCheat));
     }
 
     void onlyOffersListedTextureDetail()
@@ -469,18 +466,20 @@ private Q_SLOTS:
         const SettingsStore store(dir.filePath(QStringLiteral("gfxtune")));
         const GameFacts facts{{QStringLiteral("Easy Anti-Cheat"), QStringLiteral("BattlEye")}, true};
         QCOMPARE(store.loadFacts(4), GameFacts{});
-        // Only games with settings have a file to keep them in.
-        QVERIFY(store.saveFacts(4, facts));
-        QVERIFY(!QFile::exists(store.pathFor(4)));
+        // Every game gets gfxtune-run, so a game without settings of its
+        // own gets a file for them too.
+        QVERIFY(store.saveFacts(4, facts, QStringLiteral("Hollow Orbit")));
+        QCOMPARE(store.loadFacts(4), facts);
+        QVERIFY(store.loadProfile(4).isEmpty());
+        QCOMPARE(store.load(4), GameSettings{});
 
         GameSettings s;
         s.frameCapEnabled = true;
-        QVERIFY(store.save(4, s, QStringLiteral("Hollow Orbit")));
-        QVERIFY(store.saveFacts(4, facts));
+        QVERIFY(test::saveGame(store, 4, s, QStringLiteral("Hollow Orbit")));
         QCOMPARE(store.loadFacts(4), facts);
         // Saving the settings keeps them, and they are not settings.
         s.frameCap = 90;
-        QVERIFY(store.save(4, s, QStringLiteral("Hollow Orbit")));
+        QVERIFY(test::saveGame(store, 4, s, QStringLiteral("Hollow Orbit")));
         QCOMPARE(store.loadFacts(4), facts);
         QCOMPARE(store.load(4), s);
 
@@ -495,7 +494,15 @@ private Q_SLOTS:
         QCOMPARE(store.loadFacts(4), GameFacts{});
         QFile file(store.pathFor(4));
         QVERIFY(file.open(QIODevice::ReadOnly));
-        QVERIFY(!file.readAll().contains("anti_cheat"));
+        const QByteArray text = file.readAll();
+        QVERIFY(!text.contains("anti_cheat"));
+        QVERIFY(text.contains("name=Hollow Orbit")); // kept from before
+        // With neither settings nor facts, the file goes.
+        QVERIFY(test::saveGame(store, 4, GameSettings{}));
+        QVERIFY(!QFile::exists(store.pathFor(4)));
+        QVERIFY(store.saveFacts(4, facts));
+        QVERIFY(store.saveFacts(4, GameFacts{}));
+        QVERIFY(!QFile::exists(store.pathFor(4)));
 
         // Blank names in a hand-edited file are skipped.
         QVERIFY(test::writeFile(store.pathFor(5), "[game]\nanti_cheat=\" \", BattlEye\nopengl_only=TRUE\n"));
@@ -612,6 +619,213 @@ private Q_SLOTS:
         QVERIFY(a.gamescope.note.startsWith(QLatin1String("Supersampling")));
         s.renderScale = 67;
         QCOMPARE(availabilityFor(game(Runtime::Proton, GraphicsApi::DirectX11), s, system).gamescope.note, QString());
+    }
+
+    // Every setting is in the list of settings, once: copying all of them
+    // copies everything but the consent, and no two share a field.
+    void listsEverySetting()
+    {
+        GameSettings all = sample();
+        all.filtersRiskAccepted = false;
+        GameSettings copied;
+        QSet<QString> ids;
+        QSet<QString> keys;
+        for (const SettingKind &kind : settingKinds()) {
+            QVERIFY2(!ids.contains(kind.id), qPrintable(kind.id));
+            ids.insert(kind.id);
+            for (const QString &key : kind.keys) {
+                QVERIFY2(!keys.contains(key), qPrintable(key));
+                keys.insert(key);
+            }
+            GameSettings one;
+            kind.copy(all, one);
+            QVERIFY2(one != GameSettings{}, qPrintable(kind.id)); // copies something
+            QVERIFY(!sameSetting(kind, one, GameSettings{}));
+            for (const SettingKind &other : settingKinds()) {
+                if (other.id != kind.id) {
+                    QVERIFY2(sameSetting(other, one, GameSettings{}), qPrintable(kind.id + QLatin1String(" touches ") + other.id));
+                }
+            }
+            kind.copy(all, copied);
+        }
+        QCOMPARE(copied, all);
+        QCOMPARE(findSetting(QStringLiteral("frameCap"))->keys.size(), 2);
+        QVERIFY(!findSetting(QStringLiteral("nothing")));
+    }
+
+    void savesTheGlobalSettings()
+    {
+        QTemporaryDir dir;
+        const SettingsStore store(dir.filePath(QStringLiteral("gfxtune")));
+        QCOMPARE(store.loadGlobal(), GameSettings{});
+        GameSettings global = sample();
+        QVERIFY(store.saveGlobal(global));
+        global.filtersRiskAccepted = false; // only ever a game's own
+        QCOMPARE(store.loadGlobal(), global);
+        QFile file(store.globalPath());
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QByteArray text = file.readAll();
+        file.close();
+        QVERIFY(text.contains("[filters]"));
+        QVERIFY(text.contains("sharpening=45"));
+        QVERIFY(!text.contains("risk_accepted"));
+        QVERIFY(store.saveGlobal(GameSettings{}));
+        QVERIFY(!QFile::exists(store.globalPath()));
+        QVERIFY(store.saveGlobal(GameSettings{})); // nothing to remove is fine
+        GameSettings consentOnly;
+        consentOnly.filtersRiskAccepted = true;
+        QVERIFY(store.saveGlobal(consentOnly));
+        QVERIFY(!QFile::exists(store.globalPath()));
+
+        // Damaged values fall back to the defaults.
+        QStringList warnings;
+        QVERIFY(test::writeFile(store.globalPath(), "[image]\nanisotropic_filtering=5\n[frames]\nframe_cap_enabled=true\nframe_cap=141\n"));
+        const GameSettings loaded = store.loadGlobal(&warnings);
+        QCOMPARE(loaded.anisotropicFiltering, 0);
+        QVERIFY(loaded.frameCapEnabled);
+        QCOMPARE(loaded.frameCap, 141);
+        QCOMPARE(warnings.size(), 1);
+    }
+
+    // A game gets the global settings, with what it changed; a game that
+    // stopped using them gets the defaults with its changes.
+    void appliesAGamesChangesOverTheGlobalSettings()
+    {
+        QTemporaryDir dir;
+        const SettingsStore store(dir.filePath(QStringLiteral("gfxtune")));
+        GameSettings global;
+        global.anisotropicFiltering = 16;
+        global.frameCapEnabled = true;
+        global.frameCap = 141;
+        global.filters.saturation = 30;
+        QVERIFY(store.saveGlobal(global));
+
+        GameProfile profile;
+        profile.changed = {QStringLiteral("frameCap"), QStringLiteral("filterContrast")};
+        profile.own.frameCapEnabled = true;
+        profile.own.frameCap = 90;
+        profile.own.filters.contrast = -10;
+        profile.own.anisotropicFiltering = 2; // not changed: ignored
+        QVERIFY(store.saveProfile(7, profile, QStringLiteral("Stonewake")));
+        QCOMPARE(store.loadProfile(7), profile);
+        GameSettings s = store.load(7);
+        QCOMPARE(s.anisotropicFiltering, 16);
+        QCOMPARE(s.frameCap, 90);
+        QCOMPARE(s.filters.saturation, 30);
+        QCOMPARE(s.filters.contrast, -10);
+
+        // The file holds only the changes, for the layer to read over the global file.
+        QFile file(store.pathFor(7));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QByteArray text = file.readAll();
+        file.close();
+        QVERIFY(text.contains("frame_cap=90"));
+        QVERIFY(text.contains("frame_cap_enabled=true"));
+        QVERIFY(text.contains("contrast=-10"));
+        QVERIFY(!text.contains("anisotropic_filtering"));
+        QVERIFY(!text.contains("saturation"));
+        QVERIFY(!text.contains("uses_global"));
+
+        // Later global changes reach what the game did not change.
+        global.anisotropicFiltering = 8;
+        global.frameCap = 60;
+        QVERIFY(store.saveGlobal(global));
+        s = store.load(7);
+        QCOMPARE(s.anisotropicFiltering, 8);
+        QCOMPARE(s.frameCap, 90);
+
+        // Out of the global settings: left alone, apart from its changes.
+        profile.usesGlobal = false;
+        QVERIFY(store.saveProfile(7, profile, QStringLiteral("Stonewake")));
+        QCOMPARE(store.loadProfile(7), profile);
+        s = store.load(7);
+        QCOMPARE(s.anisotropicFiltering, 0);
+        QCOMPARE(s.filters.saturation, 0);
+        QVERIFY(!s.measurePerformance);
+        QCOMPARE(s.frameCap, 90);
+        QCOMPARE(s.filters.contrast, -10);
+        QFile again(store.pathFor(7));
+        QVERIFY(again.open(QIODevice::ReadOnly));
+        QVERIFY(again.readAll().contains("uses_global=false"));
+
+        // A damaged change falls back to the global setting.
+        QVERIFY(test::writeFile(store.pathFor(8), "[game]\nformat=2\n[image]\nanisotropic_filtering=3\nlod_bias=-50\n"));
+        QStringList warnings;
+        const GameProfile damaged = store.loadProfile(8, &warnings);
+        QCOMPARE(damaged.changed, QSet<QString>{QStringLiteral("lodBias")});
+        QCOMPARE(warnings.size(), 1);
+        QCOMPARE(store.load(8).anisotropicFiltering, 8);
+        QCOMPARE(store.load(8).lodBias, -50);
+    }
+
+    // Files from before global settings held every setting: the ones at
+    // gfxtune's default were not chosen for the game and follow the global
+    // settings now; the rest stay the game's own.
+    void readsFilesFromBeforeGlobalSettings()
+    {
+        QTemporaryDir dir;
+        const SettingsStore store(dir.filePath(QStringLiteral("gfxtune")));
+        QVERIFY(test::writeFile(store.pathFor(1001), "[game]\nname=Ashfall Protocol\nsteam_app_id=1001\n"
+                                                     "[image]\nanisotropic_filtering=0\nlod_bias=0\n"
+                                                     "[frames]\nframe_cap_enabled=true\nframe_cap=60\nvertical_sync=game\n"
+                                                     "[upscaling]\nfsr4=proton\n"
+                                                     "[gamescope]\nenabled=false\nfilter=fsr\nscaling=auto\nrender_scale=100\nsharpness=10\n"
+                                                     "[filters]\nenabled=true\nsharpening=40\nbrightness=0\ncontrast=0\ngamma=100\nsaturation=0\n"
+                                                     "vibrance=0\ntemperature=0\nanti_aliasing=off\nrisk_accepted=true\n"
+                                                     "[performance]\nmeasure=true\n[launch]\ngamemode=false\nmangohud=false\n"));
+        const GameProfile profile = store.loadProfile(1001);
+        QCOMPARE(profile.changed, (QSet<QString>{QStringLiteral("frameCap"), QStringLiteral("filterSharpening")}));
+        QVERIFY(profile.usesGlobal);
+        QVERIFY(profile.own.filtersRiskAccepted);
+
+        GameSettings global;
+        global.anisotropicFiltering = 16;
+        QVERIFY(store.saveGlobal(global));
+        const GameSettings s = store.load(1001);
+        QCOMPARE(s.anisotropicFiltering, 16);
+        QVERIFY(s.frameCapEnabled);
+        QCOMPARE(s.filters.sharpening, 40);
+
+        // Saved again, it holds only its changes.
+        QVERIFY(store.saveProfile(1001, profile, QStringLiteral("Ashfall Protocol")));
+        QFile file(store.pathFor(1001));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QByteArray text = file.readAll();
+        QVERIFY(text.contains("format=2"));
+        QVERIFY(!text.contains("anisotropic_filtering"));
+        QVERIFY(text.contains("sharpening=40"));
+        QCOMPARE(store.loadProfile(1001), profile);
+    }
+
+    void saysWhatTheGlobalSettingsReach()
+    {
+        SystemInfo none;
+        GameSettings s;
+        Availability a = availabilityForAll(s, none);
+        QVERIFY(a.anisotropicFiltering.available);
+        QVERIFY(a.filters.available);
+        QVERIFY(!a.filtersLocked);
+        QVERIFY(a.filters.note.contains(QLatin1String("anti-cheat")));
+        QVERIFY(a.measurePerformance.available);
+        QVERIFY(!a.gamescope.available);
+        QVERIFY(!a.gameMode.available);
+        QVERIFY(!a.mangoHud.available);
+
+        SystemInfo all;
+        all.gamescopeInstalled = true;
+        all.gameModeInstalled = true;
+        all.mangoHudInstalled = true;
+        a = availabilityForAll(s, all);
+        QVERIFY(a.gamescope.available);
+        QVERIFY(a.gameMode.available);
+        QVERIFY(a.mangoHud.available);
+        s.gamescope = true;
+        s.renderScale = 150;
+        a = availabilityForAll(s, all);
+        QVERIFY(a.gamescope.note.startsWith(QLatin1String("Supersampling")));
+        QVERIFY(!a.mangoHud.available); // inside gamescope without mangoapp
+        all.mangoAppInstalled = true;
+        QVERIFY(availabilityForAll(s, all).mangoHud.available);
     }
 
     void decidesWhereFiltersWork()

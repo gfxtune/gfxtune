@@ -76,10 +76,8 @@ struct GameSettings {
 
     bool isDefault() const { return *this == GameSettings{}; }
     bool supersampling() const { return gamescope && renderScale > 100; }
-    // Whether anything changes how the game starts or looks. Accepting the
-    // anti-cheat warning alone does not, and neither does switching off
-    // measuring alone: without other settings the game starts without
-    // gfxtune, so nothing is measured anyway.
+    // Whether anything changes how the game starts or looks, measuring and
+    // the accepted anti-cheat warning aside (see needsGfxtuneRun()).
     bool affectsGame() const
     {
         GameSettings rest = *this;
@@ -110,6 +108,13 @@ inline bool layerAllowed(const GameSettings &s, const GameFacts &facts)
 inline bool layerWanted(const GameSettings &s, const GameFacts &facts)
 {
     return (s.filters.active() || s.measurePerformance) && layerAllowed(s, facts) && !facts.openGlOnly;
+}
+
+// Whether gfxtune-run has anything to do when the game starts: a setting
+// that changes how it starts or looks, or measuring that can reach it.
+inline bool needsGfxtuneRun(const GameSettings &s, const GameFacts &facts)
+{
+    return s.affectsGame() || layerWanted(s, facts);
 }
 
 QString toKey(VerticalSync value);

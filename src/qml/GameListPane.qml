@@ -18,7 +18,7 @@ ColumnLayout {
     // Keeps the highlighted row on the selected game when the list changes
     // under it (a rescan, or typing in the search field).
     function syncSelection() {
-        list.currentIndex = library.games.rowOf(editor.appId);
+        list.currentIndex = editor.global ? -1 : library.games.rowOf(editor.appId);
     }
 
     Connections {
@@ -38,6 +38,55 @@ ColumnLayout {
         Layout.margins: Kirigami.Units.smallSpacing
         placeholderText: "Search games…"
         onTextChanged: pane.library.games.filterText = text
+    }
+
+    // The global settings, above every game.
+    QQC2.ItemDelegate {
+        objectName: "allGames"
+        Layout.fillWidth: true
+        Layout.leftMargin: Kirigami.Units.smallSpacing
+        Layout.rightMargin: Kirigami.Units.smallSpacing
+        highlighted: pane.editor.global
+        onClicked: pane.editor.selectGlobal()
+
+        contentItem: RowLayout {
+            spacing: Kirigami.Units.largeSpacing
+
+            Rectangle {
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 2
+                Layout.preferredHeight: Kirigami.Units.gridUnit * 3
+                radius: Kirigami.Units.cornerRadius
+                color: Kirigami.Theme.alternateBackgroundColor
+
+                Kirigami.Icon {
+                    anchors.centerIn: parent
+                    width: Kirigami.Units.iconSizes.smallMedium
+                    height: width
+                    source: "globe"
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+
+                QQC2.Label {
+                    Layout.fillWidth: true
+                    text: "All Games"
+                    elide: Text.ElideRight
+                }
+                QQC2.Label {
+                    Layout.fillWidth: true
+                    text: "Global settings · " + pane.library.gamesUsingGlobal + " of " + pane.library.gameCount + " games use them"
+                    font: Kirigami.Theme.smallFont
+                    opacity: 0.7
+                    elide: Text.ElideRight
+                }
+            }
+        }
+    }
+    Kirigami.Separator {
+        Layout.fillWidth: true
+        Layout.topMargin: Kirigami.Units.smallSpacing
     }
 
     QQC2.ScrollView {
@@ -65,7 +114,7 @@ ColumnLayout {
                 required property string name
                 required property string detail
                 required property url cover
-                required property bool customized
+                required property string settingsNote
                 required property bool running
 
                 width: ListView.view.width
@@ -96,7 +145,7 @@ ColumnLayout {
                         }
                         QQC2.Label {
                             Layout.fillWidth: true
-                            text: row.detail + (row.customized ? " · custom settings" : "")
+                            text: row.settingsNote.length > 0 ? row.detail + " · " + row.settingsNote : row.detail
                             font: Kirigami.Theme.smallFont
                             opacity: 0.7
                             elide: Text.ElideRight

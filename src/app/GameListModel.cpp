@@ -32,8 +32,8 @@ QVariant GameListModel::data(const QModelIndex &index, int role) const
         return detailText(game);
     case CoverRole:
         return game.coverPath.isEmpty() ? QUrl() : QUrl::fromLocalFile(game.coverPath);
-    case CustomizedRole:
-        return m_customized.contains(game.appId);
+    case SettingsNoteRole:
+        return m_settingsNotes.value(game.appId);
     case RunningRole:
         return m_running.contains(game.appId);
     default:
@@ -48,7 +48,7 @@ QHash<int, QByteArray> GameListModel::roleNames() const
         {NameRole, "name"},
         {DetailRole, "detail"},
         {CoverRole, "cover"},
-        {CustomizedRole, "customized"},
+        {SettingsNoteRole, "settingsNote"},
         {RunningRole, "running"},
     };
 }
@@ -120,13 +120,13 @@ void GameListModel::setGames(QList<Game> games)
     }
 }
 
-void GameListModel::setCustomized(const QSet<quint32> &appIds)
+void GameListModel::setSettingsNotes(const QHash<quint32, QString> &notes)
 {
-    if (appIds == m_customized) {
+    if (notes == m_settingsNotes) {
         return;
     }
-    m_customized = appIds;
-    changedRows(CustomizedRole);
+    m_settingsNotes = notes;
+    changedRows(SettingsNoteRole);
 }
 
 void GameListModel::setRunning(const QSet<quint32> &appIds)

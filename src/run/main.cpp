@@ -82,8 +82,10 @@ int main(int argc, char *argv[])
     }
 
     const settings::SettingsStore store(settings::SettingsStore::defaultBaseDir());
-    const settings::GameSettings gameSettings = store.load(appId);
-    if (!gameSettings.affectsGame()) {
+    const settings::GameProfile profile = store.loadProfile(appId);
+    const settings::GameSettings gameSettings = settings::effectiveSettings(store.loadGlobal(), profile);
+    const settings::GameFacts facts = store.loadFacts(appId);
+    if (!settings::needsGfxtuneRun(gameSettings, facts)) {
         runCommand(command);
     }
 
@@ -96,13 +98,16 @@ int main(int argc, char *argv[])
     context.gameModeInstalled = !QStandardPaths::findExecutable(QStringLiteral("gamemoderun")).isEmpty();
     context.mangoHudInstalled = !QStandardPaths::findExecutable(QStringLiteral("mangohud")).isEmpty();
     context.mangoAppInstalled = !QStandardPaths::findExecutable(QStringLiteral("mangoapp")).isEmpty();
-    context.facts = store.loadFacts(appId);
+    context.facts = facts;
     QStringList commandLine;
     for (char *const *argument = command; *argument; ++argument) {
         commandLine.append(QString::fromLocal8Bit(*argument));
     }
     context.proton = launch::runsThroughProton(commandLine);
     context.filterSettingsPath = store.pathFor(appId);
+    if (profile.usesGlobal) {
+        context.globalSettingsPath = store.globalPath();
+    }
     context.filterReportPath = launch::filterReportPath(store.baseDir(), appId);
     // The layer writes its measurements here; it never creates folders.
     const QString performanceDir = performance::performanceDir(store.baseDir(), appId);

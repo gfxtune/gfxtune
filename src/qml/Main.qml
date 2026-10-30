@@ -17,7 +17,7 @@ Kirigami.ApplicationWindow {
     height: Kirigami.Units.gridUnit * 42
     minimumWidth: Kirigami.Units.gridUnit * 56
     minimumHeight: Kirigami.Units.gridUnit * 25
-    title: editor.hasGame ? editor.gameName + " — gfxtune" : "gfxtune"
+    title: editor.global ? "All Games — gfxtune" : editor.hasGame ? editor.gameName + " — gfxtune" : "gfxtune"
 
     // Read the card only while the window can be seen, also when it sits on
     // a second monitor during a game; not while it is minimised.
@@ -31,7 +31,7 @@ Kirigami.ApplicationWindow {
     Connections {
         target: root.library
         function onStateChanged() {
-            if (root.editor.appId === 0 && root.library.gameCount > 0) {
+            if (root.editor.appId === 0 && !root.editor.global && root.library.gameCount > 0) {
                 root.editor.appId = root.library.games.appIdAt(0);
             }
         }
@@ -39,7 +39,7 @@ Kirigami.ApplicationWindow {
 
     pageStack.initialPage: Kirigami.Page {
         padding: 0
-        title: root.editor.hasGame ? root.editor.gameName : "gfxtune"
+        title: root.editor.global ? "All Games" : root.editor.hasGame ? root.editor.gameName : "gfxtune"
 
         actions: [
             Kirigami.Action {
@@ -107,7 +107,7 @@ Kirigami.ApplicationWindow {
                         objectName: "gameSettingsPane"
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        visible: root.editor.hasGame
+                        visible: root.editor.hasGame || root.editor.global
                         editor: root.editor
                     }
 
@@ -115,7 +115,7 @@ Kirigami.ApplicationWindow {
                         Layout.fillWidth: true
                         Layout.alignment: Qt.AlignCenter
                         Layout.margins: Kirigami.Units.gridUnit * 4
-                        visible: !root.editor.hasGame
+                        visible: !root.editor.hasGame && !root.editor.global
                         text: root.library.gameCount > 0 ? "Choose a game" : "No installed games found"
                         explanation: root.library.gameCount > 0 ? "" : "Games installed with Steam appear here on their own."
                     }
@@ -140,7 +140,7 @@ Kirigami.ApplicationWindow {
     Kirigami.PromptDialog {
         id: removeAllDialog
         title: "Remove all gfxtune settings?"
-        subtitle: "Every game goes back to its own settings, and gfxtune takes itself out of their Steam launch options (once Steam is closed). Your games and other Steam settings are not changed."
+        subtitle: "The global settings and every game's own go back to gfxtune's defaults, which measure performance in every game. Your games and other Steam settings are not changed."
         standardButtons: Kirigami.Dialog.Ok | Kirigami.Dialog.Cancel
         onAccepted: root.editor.removeAllSettings()
     }

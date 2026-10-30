@@ -176,6 +176,9 @@ LaunchPlan planLaunch(const GameSettings &s, const LaunchContext &context)
         && p.set(QStringLiteral("GFXTUNE_FILTERS"), QStringLiteral("1"))) {
         layer = true;
         plan.environment.append({QStringLiteral("GFXTUNE_FILTERS_SETTINGS"), context.filterSettingsPath});
+        if (!context.globalSettingsPath.isEmpty()) {
+            plan.environment.append({QStringLiteral("GFXTUNE_GLOBAL_SETTINGS"), context.globalSettingsPath});
+        }
         if (!context.filterReportPath.isEmpty()) {
             plan.environment.append({QStringLiteral("GFXTUNE_FILTERS_REPORT"), context.filterReportPath});
         }

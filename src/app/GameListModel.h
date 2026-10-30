@@ -6,6 +6,7 @@
 #include "steam/Game.h"
 
 #include <QAbstractListModel>
+#include <QHash>
 #include <QList>
 #include <QSet>
 #include <QSortFilterProxyModel>
@@ -27,7 +28,7 @@ public:
         NameRole,
         DetailRole,
         CoverRole,
-        CustomizedRole,
+        SettingsNoteRole, // "2 changes", "own settings only", or empty
         RunningRole,
     };
 
@@ -40,7 +41,7 @@ public:
     // Updates in place where it can, so the view keeps its selection and
     // scroll position when a scan only changes details or adds a game.
     void setGames(QList<steam::Game> games);
-    void setCustomized(const QSet<quint32> &appIds);
+    void setSettingsNotes(const QHash<quint32, QString> &notes);
     void setRunning(const QSet<quint32> &appIds);
 
     const steam::Game *find(quint32 appId) const;
@@ -52,7 +53,7 @@ private:
     void changedRows(int role);
 
     QList<steam::Game> m_games;
-    QSet<quint32> m_customized;
+    QHash<quint32, QString> m_settingsNotes;
     QSet<quint32> m_running;
 };
 

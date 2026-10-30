@@ -17,6 +17,7 @@ add_library(gfxtune_core STATIC
     core/performance/Performance.cpp
     core/settings/Availability.cpp
     core/settings/GameSettings.cpp
+    core/settings/Profile.cpp
     core/settings/SettingsStore.cpp
     core/steam/AppInfo.cpp
     core/steam/Covers.cpp
@@ -55,6 +56,7 @@ qt_add_qml_module(gfxtune_ui
         qml/GameListPane.qml
         qml/GameSettingsPane.qml
         qml/GpuPanel.qml
+        qml/BackToBase.qml
         qml/Cover.qml
         qml/FilterSlider.qml
         qml/Note.qml

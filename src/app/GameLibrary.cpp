@@ -111,7 +111,7 @@ void GameLibrary::scanFinished()
 {
     m_scan = m_future.result();
     m_model.setGames(m_scan.games);
-    m_model.setCustomized(m_store->customizedGames());
+    reloadProfiles();
     m_watcher.setPaths(m_scan.watchPaths);
     m_loaded = true;
     Q_EMIT gamesChanged();
@@ -121,7 +121,7 @@ void GameLibrary::scanFinished()
         return;
     }
     m_scanning = false;
-    lockFiltersForAntiCheat();
+    saveFacts();
     Q_EMIT stateChanged();
     if (m_rescanPending) {
         m_rescanPending = false;
@@ -143,26 +143,46 @@ QString GameLibrary::gameName(int appId) const
     return found ? found->name : QStringLiteral("Game %1").arg(appId);
 }
 
-// gfxtune-run reads what the scan found from each game's settings file.
-// Filters stay locked in games with anti-cheat until the user accepts the
-// risk; a game that gained anti-cheat in an update after filters were set
-// gets them switched off (the values stay) until the user decides.
-void GameLibrary::lockFiltersForAntiCheat()
+// gfxtune-run reads what the scan found from each game's settings file:
+// anti-cheat keeps the filters and measuring out of a game until the user
+// accepts the risk for it, also when an update added it.
+void GameLibrary::saveFacts()
 {
     for (const steam::Game &game : std::as_const(m_scan.games)) {
-        m_store->saveFacts(game.appId, settings::factsOf(game));
-        if (game.antiCheat.isEmpty()) {
-            continue;
-        }
-        settings::GameSettings s = m_store->load(game.appId);
-        if (!s.filters.active() || s.filtersRiskAccepted) {
-            continue;
-        }
-        s.filters.enabled = false;
-        if (m_store->save(game.appId, s, game.name)) {
-            Q_EMIT settingsRewritten(game.appId);
-        }
+        m_store->saveFacts(game.appId, settings::factsOf(game), game.name);
     }
+    reloadProfiles();
+}
+
+void GameLibrary::reloadProfiles()
+{
+    m_global = m_store->loadGlobal();
+    m_profiles.clear();
+    QHash<quint32, QString> notes;
+    int usingGlobal = 0;
+    for (const steam::Game &game : std::as_const(m_scan.games)) {
+        const settings::GameProfile profile = m_store->loadProfile(game.appId);
+        if (!profile.isEmpty()) {
+            m_profiles.insert(game.appId, profile);
+        }
+        const qsizetype changes = profile.changed.size();
+        if (!profile.usesGlobal) {
+            notes.insert(game.appId, QStringLiteral("own settings only"));
+        } else if (changes > 0) {
+            notes.insert(game.appId, changes == 1 ? QStringLiteral("1 change") : QStringLiteral("%1 changes").arg(changes));
+        }
+        usingGlobal += profile.usesGlobal ? 1 : 0;
+    }
+    m_model.setSettingsNotes(notes);
+    m_gamesUsingGlobal = usingGlobal;
+    Q_EMIT profilesChanged();
+}
+
+bool GameLibrary::wantsLaunchLine(quint32 appId) const
+{
+    const steam::Game *found = game(appId);
+    return found
+        && settings::needsGfxtuneRun(settings::effectiveSettings(m_global, m_profiles.value(appId)), settings::factsOf(*found));
 }
 
 void GameLibrary::pollRunning()
@@ -185,7 +205,7 @@ void GameLibrary::pollRunning()
 
 void GameLibrary::settingsChanged()
 {
-    m_model.setCustomized(m_store->customizedGames());
+    reloadProfiles();
     syncLaunchLines();
 }
 
@@ -196,9 +216,15 @@ void GameLibrary::syncLaunchLines()
     if (!m_loaded || m_scanning || m_steamRunning || !m_scan.steamFound || m_scan.localConfigPath.isEmpty()) {
         return;
     }
+    QSet<quint32> wanted;
+    for (const steam::Game &game : std::as_const(m_scan.games)) {
+        if (wantsLaunchLine(game.appId)) {
+            wanted.insert(game.appId);
+        }
+    }
     QList<launch::LineChange> done;
     QString error;
-    const bool ok = launch::syncLaunchLines(m_scan.localConfigPath, m_store->customizedGames(), &done, &error);
+    const bool ok = launch::syncLaunchLines(m_scan.localConfigPath, wanted, &done, &error);
     const QString problem = ok ? QString() : error;
     if (problem != m_launchLineProblem) {
         m_launchLineProblem = problem;
@@ -213,7 +239,7 @@ GameLibrary::LaunchState GameLibrary::launchState(quint32 appId) const
 {
     const steam::Game *game = m_model.find(appId);
     const bool lineThere = game && launch::hasHelper(game->launchOptions);
-    const bool wanted = m_store->customizedGames().contains(appId);
+    const bool wanted = wantsLaunchLine(appId);
     if (wanted && lineThere) {
         return LaunchState::Added;
     }

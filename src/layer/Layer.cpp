@@ -7,8 +7,9 @@
 // back into the swapchain image and lets the present continue.
 //
 // It only loads where gfxtune-run sets GFXTUNE_FILTERS=1 (see the manifest),
-// reads the game's settings file from GFXTUNE_FILTERS_SETTINGS while the game
-// runs, and writes what it did to GFXTUNE_FILTERS_REPORT for the game's page.
+// reads the game's settings from GFXTUNE_GLOBAL_SETTINGS and
+// GFXTUNE_FILTERS_SETTINGS while the game runs, and writes what it did to
+// GFXTUNE_FILTERS_REPORT for the game's page.
 // Anything it cannot handle is passed through untouched.
 
 #include "FilterPass.h"
@@ -139,7 +140,8 @@ std::string environment(const char *name)
 
 SettingsFile &settings()
 {
-    static SettingsFile file(environment("GFXTUNE_FILTERS_SETTINGS"));
+    // The global settings when the game follows them, then its own.
+    static SettingsFile file({environment("GFXTUNE_GLOBAL_SETTINGS"), environment("GFXTUNE_FILTERS_SETTINGS")});
     return file;
 }
 

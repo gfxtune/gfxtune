@@ -17,6 +17,7 @@
 #include <QTest>
 
 using namespace gfxtune;
+using settings::GameProfile;
 using settings::GameSettings;
 
 namespace
@@ -28,7 +29,8 @@ const QByteArray GameScript = "#!/bin/sh\n"
     "{\n"
     "  for a in \"$@\"; do printf 'arg=%s\\n' \"$a\"; done\n"
     "  for v in RADV_TEX_ANISO MESA_VK_WSI_PRESENT_MODE DXVK_CONFIG VKD3D_FRAME_RATE PROTON_FSR4_UPGRADE \\\n"
-    "           GFXTUNE_FILTERS GFXTUNE_FILTERS_SETTINGS GFXTUNE_FILTERS_REPORT GFXTUNE_PERF_DIR vblank_mode; do\n"
+    "           GFXTUNE_FILTERS GFXTUNE_FILTERS_SETTINGS GFXTUNE_GLOBAL_SETTINGS GFXTUNE_FILTERS_REPORT \\\n"
+    "           GFXTUNE_PERF_DIR vblank_mode; do\n"
     "    eval \"printf '%s=%s\\n' $v \\\"\\${$v-unset}\\\"\"\n"
     "  done\n"
     "} > \"$TEST_OUT\"\n";
@@ -139,7 +141,7 @@ private Q_SLOTS:
     {
         GameSettings s;
         s.anisotropicFiltering = 16;
-        QVERIFY(store().save(1001, s, {}));
+        QVERIFY(test::saveGame(store(), 1001, s));
         QCOMPARE(run(environment({}), gameCommand()), 0);
         const auto seen = gameSaw();
         QCOMPARE(seen.value(QStringLiteral("arg0")), QStringLiteral("-dx12"));
@@ -147,11 +149,63 @@ private Q_SLOTS:
         QCOMPARE(seen.value(QStringLiteral("RADV_TEX_ANISO")), QStringLiteral("unset"));
     }
 
-    void startsTheGameUnchangedWithoutSettings()
+    void startsTheGameUnchangedWithNothingToDo()
     {
+        // Measuring switched off for all games, and nothing else set.
+        GameSettings quiet;
+        quiet.measurePerformance = false;
+        QVERIFY(store().saveGlobal(quiet));
         QCOMPARE(run(environment(QStringLiteral("2002")), gameCommand()), 0);
         QCOMPARE(gameSaw().value(QStringLiteral("RADV_TEX_ANISO")), QStringLiteral("unset"));
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("unset"));
         QVERIFY(!launch::readLastLaunch(store().baseDir(), 2002));
+        QVERIFY(store().saveGlobal(GameSettings{}));
+    }
+
+    // Every game follows the global settings, with its own changes on top;
+    // the layer reads the global file first, then the game's.
+    void appliesTheGlobalSettings()
+    {
+        GameSettings global;
+        global.anisotropicFiltering = 8;
+        global.filters.sharpening = 30;
+        QVERIFY(store().saveGlobal(global));
+
+        // A game without a file of its own.
+        QCOMPARE(run(environment(QStringLiteral("2003")), gameCommand()), 0);
+        QCOMPARE(gameSaw().value(QStringLiteral("RADV_TEX_ANISO")), QStringLiteral("8"));
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("1"));
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_GLOBAL_SETTINGS")), store().globalPath());
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS_SETTINGS")), store().pathFor(2003));
+
+        // A change of its own wins.
+        GameProfile profile;
+        profile.changed = {QStringLiteral("anisotropicFiltering")};
+        profile.own.anisotropicFiltering = 2;
+        QVERIFY(store().saveProfile(2003, profile, {}));
+        QCOMPARE(run(environment(QStringLiteral("2003")), gameCommand()), 0);
+        QCOMPARE(gameSaw().value(QStringLiteral("RADV_TEX_ANISO")), QStringLiteral("2"));
+
+        // Out of the global settings, with a change of its own: neither the
+        // global setting nor the global file.
+        profile.usesGlobal = false;
+        profile.changed = {QStringLiteral("filterContrast")};
+        profile.own.filters.contrast = 10;
+        QVERIFY(store().saveProfile(2003, profile, {}));
+        QCOMPARE(run(environment(QStringLiteral("2003")), gameCommand()), 0);
+        QCOMPARE(gameSaw().value(QStringLiteral("RADV_TEX_ANISO")), QStringLiteral("unset"));
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("1"));
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_GLOBAL_SETTINGS")), QStringLiteral("unset"));
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_PERF_DIR")), QStringLiteral("unset")); // not measured
+
+        // Out of them with nothing of its own: started as Steam starts it.
+        profile.changed.clear();
+        QVERIFY(store().saveProfile(2003, profile, {}));
+        QCOMPARE(run(environment(QStringLiteral("2003")), gameCommand()), 0);
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("unset"));
+
+        QVERIFY(store().remove(2003));
+        QVERIFY(store().saveGlobal(GameSettings{}));
     }
 
     void appliesTheGamesSettings()
@@ -163,7 +217,7 @@ private Q_SLOTS:
         s.frameCapEnabled = true;
         s.frameCap = 90;
         s.fsr4 = settings::Fsr4::On;
-        QVERIFY(store().save(1001, s, {}));
+        QVERIFY(test::saveGame(store(), 1001, s));
         QCOMPARE(run(environment(QStringLiteral("1001")), gameCommand()), 0);
         const auto seen = gameSaw();
         QCOMPARE(seen.value(QStringLiteral("arg0")), QStringLiteral("-dx12"));
@@ -185,7 +239,7 @@ private Q_SLOTS:
     {
         GameSettings s;
         s.fsr4 = settings::Fsr4::On;
-        QVERIFY(store().save(1001, s, {}));
+        QVERIFY(test::saveGame(store(), 1001, s));
         QProcessEnvironment env = environment(QStringLiteral("1001"));
         env.insert(QStringLiteral("PROTON_FSR4_UPGRADE"), QStringLiteral("4.0.2"));
         QCOMPARE(run(env, gameCommand()), 0);
@@ -201,7 +255,7 @@ private Q_SLOTS:
         s.renderScale = 50;
         s.frameCapEnabled = true;
         s.frameCap = 60;
-        QVERIFY(store().save(1001, s, {}));
+        QVERIFY(test::saveGame(store(), 1001, s));
         QCOMPARE(run(environment(QStringLiteral("1001")), gameCommand()), 0);
         const QString args = gamescopeSaw();
         QVERIFY2(args.startsWith(QLatin1String("-W ")), qPrintable(args));
@@ -222,7 +276,7 @@ private Q_SLOTS:
         s.gamescope = true;
         s.frameCapEnabled = true;
         s.frameCap = 60;
-        QVERIFY(store().save(1001, s, {}));
+        QVERIFY(test::saveGame(store(), 1001, s));
         QCOMPARE(run(environment(QStringLiteral("1001")), QStringList{proton, QStringLiteral("waitforexitandrun")} + gameCommand()), 0);
         // gamescope follows the monitor; DXVK and VKD3D-Proton hold the cap.
         const QString args = gamescopeSaw();
@@ -237,18 +291,30 @@ private Q_SLOTS:
     {
         GameSettings s;
         s.filters.sharpening = 35;
-        QVERIFY(store().save(1001, s, {}));
+        QVERIFY(test::saveGame(store(), 1001, s));
         QCOMPARE(run(environment(QStringLiteral("1001")), gameCommand()), 0);
         QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("1"));
         QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS_SETTINGS")), store().pathFor(1001));
         QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS_REPORT")), launch::filterReportPath(store().baseDir(), 1001));
     }
 
+    // Measuring is on for every game by default: a game with no settings at
+    // all still starts through gfxtune to be measured.
+    void measuresAGameWithoutSettings()
+    {
+        QVERIFY(store().remove(2004));
+        QCOMPARE(run(environment(QStringLiteral("2004")), gameCommand()), 0);
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("1"));
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_PERF_DIR")), store().baseDir() + QStringLiteral("/performance/2004"));
+        QCOMPARE(gameSaw().value(QStringLiteral("RADV_TEX_ANISO")), QStringLiteral("unset"));
+        QVERIFY(launch::readLastLaunch(store().baseDir(), 2004)->applied.contains(QStringLiteral("Performance measuring")));
+    }
+
     void measuresIntoTheGamesFolder()
     {
         GameSettings s;
         s.frameCapEnabled = true; // measuring is on by default
-        QVERIFY(store().save(1001, s, {}));
+        QVERIFY(test::saveGame(store(), 1001, s));
         const QString dir = store().baseDir() + QStringLiteral("/performance/1001");
         QDir(dir).removeRecursively();
         QCOMPARE(run(environment(QStringLiteral("1001")), gameCommand()), 0);
@@ -257,7 +323,7 @@ private Q_SLOTS:
         QVERIFY(QFileInfo(dir).isDir()); // the layer never creates folders
 
         s.measurePerformance = false;
-        QVERIFY(store().save(1001, s, {}));
+        QVERIFY(test::saveGame(store(), 1001, s));
         QCOMPARE(run(environment(QStringLiteral("1001")), gameCommand()), 0);
         QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_PERF_DIR")), QStringLiteral("unset"));
         QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("unset"));
@@ -268,7 +334,7 @@ private Q_SLOTS:
     {
         GameSettings s;
         s.filters.sharpening = 30;
-        QVERIFY(store().save(1004, s, {}));
+        QVERIFY(test::saveGame(store(), 1004, s));
         QVERIFY(store().saveFacts(1004, settings::GameFacts{{QStringLiteral("Easy Anti-Cheat")}, false}));
         const QString dir = store().baseDir() + QStringLiteral("/performance/1004");
         QCOMPARE(run(environment(QStringLiteral("1004")), gameCommand()), 0);
@@ -279,7 +345,7 @@ private Q_SLOTS:
             QStringLiteral("In-game filters and measuring: locked until the anti-cheat risk is accepted")));
 
         s.filtersRiskAccepted = true;
-        QVERIFY(store().save(1004, s, {}));
+        QVERIFY(test::saveGame(store(), 1004, s));
         QCOMPARE(run(environment(QStringLiteral("1004")), gameCommand()), 0);
         QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("1"));
         QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_PERF_DIR")), dir);
@@ -292,7 +358,7 @@ private Q_SLOTS:
         s.mangoHud = true;
         s.verticalSync = settings::VerticalSync::Off;
         s.measurePerformance = false;
-        QVERIFY(store().save(1001, s, {}));
+        QVERIFY(test::saveGame(store(), 1001, s));
         QCOMPARE(run(environment(QStringLiteral("1001")), gameCommand()), 0);
         QCOMPARE(wrappersSaw(), (QStringList{QStringLiteral("gamemoderun"), QStringLiteral("mangohud")}));
         QCOMPARE(gameSaw().value(QStringLiteral("arg1")), QStringLiteral("two words"));
@@ -300,7 +366,7 @@ private Q_SLOTS:
 
         // Inside gamescope, gamescope shows MangoHud through mangoapp.
         s.gamescope = true;
-        QVERIFY(store().save(1001, s, {}));
+        QVERIFY(test::saveGame(store(), 1001, s));
         QVERIFY(test::writeFile(path(QStringLiteral("bin/mangoapp")), "#!/bin/sh\n", true));
         QCOMPARE(run(environment(QStringLiteral("1001")), gameCommand()), 0);
         QCOMPARE(wrappersSaw(), QStringList{QStringLiteral("gamemoderun")});
@@ -313,7 +379,7 @@ private Q_SLOTS:
     {
         GameSettings s;
         s.gamescope = true;
-        QVERIFY(store().save(1001, s, {}));
+        QVERIFY(test::saveGame(store(), 1001, s));
         QProcessEnvironment env = environment(QStringLiteral("1001"));
         env.insert(QStringLiteral("GAMESCOPE_WAYLAND_DISPLAY"), QStringLiteral("gamescope-0"));
         QCOMPARE(run(env, gameCommand()), 0);
@@ -325,7 +391,7 @@ private Q_SLOTS:
     {
         GameSettings s;
         s.gamescope = true;
-        QVERIFY(store().save(1001, s, {}));
+        QVERIFY(test::saveGame(store(), 1001, s));
         QProcessEnvironment env = environment(QStringLiteral("1001"));
         // A search path with no gamescope at all, real or fake.
         QVERIFY(QDir().mkpath(path(QStringLiteral("empty-bin"))));

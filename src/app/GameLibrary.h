@@ -33,6 +33,8 @@ class GameLibrary : public QObject
     Q_PROPERTY(bool steamFound READ steamFound NOTIFY stateChanged)
     Q_PROPERTY(int gameCount READ gameCount NOTIFY stateChanged)
     Q_PROPERTY(bool steamRunning READ steamRunning NOTIFY stateChanged)
+    // How many installed games follow the global settings.
+    Q_PROPERTY(int gamesUsingGlobal READ gamesUsingGlobal NOTIFY profilesChanged)
 
 public:
     GameLibrary(steam::ScanOptions options, const settings::SettingsStore *store, QObject *parent = nullptr,
@@ -55,6 +57,10 @@ public:
 
     // Call after gfxtune's own settings files change.
     void settingsChanged();
+    int gamesUsingGlobal() const { return m_gamesUsingGlobal; }
+    // Whether the game needs gfxtune-run in its launch options: the global
+    // settings with its own changes have something to do in it.
+    bool wantsLaunchLine(quint32 appId) const;
 
     // How often running games and Steam itself are checked.
     void setPollInterval(int ms) { m_runningPoll.setInterval(ms); }
@@ -83,8 +89,8 @@ Q_SIGNALS:
     void stateChanged();
     // The details of the games changed (after a scan).
     void gamesChanged();
-    // The library changed a game's saved settings by itself.
-    void settingsRewritten(quint32 appId);
+    // A game's own settings or the global ones changed.
+    void profilesChanged();
     // A game started or stopped.
     void runningChanged();
 
@@ -92,7 +98,8 @@ private:
     void runScan(bool inspect);
     void scanFinished();
     void pollRunning();
-    void lockFiltersForAntiCheat();
+    void saveFacts();
+    void reloadProfiles();
     void syncLaunchLines();
 
     steam::ScanOptions m_options;
@@ -108,6 +115,9 @@ private:
 
     steam::SteamScan m_scan;
     QSet<quint32> m_running;
+    settings::GameSettings m_global;
+    QHash<quint32, settings::GameProfile> m_profiles; // installed games with files
+    int m_gamesUsingGlobal = 0;
     bool m_steamRunning = false;
     QString m_launchLineProblem;
     bool m_loaded = false;

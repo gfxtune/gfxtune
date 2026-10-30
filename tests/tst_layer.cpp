@@ -599,7 +599,7 @@ private Q_SLOTS:
     void followsTheSettingsFileAsItChanges()
     {
         const QString path = m_dir.filePath(QStringLiteral("follow.ini"));
-        layer::SettingsFile file(path.toStdString(), std::chrono::milliseconds(0));
+        layer::SettingsFile file({path.toStdString()}, std::chrono::milliseconds(0));
         QCOMPARE(file.config().filters, Values{}); // no file yet: nothing to draw
         Values v;
         v.sharpening = 30;
@@ -614,12 +614,63 @@ private Q_SLOTS:
         QCOMPARE(file.config().filters, Values{});
 
         // Between checks, the file is not looked at.
-        layer::SettingsFile slow(path.toStdString(), std::chrono::hours(1));
+        layer::SettingsFile slow({path.toStdString()}, std::chrono::hours(1));
         writeSettings(path, v);
         QCOMPARE(slow.config().filters.sharpening, 70);
         v.sharpening = 10;
         writeSettings(path, v);
         QCOMPARE(slow.config().filters.sharpening, 70);
+    }
+
+    // The global settings first, then the game's own changes on top: what a
+    // game's file sets wins, the rest comes from the global file.
+    void layersTheGameOverTheGlobalSettings()
+    {
+        layer::LayerSettings settings;
+        layer::readLayerSettings("[filters]\nenabled=true\nsharpening=40\ncontrast=10\n[frames]\nframe_cap_enabled=true\nframe_cap=141\n"
+                                 "[image]\nlod_bias=-50\n", settings);
+        layer::readLayerSettings("[filters]\ncontrast=-20\nanti_aliasing=smaa\n[frames]\nframe_cap_enabled=false\nframe_cap=141\n", settings);
+        const filters::LayerConfig config = settings.config();
+        QCOMPARE(config.filters.sharpening, 40);
+        QCOMPARE(config.filters.contrast, -20);
+        QCOMPARE(config.filters.antiAliasing, 1);
+        QCOMPARE(config.frameCap, 0); // the game switched the cap off
+        QCOMPARE(config.lodBias, -50);
+        // A damaged value in the game's file leaves the global one.
+        layer::readLayerSettings("[filters]\nsharpening=500\n", settings);
+        QCOMPARE(settings.config().filters.sharpening, 40);
+
+        const QString global = m_dir.filePath(QStringLiteral("global.ini"));
+        const QString game = m_dir.filePath(QStringLiteral("game-own.ini"));
+        QFile::remove(global);
+        QFile::remove(game);
+        layer::SettingsFile file({global.toStdString(), game.toStdString()}, std::chrono::milliseconds(0));
+        QCOMPARE(file.config().filters, Values{});
+        Values v;
+        v.sharpening = 30;
+        writeSettings(global, v, 90);
+        QCOMPARE(file.config().filters.sharpening, 30);
+        QCOMPARE(file.config().frameCap, 90);
+        QFile own(game);
+        QVERIFY(own.open(QIODevice::WriteOnly));
+        own.write("[game]\nname=Made-up Game\n[filters]\nsharpening=75\n");
+        own.close();
+        QCOMPARE(file.config().filters.sharpening, 75);
+        QCOMPARE(file.config().frameCap, 90);
+        // A change to the global settings reaches the running game too.
+        v.saturation = 40;
+        writeSettings(global, v, 120);
+        QCOMPARE(file.config().filters.saturation, 40);
+        QCOMPARE(file.config().filters.sharpening, 75);
+        QCOMPARE(file.config().frameCap, 120);
+        QFile::remove(global);
+        QCOMPARE(file.config().filters.saturation, 0);
+        QCOMPARE(file.config().filters.sharpening, 75);
+        QCOMPARE(file.config().frameCap, 0);
+        QFile::remove(game);
+        // An empty path (a game that does not follow the global settings) is skipped.
+        layer::SettingsFile alone({std::string(), game.toStdString()}, std::chrono::milliseconds(0));
+        QCOMPARE(alone.config().filters, Values{});
     }
 
     void writesItsReport()

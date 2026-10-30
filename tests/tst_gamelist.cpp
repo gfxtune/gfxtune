@@ -89,15 +89,15 @@ private Q_SLOTS:
         QCOMPARE(i.data(GameListModel::NameRole).toString(), QStringLiteral("Neon Drift"));
         QCOMPARE(i.data(GameListModel::DetailRole).toString(), QStringLiteral("GE-Proton10-26"));
         QCOMPARE(i.data(GameListModel::CoverRole).toUrl(), QUrl::fromLocalFile(QStringLiteral("/covers/7.jpg")));
-        QCOMPARE(i.data(GameListModel::CustomizedRole).toBool(), false);
+        QCOMPARE(i.data(GameListModel::SettingsNoteRole).toString(), QString());
         QCOMPARE(i.data(GameListModel::RunningRole).toBool(), false);
 
         QSignalSpy changed(&model, &QAbstractItemModel::dataChanged);
         model.setRunning({7});
-        model.setCustomized({7});
+        model.setSettingsNotes({{7, QStringLiteral("2 changes")}});
         QCOMPARE(changed.count(), 2);
         QCOMPARE(i.data(GameListModel::RunningRole).toBool(), true);
-        QCOMPARE(i.data(GameListModel::CustomizedRole).toBool(), true);
+        QCOMPARE(i.data(GameListModel::SettingsNoteRole).toString(), QStringLiteral("2 changes"));
         model.setRunning({7}); // no change, no signal
         QCOMPARE(changed.count(), 2);
 

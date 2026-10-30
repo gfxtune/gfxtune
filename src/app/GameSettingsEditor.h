@@ -13,6 +13,7 @@
 #include <QTimer>
 #include <QUrl>
 #include <QVariantList>
+#include <QVariantMap>
 #include <QtQmlIntegration>
 
 #include <functional>
@@ -22,8 +23,10 @@ namespace gfxtune
 
 class GameLibrary;
 
-// The settings page's view of one game. Edits are saved shortly after the
-// last change, and before switching to another game or quitting.
+// The settings page's view of one game, or of the global settings for all
+// games. On a game's page every setting follows the global one until it is
+// changed for the game. Edits are saved shortly after the last change, and
+// before switching pages or quitting.
 class GameSettingsEditor : public QObject
 {
     Q_OBJECT
@@ -31,6 +34,8 @@ class GameSettingsEditor : public QObject
     QML_UNCREATABLE("Provided by the application")
 
     Q_PROPERTY(int appId READ appId WRITE setAppId NOTIFY gameChanged)
+    // The global settings page is shown (see selectGlobal()).
+    Q_PROPERTY(bool global READ isGlobal NOTIFY gameChanged)
     Q_PROPERTY(bool hasGame READ hasGame NOTIFY gameChanged)
     Q_PROPERTY(QString gameName READ gameName NOTIFY gameChanged)
     Q_PROPERTY(QString runsAs READ runsAs NOTIFY gameChanged)
@@ -52,7 +57,17 @@ class GameSettingsEditor : public QObject
     Q_PROPERTY(bool measurePerformance READ measurePerformance WRITE setMeasurePerformance NOTIFY settingsChanged)
     Q_PROPERTY(bool gameMode READ gameMode WRITE setGameMode NOTIFY settingsChanged)
     Q_PROPERTY(bool mangoHud READ mangoHud WRITE setMangoHud NOTIFY settingsChanged)
+    // A game's own changes, or global settings away from the defaults.
     Q_PROPERTY(bool customized READ customized NOTIFY settingsChanged)
+    // On a game's page: whether it follows the global settings; the
+    // settings changed for it (names as the properties above, the frame
+    // cap's switch and number as "frameCap"); and what it would have
+    // without its changes, by property name, from "Global" or, out of the
+    // global settings, "Without gfxtune".
+    Q_PROPERTY(bool usesGlobal READ usesGlobal WRITE setUsesGlobal NOTIFY settingsChanged)
+    Q_PROPERTY(QStringList changedSettings READ changedSettings NOTIFY settingsChanged)
+    Q_PROPERTY(QVariantMap baseValues READ baseValues NOTIFY settingsChanged)
+    Q_PROPERTY(QString baseName READ baseName NOTIFY settingsChanged)
 
     // In-game filters (see src/filters/Filters.h for the ranges).
     Q_PROPERTY(bool filtersEnabled READ filtersEnabled WRITE setFiltersEnabled NOTIFY settingsChanged)
@@ -116,6 +131,8 @@ public:
 
     int appId() const { return int(m_appId); }
     void setAppId(int appId);
+    bool isGlobal() const { return m_global; }
+    Q_INVOKABLE void selectGlobal();
     bool hasGame() const;
     QString gameName() const;
     QString runsAs() const;
@@ -152,7 +169,14 @@ public:
     void setGameMode(bool on);
     bool mangoHud() const { return m_settings.mangoHud; }
     void setMangoHud(bool on);
-    bool customized() const { return m_settings.affectsGame(); }
+    bool customized() const;
+    bool usesGlobal() const { return m_profile.usesGlobal; }
+    void setUsesGlobal(bool on);
+    QStringList changedSettings() const;
+    QVariantMap baseValues() const;
+    QString baseName() const { return m_profile.usesGlobal ? QStringLiteral("Global") : QStringLiteral("Without gfxtune"); }
+    // Back to the global (or default) value for one setting.
+    Q_INVOKABLE void useBase(const QString &setting);
 
     bool filtersEnabled() const { return m_settings.filters.enabled; }
     void setFiltersEnabled(bool on);
@@ -220,6 +244,8 @@ public:
 
     const settings::GameSettings &current() const { return m_settings; }
 
+    // A game's page: drops all its changes. The global page: back to
+    // gfxtune's defaults.
     Q_INVOKABLE void resetToDefaults();
     Q_INVOKABLE bool removeAllSettings();
     // Writes a pending change now.
@@ -234,9 +260,13 @@ Q_SIGNALS:
     void sessionsChanged();
 
 private:
-    void edit(const std::function<void(settings::GameSettings &)> &change);
+    // Changes one setting (see settings::settingKinds()).
+    void edit(const QString &setting, const std::function<void(settings::GameSettings &)> &change);
     // Changes a filter value, unless the filters are unavailable or locked.
-    void editFilters(const std::function<void(filters::Values &)> &change);
+    void editFilters(const QString &setting, const std::function<void(filters::Values &)> &change);
+    // What a game has without its changes.
+    settings::GameSettings base() const;
+    void changed();
     void load();
     void updateAvailability();
     void setProblem(const QString &problem);
@@ -250,6 +280,10 @@ private:
     QTimer m_saveTimer;
 
     quint32 m_appId = 0;
+    bool m_global = false;
+    settings::GameSettings m_globalSettings;
+    settings::GameProfile m_profile;
+    // What the page shows: the game's settings, or the global ones.
     settings::GameSettings m_settings;
     bool m_unsaved = false;
     settings::Availability m_availability;
