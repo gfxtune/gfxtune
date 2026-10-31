@@ -16,6 +16,7 @@
 #include "Smaa.h"
 #include "shared/FrameHistogram.h"
 #include "support/FakeSysfs.h"
+#include "support/Fixtures.h"
 #include "VulkanFunctions.h"
 #include "filters/Filters.h"
 
@@ -31,6 +32,7 @@
 #include "first_level_frag.h"
 #include "fullscreen_vert.h"
 
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <functional>
@@ -555,6 +557,7 @@ private:
     QString m_settings;
     QString m_report;
     QString m_performance;
+    QString m_noImplicitLayers;
 
     QString layerDir() const { return QStringLiteral(GFXTUNE_LAYER_MANIFEST_DIR); }
 
@@ -573,6 +576,38 @@ private Q_SLOTS:
         // above the validation layer and be checked by it.
         qputenv("VK_ADD_LAYER_PATH", layerDir().toUtf8());
         qunsetenv("GFXTUNE_FILTERS");
+
+        // An installed gfxtune, say an older version being upgraded, has a
+        // layer of the same name, and the loader keeps the first layer of a
+        // name, reading installed implicit layers before the ones added
+        // above. So no installed implicit layer takes part (MangoHud's and
+        // Steam's neither). A stand-in for an installed copy, where the
+        // loader looks for installed layers, proves it.
+        QVERIFY(test::writeFile(m_dir.filePath(QStringLiteral("installed/vulkan/implicit_layer.d/gfxtune_filters.json")),
+                                R"({"file_format_version": "1.2.1", "layer": {"name": "VK_LAYER_GFXTUNE_filters", "type": "GLOBAL",
+                                    "library_path": "/nonexistent/libVkLayer_gfxtune.so", "api_version": "1.4.303",
+                                    "implementation_version": "1", "description": "an installed copy",
+                                    "enable_environment": {"GFXTUNE_FILTERS": "1"},
+                                    "disable_environment": {"DISABLE_GFXTUNE_FILTERS": "1"}}})"));
+        const QByteArray dataDirs = qgetenv("XDG_DATA_DIRS");
+        qputenv("XDG_DATA_DIRS", m_dir.filePath(QStringLiteral("installed")).toUtf8() + ':'
+                                     + (dataDirs.isEmpty() ? QByteArray("/usr/local/share:/usr/share") : dataDirs));
+        m_noImplicitLayers = m_dir.filePath(QStringLiteral("no-implicit-layers"));
+        QVERIFY(QDir().mkpath(m_noImplicitLayers));
+        qputenv("VK_IMPLICIT_LAYER_PATH", m_noImplicitLayers.toUtf8());
+    }
+
+    void usesTheLayerThisBuildMade()
+    {
+        uint32_t count = 0;
+        vkEnumerateInstanceLayerProperties(&count, nullptr);
+        std::vector<VkLayerProperties> layers(count);
+        vkEnumerateInstanceLayerProperties(&count, layers.data());
+        const auto ours = std::find_if(layers.cbegin(), layers.cend(), [](const VkLayerProperties &l) {
+            return std::strcmp(l.layerName, "VK_LAYER_GFXTUNE_filters") == 0;
+        });
+        QVERIFY2(ours != layers.cend(), "the build's layer manifest was not found");
+        QCOMPARE(QString::fromUtf8(ours->description), QStringLiteral("gfxtune: in-game filters and performance measuring"));
     }
 
     void readsTheSettingsFile()
@@ -1011,7 +1046,7 @@ private Q_SLOTS:
     {
         // As installed: an implicit layer, switched on by GFXTUNE_FILTERS=1.
         qunsetenv("VK_ADD_LAYER_PATH");
-        qputenv("VK_ADD_IMPLICIT_LAYER_PATH", layerDir().toUtf8());
+        qputenv("VK_IMPLICIT_LAYER_PATH", layerDir().toUtf8());
         Values values;
         values.sharpening = 50;
         writeSettings(m_settings, values);
@@ -1066,7 +1101,7 @@ private Q_SLOTS:
 
         qunsetenv("DISABLE_GFXTUNE_FILTERS");
         qunsetenv("GFXTUNE_FILTERS");
-        qunsetenv("VK_ADD_IMPLICIT_LAYER_PATH");
+        qputenv("VK_IMPLICIT_LAYER_PATH", m_noImplicitLayers.toUtf8());
         qputenv("VK_ADD_LAYER_PATH", layerDir().toUtf8());
     }
 
