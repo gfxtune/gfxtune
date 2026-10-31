@@ -133,6 +133,8 @@ QQC2.ScrollView {
                         : "Taking gfxtune out of this game's Steam launch options…";
                 case 4:
                     return "Steam's launch options could not be updated: " + pane.editor.launchProblem;
+                case 5:
+                    return "gfxtune stays out of this game by itself: it ships anti-cheat, and All Games has in-game filters or measuring on, which run inside games. To add gfxtune, accept the risk below or change a setting for this game, or switch those off on All Games.";
                 default:
                     return "gfxtune has nothing to do in this game, so Steam starts it as usual. Change something below and gfxtune adds itself to the game's Steam launch options.";
                 }

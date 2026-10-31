@@ -450,6 +450,57 @@ private Q_SLOTS:
         QVERIFY(needsGfxtuneRun(outside, antiCheat)); // through DXVK and VKD3D-Proton
     }
 
+    // gfxtune does not add itself to a game with anti-cheat while a global
+    // setting that runs inside games would reach it.
+    void holdsBackFromGamesWithAntiCheat()
+    {
+        const GameFacts antiCheat{{QStringLiteral("Anti-Cheat Expert")}, false};
+        const GameFacts none;
+        GameSettings global; // measuring is on by default
+        global.anisotropicFiltering = 8;
+        const GameProfile follows;
+        QVERIFY(holdsBackForAntiCheat(global, follows, antiCheat));
+        QVERIFY(!addsItselfTo(global, follows, antiCheat));
+        QVERIFY(!holdsBackForAntiCheat(global, follows, none));
+        QVERIFY(addsItselfTo(global, follows, none));
+
+        // Measuring off and no filters: settings from outside the game reach it.
+        global.measurePerformance = false;
+        QVERIFY(!holdsBackForAntiCheat(global, follows, antiCheat));
+        QVERIFY(addsItselfTo(global, follows, antiCheat));
+        // One filter for all games is enough to hold back, unless switched off.
+        global.filters.antiAliasing = 1;
+        QVERIFY(holdsBackForAntiCheat(global, follows, antiCheat));
+        global.filters.enabled = false;
+        QVERIFY(!holdsBackForAntiCheat(global, follows, antiCheat));
+        QVERIFY(addsItselfTo(global, follows, antiCheat));
+        global.filters.enabled = true;
+
+        // A change on the game's own page, or the risk accepted, ends it.
+        GameProfile own;
+        own.changed = {QStringLiteral("lodBias")};
+        own.own.lodBias = -50;
+        QVERIFY(!holdsBackForAntiCheat(global, own, antiCheat));
+        QVERIFY(addsItselfTo(global, own, antiCheat));
+        GameProfile accepted;
+        accepted.own.filtersRiskAccepted = true;
+        QVERIFY(!holdsBackForAntiCheat(global, accepted, antiCheat));
+        QVERIFY(addsItselfTo(global, accepted, antiCheat));
+        // Out of the global settings, nothing of them reaches it.
+        GameProfile out;
+        out.usesGlobal = false;
+        QVERIFY(!holdsBackForAntiCheat(global, out, antiCheat));
+        QVERIFY(!addsItselfTo(global, out, antiCheat)); // and nothing to do
+
+        // MangoHud and GameMode for all games do not hold back.
+        GameSettings launchers;
+        launchers.measurePerformance = false;
+        launchers.gameMode = true;
+        launchers.mangoHud = true;
+        QVERIFY(!holdsBackForAntiCheat(launchers, follows, antiCheat));
+        QVERIFY(addsItselfTo(launchers, follows, antiCheat));
+    }
+
     void onlyOffersListedTextureDetail()
     {
         QTemporaryDir dir;

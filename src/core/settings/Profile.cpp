@@ -99,6 +99,17 @@ GameSettings effectiveSettings(const GameSettings &global, const GameProfile &pr
     return s;
 }
 
+bool holdsBackForAntiCheat(const GameSettings &global, const GameProfile &profile, const GameFacts &facts)
+{
+    return !facts.antiCheat.isEmpty() && !profile.own.filtersRiskAccepted && profile.usesGlobal && profile.changed.isEmpty()
+        && (global.filters.active() || global.measurePerformance);
+}
+
+bool addsItselfTo(const GameSettings &global, const GameProfile &profile, const GameFacts &facts)
+{
+    return needsGfxtuneRun(effectiveSettings(global, profile), facts) && !holdsBackForAntiCheat(global, profile, facts);
+}
+
 GameProfile profileFrom(const GameSettings &settings, const GameSettings &base)
 {
     GameProfile profile;

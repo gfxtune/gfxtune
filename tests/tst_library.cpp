@@ -330,6 +330,21 @@ private Q_SLOTS:
         QTRY_VERIFY_WITH_TIMEOUT(launch::hasHelper(library.game(1004)->launchOptions), 8000);
         QTRY_VERIFY_WITH_TIMEOUT(!launch::hasHelper(library.game(1001)->launchOptions), 8000);
         QVERIFY(launch::hasHelper(library.game(1003)->launchOptions));
+
+        // Measuring on for all games again: gfxtune takes itself out of the
+        // game with anti-cheat, and stays out until a change of its own.
+        editor.selectGlobal();
+        editor.setMeasurePerformance(true);
+        editor.flush();
+        QTRY_VERIFY_WITH_TIMEOUT(!launch::hasHelper(library.game(1004)->launchOptions), 8000);
+        QVERIFY(launch::hasHelper(library.game(1003)->launchOptions));
+        editor.setAppId(1004);
+        QCOMPARE(editor.launchState(), int(State::HeldBack));
+        QVERIFY(library.holdsBackForAntiCheat(1004));
+        editor.setAnisotropicFiltering(4);
+        editor.flush();
+        QTRY_COMPARE_WITH_TIMEOUT(editor.launchState(), int(State::Added), 8000);
+        QVERIFY(!library.holdsBackForAntiCheat(1004));
     }
 
     void offersTheLineToCopyWhileSteamIsOpen()

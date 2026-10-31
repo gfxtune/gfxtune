@@ -220,8 +220,11 @@ Availability availabilityForAll(const GameSettings &settings, const SystemInfo &
     a.lodBias.note = QStringLiteral("Reaches every game gfxtune measures or filters, OpenGL ones aside; otherwise only DirectX 9 to 11 games under Proton.");
     a.frameCap.note = QStringLiteral("Exact in every game gfxtune measures; otherwise through DXVK and VKD3D-Proton, or gamescope.");
     a.fsr4.note = QStringLiteral("Reaches games that run through Proton and ship FSR 3.1.");
-    a.filters.note = QStringLiteral("Reach games that draw with Vulkan or DirectX, not while a game shows HDR. Locked in games with anti-cheat until you accept the risk on their page.");
-    a.measurePerformance.note = QStringLiteral("Frame rate, frame times and the card's readings while you play, kept for each session. Games with anti-cheat only after you accept the risk on their page.");
+    // While either is on, gfxtune keeps out of games with anti-cheat (see
+    // holdsBackForAntiCheat()).
+    const QString antiCheat = QStringLiteral("While on, gfxtune keeps out of games with anti-cheat until you accept the risk or change a setting on their page.");
+    a.filters.note = QStringLiteral("Reach games that draw with Vulkan or DirectX, not while a game shows HDR. ") + antiCheat;
+    a.measurePerformance.note = QStringLiteral("Frame rate, frame times and the card's readings while you play, kept for each session. ") + antiCheat;
     if (!system.gamescopeInstalled) {
         a.gamescope = {false, QStringLiteral("gamescope is not installed.")};
     } else if (settings.supersampling()) {

@@ -181,8 +181,13 @@ void GameLibrary::reloadProfiles()
 bool GameLibrary::wantsLaunchLine(quint32 appId) const
 {
     const steam::Game *found = game(appId);
-    return found
-        && settings::needsGfxtuneRun(settings::effectiveSettings(m_global, m_profiles.value(appId)), settings::factsOf(*found));
+    return found && settings::addsItselfTo(m_global, m_profiles.value(appId), settings::factsOf(*found));
+}
+
+bool GameLibrary::holdsBackForAntiCheat(quint32 appId) const
+{
+    const steam::Game *found = game(appId);
+    return found && settings::holdsBackForAntiCheat(m_global, m_profiles.value(appId), settings::factsOf(*found));
 }
 
 void GameLibrary::pollRunning()
@@ -244,7 +249,7 @@ GameLibrary::LaunchState GameLibrary::launchState(quint32 appId) const
         return LaunchState::Added;
     }
     if (!wanted && !lineThere) {
-        return LaunchState::NotNeeded;
+        return holdsBackForAntiCheat(appId) ? LaunchState::HeldBack : LaunchState::NotNeeded;
     }
     if (!m_launchLineProblem.isEmpty() && !m_steamRunning) {
         return LaunchState::Problem;

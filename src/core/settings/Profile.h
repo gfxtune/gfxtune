@@ -48,6 +48,15 @@ struct GameProfile {
 // What a game gets: the global settings (or nothing), with its changes.
 GameSettings effectiveSettings(const GameSettings &global, const GameProfile &profile);
 
+// gfxtune holds back from a game with anti-cheat whose risk was not
+// accepted while a global setting that runs inside games (the filters,
+// measuring) would reach it, even though the layer would stay locked there.
+// A change on the game's own page, or the risk accepted, ends that.
+bool holdsBackForAntiCheat(const GameSettings &global, const GameProfile &profile, const GameFacts &facts);
+// Whether gfxtune puts gfxtune-run into the game's launch options by itself:
+// it has something to do there and does not hold back.
+bool addsItselfTo(const GameSettings &global, const GameProfile &profile, const GameFacts &facts);
+
 // A profile changing every setting in which `settings` differs from `base`.
 GameProfile profileFrom(const GameSettings &settings, const GameSettings &base = {});
 

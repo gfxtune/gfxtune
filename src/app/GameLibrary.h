@@ -59,8 +59,10 @@ public:
     void settingsChanged();
     int gamesUsingGlobal() const { return m_gamesUsingGlobal; }
     // Whether the game needs gfxtune-run in its launch options: the global
-    // settings with its own changes have something to do in it.
+    // settings with its own changes have something to do in it, and gfxtune
+    // does not hold back from it for its anti-cheat (see settings::addsItselfTo()).
     bool wantsLaunchLine(quint32 appId) const;
+    bool holdsBackForAntiCheat(quint32 appId) const;
 
     // How often running games and Steam itself are checked.
     void setPollInterval(int ms) { m_runningPoll.setInterval(ms); }
@@ -81,6 +83,7 @@ public:
         WaitingForSteam, // settings, line to be added once Steam is closed
         WaitingToRemove, // no settings, line to be removed once Steam is closed
         Problem,         // Steam's file could not be updated
+        HeldBack,        // no line: anti-cheat, with in-game settings for all games
     };
     LaunchState launchState(quint32 appId) const;
     QString launchLineProblem() const { return m_launchLineProblem; }
