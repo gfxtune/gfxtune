@@ -39,6 +39,10 @@ struct FolderIndex {
     QStringList antiCheat;
 };
 
+// What is said when only a guess can be made.
+const QString SomeAntiCheat = QStringLiteral("anti-cheat");
+const QString KernelDriver = QStringLiteral("a kernel driver, most likely anti-cheat");
+
 void addAntiCheat(FolderIndex &index, const QString &name)
 {
     if (!name.isEmpty() && !index.antiCheat.contains(name)) {
@@ -227,7 +231,7 @@ QString antiCheatOfFile(const QString &fileName)
         return QStringLiteral("EA Anti-Cheat");
     }
     if (fileName.endsWith(QLatin1String(".sys"))) {
-        return QStringLiteral("a kernel driver, most likely anti-cheat");
+        return KernelDriver;
     }
     return {};
 }
@@ -248,7 +252,7 @@ QString antiCheatOfFolder(const QString &folderName)
     }
     static const QRegularExpression generic(QStringLiteral("anti[-_ ]?cheat"));
     if (generic.match(folderName).hasMatch()) {
-        return QStringLiteral("anti-cheat");
+        return SomeAntiCheat;
     }
     return {};
 }
@@ -262,7 +266,16 @@ GameFileReport inspectGameFiles(const QString &installPath, const QStringList &e
     const FolderIndex index = indexFolder(installPath, windowsGame);
     report.fsr31Dx12 = index.fsr31Dx12;
     report.fsr31Vulkan = index.fsr31Vulkan;
-    report.antiCheat = index.antiCheat;
+    // The guesses only when nothing by name was found: an AntiCheatExpert
+    // folder next to Anti-Cheat Expert's own files is just that.
+    for (const QString &name : index.antiCheat) {
+        if (name != SomeAntiCheat && name != KernelDriver) {
+            report.antiCheat.append(name);
+        }
+    }
+    if (report.antiCheat.isEmpty()) {
+        report.antiCheat = index.antiCheat;
+    }
 
     QStringList checked;
     for (const QString &executable : executables) {

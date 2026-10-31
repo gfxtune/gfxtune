@@ -429,6 +429,25 @@ private Q_SLOTS:
         s.gameMode = true;
         QVERIFY(needsGfxtuneRun(s, openGl));
         QVERIFY(needsGfxtuneRun(s, antiCheat));
+
+        // Filters count only where the layer can go in.
+        GameSettings filtered;
+        filtered.measurePerformance = false;
+        filtered.filters.sharpening = 40;
+        QVERIFY(needsGfxtuneRun(filtered, none));
+        QVERIFY(!needsGfxtuneRun(filtered, antiCheat)); // locked
+        QVERIFY(!needsGfxtuneRun(filtered, openGl));    // out of reach
+        filtered.filtersRiskAccepted = true;
+        QVERIFY(needsGfxtuneRun(filtered, antiCheat));
+        // Settings applied from outside the game reach games with anti-cheat.
+        GameSettings outside;
+        outside.measurePerformance = false;
+        outside.anisotropicFiltering = 16;
+        QVERIFY(needsGfxtuneRun(outside, antiCheat));
+        outside = GameSettings{};
+        outside.measurePerformance = false;
+        outside.frameCapEnabled = true;
+        QVERIFY(needsGfxtuneRun(outside, antiCheat)); // through DXVK and VKD3D-Proton
     }
 
     void onlyOffersListedTextureDetail()

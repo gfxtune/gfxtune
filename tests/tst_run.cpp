@@ -337,12 +337,25 @@ private Q_SLOTS:
         QVERIFY(test::saveGame(store(), 1004, s));
         QVERIFY(store().saveFacts(1004, settings::GameFacts{{QStringLiteral("Easy Anti-Cheat")}, false}));
         const QString dir = store().baseDir() + QStringLiteral("/performance/1004");
+        QFile::remove(launch::lastLaunchPath(store().baseDir(), 1004));
+
+        // Filters and measuring locked, nothing else: the game starts as Steam starts it.
         QCOMPARE(run(environment(QStringLiteral("1004")), gameCommand()), 0);
+        QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("unset"));
+        QVERIFY(!launch::readLastLaunch(store().baseDir(), 1004));
+
+        // With a setting applied from outside the game, that applies, and the
+        // report says what stays locked.
+        s.anisotropicFiltering = 8;
+        QVERIFY(test::saveGame(store(), 1004, s));
+        QCOMPARE(run(environment(QStringLiteral("1004")), gameCommand()), 0);
+        QCOMPARE(gameSaw().value(QStringLiteral("RADV_TEX_ANISO")), QStringLiteral("8"));
         QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_FILTERS")), QStringLiteral("unset"));
         QCOMPARE(gameSaw().value(QStringLiteral("GFXTUNE_PERF_DIR")), QStringLiteral("unset"));
         QVERIFY(!QFileInfo::exists(dir));
-        QVERIFY(launch::readLastLaunch(store().baseDir(), 1004)->notApplied.contains(
-            QStringLiteral("In-game filters and measuring: locked until the anti-cheat risk is accepted")));
+        const auto last = launch::readLastLaunch(store().baseDir(), 1004);
+        QVERIFY(last);
+        QVERIFY(last->notApplied.contains(QStringLiteral("In-game filters and measuring: locked until the anti-cheat risk is accepted")));
 
         s.filtersRiskAccepted = true;
         QVERIFY(test::saveGame(store(), 1004, s));

@@ -186,12 +186,26 @@ private Q_SLOTS:
         QVERIFY(test::writeFile(root + QStringLiteral("/EasyAntiCheat/EasyAntiCheat_x64.dll"), "x"));
         QVERIFY(test::writeFile(root + QStringLiteral("/BattlEye/BEService_x64.exe"), "x"));
         QVERIFY(test::writeFile(root + QStringLiteral("/Engine/Binaries/Driver.sys"), "x"));
-        const QStringList found = steam::inspectGameFiles(root, {QStringLiteral("Game.exe")}, true).antiCheat;
-        QCOMPARE(found.size(), 3);
-        QVERIFY(found.contains(QStringLiteral("Easy Anti-Cheat")));
-        QVERIFY(found.contains(QStringLiteral("BattlEye")));
-        QVERIFY(found.contains(QStringLiteral("a kernel driver, most likely anti-cheat")));
+        QStringList found = steam::inspectGameFiles(root, {QStringLiteral("Game.exe")}, true).antiCheat;
+        found.sort();
+        // The driver is most likely theirs: no separate guess.
+        QCOMPARE(found, (QStringList{QStringLiteral("BattlEye"), QStringLiteral("Easy Anti-Cheat")}));
         QVERIFY(steam::inspectGameFiles(gameFolder(QStringLiteral("unity")), {}, true).antiCheat.isEmpty());
+
+        // Anti-Cheat Expert as shipped, in a folder named after it.
+        const QString ace = gameFolder(QStringLiteral("ace"));
+        QVERIFY(test::writeFile(ace + QStringLiteral("/Game.exe"), test::writePe(true, {QStringLiteral("d3d12.dll")})));
+        QVERIFY(test::writeFile(ace + QStringLiteral("/AntiCheatExpert/ACE-Base64.sys"), "x"));
+        QVERIFY(test::writeFile(ace + QStringLiteral("/AntiCheatExpert/SGuard64.exe"), "x"));
+        QCOMPARE(steam::inspectGameFiles(ace, {QStringLiteral("Game.exe")}, true).antiCheat, QStringList{QStringLiteral("Anti-Cheat Expert")});
+
+        // Nothing by name: the guesses stay.
+        const QString unknown = gameFolder(QStringLiteral("unknown-guard"));
+        QVERIFY(test::writeFile(unknown + QStringLiteral("/Game.exe"), test::writePe(true, {QStringLiteral("d3d11.dll")})));
+        QVERIFY(test::writeFile(unknown + QStringLiteral("/AntiCheat/Guard.sys"), "x"));
+        QStringList guesses = steam::inspectGameFiles(unknown, {QStringLiteral("Game.exe")}, true).antiCheat;
+        guesses.sort();
+        QCOMPARE(guesses, (QStringList{QStringLiteral("a kernel driver, most likely anti-cheat"), QStringLiteral("anti-cheat")}));
     }
 };
 

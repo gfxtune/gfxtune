@@ -310,15 +310,26 @@ private Q_SLOTS:
         QTRY_COMPARE_WITH_TIMEOUT(editor.launchState(), int(State::NotNeeded), 8000);
         QCOMPARE(library.game(1001)->launchOptions, s("gamemoderun %command% -dx12 \"quoted arg\""));
 
-        // A global setting reaches every game, but not one that stopped
-        // using the global settings.
-        editor.setUsesGlobal(false);
+        // A global filter does not bring the line into a game with anti-cheat,
+        // where it stays locked.
         editor.selectGlobal();
-        editor.setFsr4(int(settings::Fsr4::On));
+        editor.setFilterSharpening(40);
         editor.flush();
         QTRY_VERIFY_WITH_TIMEOUT(launch::hasHelper(library.game(1003)->launchOptions), 8000);
-        QVERIFY(launch::hasHelper(library.game(1004)->launchOptions));
-        QVERIFY(!launch::hasHelper(library.game(1001)->launchOptions));
+        QVERIFY(!library.wantsLaunchLine(1004));
+        QVERIFY(!launch::hasHelper(library.game(1004)->launchOptions));
+        editor.setFilterSharpening(0);
+
+        // A setting applied from outside the game reaches every game, anti-cheat
+        // or not, but not one that stopped using the global settings.
+        editor.setFsr4(int(settings::Fsr4::On));
+        editor.flush();
+        editor.setAppId(1001);
+        editor.setUsesGlobal(false);
+        editor.flush();
+        QTRY_VERIFY_WITH_TIMEOUT(launch::hasHelper(library.game(1004)->launchOptions), 8000);
+        QTRY_VERIFY_WITH_TIMEOUT(!launch::hasHelper(library.game(1001)->launchOptions), 8000);
+        QVERIFY(launch::hasHelper(library.game(1003)->launchOptions));
     }
 
     void offersTheLineToCopyWhileSteamIsOpen()

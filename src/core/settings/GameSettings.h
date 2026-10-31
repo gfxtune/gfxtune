@@ -111,10 +111,14 @@ inline bool layerWanted(const GameSettings &s, const GameFacts &facts)
 }
 
 // Whether gfxtune-run has anything to do when the game starts: a setting
-// that changes how it starts or looks, or measuring that can reach it.
+// applied from outside the game, or the layer (filters, measuring) where it
+// can go in. Filters locked by anti-cheat, or out of reach in an OpenGL
+// game, do nothing.
 inline bool needsGfxtuneRun(const GameSettings &s, const GameFacts &facts)
 {
-    return s.affectsGame() || layerWanted(s, facts);
+    GameSettings outside = s;
+    outside.filters = filters::Values{}; // the layer's alone
+    return outside.affectsGame() || layerWanted(s, facts);
 }
 
 QString toKey(VerticalSync value);
