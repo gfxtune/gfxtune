@@ -5,6 +5,7 @@
 #include "GameSettingsEditor.h"
 #include "launch/LastLaunch.h"
 #include "launch/LaunchLine.h"
+#include "launch/LaunchLines.h"
 #include "performance/Performance.h"
 #include "shared/FrameHistogram.h"
 #include "support/FakeSteam.h"
@@ -345,6 +346,20 @@ private Q_SLOTS:
         editor.flush();
         QTRY_COMPARE_WITH_TIMEOUT(editor.launchState(), int(State::Added), 8000);
         QVERIFY(!library.holdsBackForAntiCheat(1004));
+
+        // Someone takes the lines out of Steam's file while Steam is closed:
+        // the next look at the file puts them back, though nothing in
+        // gfxtune changed.
+        const QString localConfig = library.lastScan().localConfigPath;
+        QList<launch::LineChange> removed;
+        QVERIFY(launch::syncLaunchLines(localConfig, {}, &removed));
+        QVERIFY(!removed.isEmpty());
+        library.refresh();
+        QVERIFY(waitUntilIdle(library));
+        QHash<quint32, QString> options;
+        QVERIFY(launch::readLaunchOptions(localConfig, options));
+        QVERIFY(launch::hasHelper(options.value(1004)));
+        QVERIFY(launch::hasHelper(options.value(1003)));
     }
 
     void offersTheLineToCopyWhileSteamIsOpen()

@@ -3,11 +3,19 @@
 
 #include "TextVdfEdit.h"
 
+#include "Errors.h"
 #include "TextVdf.h"
 #include "TextVdfTokenizer.h"
+#include "shared/Sizes.h"
 
 #include <QFile>
+#include <QHash>
 #include <QSaveFile>
+#include <QSet>
+
+#include <algorithm>
+#include <optional>
+#include <utility>
 
 namespace gfxtune::vdf
 {
@@ -19,15 +27,7 @@ using detail::TokenType;
 namespace
 {
 
-constexpr qint64 MaxFileBytes = qint64(64) * 1024 * 1024;
-
-bool fail(QString *error, const QString &message)
-{
-    if (error) {
-        *error = message;
-    }
-    return false;
-}
+constexpr qint64 MaxFileBytes = 64 * MiB;
 
 struct SectionSpan {
     QStringList path;
@@ -47,24 +47,11 @@ struct Index {
     QList<ValueSpan> values;
 };
 
-bool samePath(const QStringList &a, const QStringList &b)
-{
-    if (a.size() != b.size()) {
-        return false;
-    }
-    for (qsizetype i = 0; i < a.size(); ++i) {
-        if (a[i].compare(b[i], Qt::CaseInsensitive) != 0) {
-            return false;
-        }
-    }
-    return true;
-}
-
 bool buildIndex(QByteArrayView data, Index &index, QString *error)
 {
     Tokenizer tokens(data);
     QStringList path;
-    auto next = [&tokens] {
+    const auto next = [&tokens] {
         Token t = tokens.next();
         while (t.type == TokenType::Conditional) {
             t = tokens.next();
@@ -159,60 +146,180 @@ bool onlySpace(QByteArrayView text)
     return true;
 }
 
+// Paths and keys as Steam matches them: without regard to case.
+QString pathKey(const QStringList &path)
+{
+    return path.join(QChar(0x1f)).toCaseFolded();
+}
+
+QString valueKey(const QStringList &path, const QString &key)
+{
+    return pathKey(path) + QChar(0x1e) + key.toCaseFolded();
+}
+
+// One change to the file's bytes: `length` bytes at `at` become `text`.
+struct Change {
+    qsizetype at = 0;
+    qsizetype length = 0;
+    QByteArray text;
+};
+
+// Where each value and section of an index is, by path, first one first.
+struct Lookup {
+    explicit Lookup(const Index &index)
+    {
+        for (qsizetype i = 0; i < index.values.size(); ++i) {
+            values.insert(valueKey(index.values[i].path, index.values[i].key), i); // keeps the first
+        }
+        for (const SectionSpan &section : index.sections) {
+            sections.insert(pathKey(section.path), section.openEnd);
+        }
+    }
+    QHash<QString, qsizetype> values;   // into Index::values
+    QHash<QString, qsizetype> sections; // just after the section's {
+};
+
+Change removal(const QByteArray &data, const ValueSpan &v)
+{
+    // The whole line when the pair has it to itself.
+    const qsizetype lineStart = data.lastIndexOf('\n', v.keyStart - 1) + 1;
+    qsizetype lineEnd = data.indexOf('\n', v.valueEnd);
+    lineEnd = lineEnd < 0 ? data.size() : lineEnd + 1;
+    const QByteArrayView before = QByteArrayView(data).sliced(lineStart, v.keyStart - lineStart);
+    const QByteArrayView after = QByteArrayView(data).sliced(v.valueEnd, lineEnd - v.valueEnd);
+    if (onlySpace(before) && onlySpace(QByteArrayView(after).chopped(after.endsWith('\n') ? 1 : 0))) {
+        return {lineStart, lineEnd - lineStart, {}};
+    }
+    return {v.keyStart, v.valueEnd - v.keyStart, {}};
+}
+
+// The deepest section of the edit's path that exists, and how many of the
+// path's sections that is (0: none, the edit goes at the end of the file).
+std::pair<qsizetype, std::optional<qsizetype>> deepestSection(const Lookup &lookup, const QStringList &path)
+{
+    for (qsizetype depth = path.size(); depth > 0; --depth) {
+        const auto found = lookup.sections.constFind(pathKey(path.first(depth)));
+        if (found != lookup.sections.constEnd()) {
+            return {depth, *found};
+        }
+    }
+    return {0, std::nullopt};
+}
+
+Change addition(const QByteArray &data, const ValueEdit &edit, const QString &value, qsizetype depth, std::optional<qsizetype> openEnd)
+{
+    if (openEnd) {
+        return {*openEnd, 0, newSections(edit.sectionPath, depth, edit.key, value)};
+    }
+    // Not even the first section exists: add everything at the end.
+    QByteArray text = newSections(edit.sectionPath, 0, edit.key, value);
+    text.remove(0, 1); // no leading newline at the start of a line
+    if (!data.isEmpty() && !data.endsWith('\n')) {
+        text.prepend('\n');
+    }
+    return {data.size(), 0, text + '\n'};
+}
+
+// The data with every change made, in one pass. Changes at the same place
+// go in reverse order, as if each had been made right after the one before.
+QByteArray withChanges(const QByteArray &data, QList<Change> changes)
+{
+    std::ranges::stable_sort(changes, [](const Change &a, const Change &b) { return a.at < b.at; });
+    QByteArray out;
+    qsizetype grown = 0;
+    for (const Change &change : changes) {
+        grown += change.text.size() - change.length;
+    }
+    out.reserve(data.size() + qMax<qsizetype>(grown, 0));
+    qsizetype copied = 0;
+    for (qsizetype i = 0; i < changes.size();) {
+        const qsizetype at = changes[i].at;
+        out.append(QByteArrayView(data).sliced(copied, at - copied));
+        qsizetype j = i;
+        while (j < changes.size() && changes[j].at == at) {
+            ++j;
+        }
+        qsizetype removed = 0;
+        for (qsizetype k = j - 1; k >= i; --k) {
+            out.append(changes[k].text);
+            removed = qMax(removed, changes[k].length);
+        }
+        copied = at + removed;
+        i = j;
+    }
+    out.append(QByteArrayView(data).sliced(copied));
+    return out;
+}
+
+// One edit per value: a later edit of the same value replaces an earlier
+// one, in the earlier one's place.
+QList<ValueEdit> merged(const QList<ValueEdit> &edits)
+{
+    QList<ValueEdit> out;
+    QHash<QString, qsizetype> places;
+    for (const ValueEdit &edit : edits) {
+        const QString key = valueKey(edit.sectionPath, edit.key);
+        const auto place = places.constFind(key);
+        if (place != places.constEnd()) {
+            out[*place] = edit;
+        } else {
+            places.insert(key, out.size());
+            out.append(edit);
+        }
+    }
+    return out;
+}
+
 } // namespace
+
+bool editText(QByteArray &data, const QList<ValueEdit> &edits, QString *error)
+{
+    // The result is the same as making the edits one at a time, in order.
+    // An edit that needs a section an earlier one creates waits for the next
+    // pass over the file; that happens only where sections are missing.
+    const QList<ValueEdit> all = merged(edits);
+    QByteArray changed = data;
+    qsizetype next = 0;
+    while (next < all.size()) {
+        Index index;
+        if (!buildIndex(changed, index, error)) {
+            return false;
+        }
+        const Lookup lookup(index);
+        QList<Change> changes;
+        QSet<QString> creating; // sections this pass creates
+        bool appending = false; // this pass adds at the end of the file
+        for (; next < all.size(); ++next) {
+            const ValueEdit &edit = all[next];
+            const auto found = lookup.values.constFind(valueKey(edit.sectionPath, edit.key));
+            if (found != lookup.values.constEnd()) {
+                const ValueSpan &v = index.values[*found];
+                changes.append(edit.value ? Change{v.valueStart, v.valueEnd - v.valueStart, quoted(*edit.value)} : removal(changed, v));
+                continue;
+            }
+            if (!edit.value) {
+                continue; // nothing to remove
+            }
+            const auto [depth, openEnd] = deepestSection(lookup, edit.sectionPath);
+            const QString firstNew = depth < edit.sectionPath.size() ? pathKey(edit.sectionPath.first(depth + 1)) : QString();
+            if ((!firstNew.isEmpty() && creating.contains(firstNew)) || (depth == 0 && appending)) {
+                break;
+            }
+            if (!firstNew.isEmpty()) {
+                creating.insert(firstNew);
+            }
+            appending = appending || depth == 0;
+            changes.append(addition(changed, edit, *edit.value, depth, openEnd));
+        }
+        changed = withChanges(changed, changes);
+    }
+    data = std::move(changed);
+    return true;
+}
 
 bool editText(QByteArray &data, const ValueEdit &edit, QString *error)
 {
-    Index index;
-    if (!buildIndex(data, index, error)) {
-        return false;
-    }
-
-    for (const ValueSpan &v : std::as_const(index.values)) {
-        if (!samePath(v.path, edit.sectionPath) || v.key.compare(edit.key, Qt::CaseInsensitive) != 0) {
-            continue;
-        }
-        if (edit.value) {
-            data.replace(v.valueStart, v.valueEnd - v.valueStart, quoted(*edit.value));
-            return true;
-        }
-        // Remove the whole line when the pair has it to itself.
-        const qsizetype lineStart = data.lastIndexOf('\n', v.keyStart - 1) + 1;
-        qsizetype lineEnd = data.indexOf('\n', v.valueEnd);
-        lineEnd = lineEnd < 0 ? data.size() : lineEnd + 1;
-        const QByteArrayView before = QByteArrayView(data).sliced(lineStart, v.keyStart - lineStart);
-        const QByteArrayView after = QByteArrayView(data).sliced(v.valueEnd, lineEnd - v.valueEnd);
-        if (onlySpace(before) && onlySpace(QByteArrayView(after).chopped(after.endsWith('\n') ? 1 : 0))) {
-            data.remove(lineStart, lineEnd - lineStart);
-        } else {
-            data.remove(v.keyStart, v.valueEnd - v.keyStart);
-        }
-        return true;
-    }
-
-    if (!edit.value) {
-        return true; // nothing to remove
-    }
-
-    // Add it to the deepest section of the path that exists, creating the rest.
-    qsizetype depth = edit.sectionPath.size();
-    for (; depth > 0; --depth) {
-        const QStringList prefix = edit.sectionPath.first(depth);
-        for (const SectionSpan &s : std::as_const(index.sections)) {
-            if (samePath(s.path, prefix)) {
-                data.insert(s.openEnd, newSections(edit.sectionPath, depth, edit.key, *edit.value));
-                return true;
-            }
-        }
-    }
-    // Not even the first section exists: add everything at the top.
-    QByteArray text = newSections(edit.sectionPath, 0, edit.key, *edit.value);
-    text.remove(0, 1); // no leading newline at the start of a line
-    if (!data.isEmpty() && !data.endsWith('\n')) {
-        data += '\n';
-    }
-    data += text + '\n';
-    return true;
+    return editText(data, QList<ValueEdit>{edit}, error);
 }
 
 void applyEdit(Node &root, const ValueEdit &edit)
@@ -233,9 +340,15 @@ void applyEdit(Node &root, const ValueEdit &edit)
             Node created;
             created.key = name;
             created.isSection = true;
-            // editText() puts new sections first, right after the brace.
-            section->children.insert(section->children.begin(), std::move(created));
-            found = &section->children.front();
+            // editText() puts new sections first, right after the brace, and
+            // new top-level ones at the end of the file.
+            if (section == &root) {
+                section->children.push_back(std::move(created));
+                found = &section->children.back();
+            } else {
+                section->children.insert(section->children.begin(), std::move(created));
+                found = &section->children.front();
+            }
         }
         section = found;
     }
@@ -288,10 +401,10 @@ bool editTextFile(const QString &path, const QList<ValueEdit> &edits, QString *e
         return false;
     }
     QByteArray changed = original;
-    for (const ValueEdit &edit : edits) {
-        if (!editText(changed, edit, error)) {
-            return false;
-        }
+    if (!editText(changed, edits, error)) {
+        return false;
+    }
+    for (const ValueEdit &edit : merged(edits)) {
         applyEdit(expected, edit);
     }
     if (changed == original) {

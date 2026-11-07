@@ -29,6 +29,16 @@ jobs:
       - run: ci/provision.sh checks
       - run: ci/build.sh checks
 
+  tidy:
+    name: Clang build and clang-tidy
+    runs-on: ubuntu-latest
+    container: cachyos/cachyos-v3:latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: ci/provision.sh build checks
+      - run: ci/build.sh tidy
+
   build:
     name: Build and test (${{ matrix.mode }})
     runs-on: ubuntu-latest

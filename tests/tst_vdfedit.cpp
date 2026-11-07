@@ -9,6 +9,9 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <algorithm>
+#include <random>
+
 using namespace gfxtune;
 using vdf::Node;
 using vdf::ValueEdit;
@@ -185,6 +188,121 @@ private Q_SLOTS:
         QFile file(path);
         QVERIFY(file.open(QIODevice::ReadOnly));
         QCOMPARE(file.readAll(), data);
+    }
+
+    // Many edits in one pass give the same bytes as making them one by one,
+    // for every kind of edit, and the file check accepts the result.
+    void editsManyValuesAsIfOneByOne()
+    {
+        const QStringList apps{QStringLiteral("Store"), QStringLiteral("apps")};
+        const auto app = [&apps](const char *id) { return apps + QStringList{QString::fromLatin1(id)}; };
+        const QList<ValueEdit> edits{
+            {AppPath, QStringLiteral("LaunchOptions"), QStringLiteral("replaced")},
+            {AppPath, QStringLiteral("LastPlayed"), std::nullopt},                // a line of its own
+            {app("20"), QStringLiteral("LaunchOptions"), QStringLiteral("added")}, // into an empty section
+            {app("30"), QStringLiteral("LaunchOptions"), QStringLiteral("new section")},
+            {app("40"), QStringLiteral("LaunchOptions"), QStringLiteral("another")},
+            {{QStringLiteral("Store")}, QStringLiteral("other"), QStringLiteral("top")},
+            {{QStringLiteral("Store"), QStringLiteral("new")}, QStringLiteral("a"), QStringLiteral("1")}, // both create "new"
+            {{QStringLiteral("Store"), QStringLiteral("new")}, QStringLiteral("b"), QStringLiteral("2")},
+            {{QStringLiteral("Later")}, QStringLiteral("x"), QStringLiteral("1")}, // new top-level sections
+            {{QStringLiteral("Last")}, QStringLiteral("y"), QStringLiteral("2")},
+            {app("50"), QStringLiteral("gone"), std::nullopt}, // nothing to remove
+        };
+        QByteArray oneByOne = sample();
+        for (const ValueEdit &edit : edits) {
+            oneByOne = edited(oneByOne, edit);
+            QVERIFY(!oneByOne.isEmpty());
+        }
+        QByteArray together = sample();
+        QString error;
+        QVERIFY2(vdf::editText(together, edits, &error), qPrintable(error));
+        QCOMPARE(together, oneByOne);
+
+        QTemporaryDir dir;
+        const QString path = dir.filePath(QStringLiteral("config.vdf"));
+        QVERIFY(test::writeFile(path, sample()));
+        QVERIFY2(vdf::editTextFile(path, edits, &error), qPrintable(error));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QCOMPARE(file.readAll(), oneByOne);
+    }
+
+    void createsASectionOnlyOnce()
+    {
+        QByteArray data = "\"Store\"\n{\n}\n";
+        const QStringList apps{QStringLiteral("Store"), QStringLiteral("apps")};
+        QVERIFY(vdf::editText(data,
+                              {{apps + QStringList{QStringLiteral("1")}, QStringLiteral("LaunchOptions"), QStringLiteral("a")},
+                               {apps + QStringList{QStringLiteral("2")}, QStringLiteral("LaunchOptions"), QStringLiteral("b")}}));
+        Node tree;
+        QVERIFY(vdf::parseText(data, tree));
+        const Node *store = tree.child(u"Store");
+        QVERIFY(store);
+        QCOMPARE(std::ranges::count_if(store->children, [](const Node &n) { return n.key == QLatin1String("apps"); }), 1);
+        QCOMPARE(tree.find({u"Store", u"apps", u"1", u"LaunchOptions"})->value, QStringLiteral("a"));
+        QCOMPARE(tree.find({u"Store", u"apps", u"2", u"LaunchOptions"})->value, QStringLiteral("b"));
+    }
+
+    void aLaterEditOfTheSameValueWins()
+    {
+        QByteArray data = sample();
+        QVERIFY(vdf::editText(data,
+                              {{AppPath, QStringLiteral("LaunchOptions"), QStringLiteral("first")},
+                               {AppPath, QStringLiteral("launchoptions"), QStringLiteral("second")}}));
+        Node tree;
+        QVERIFY(vdf::parseText(data, tree));
+        QCOMPARE(tree.find({u"Store", u"apps", u"10", u"LaunchOptions"})->value, QStringLiteral("second"));
+        QVERIFY(!data.contains("first"));
+    }
+
+    // Random batches on random files: the same bytes as one edit at a time.
+    void batchesMatchSingleEditsOnRandomInput()
+    {
+        std::mt19937 random(11);
+        const QList<ValueEdit> pool{
+            {AppPath, QStringLiteral("LaunchOptions"), QStringLiteral("x")},
+            {AppPath, QStringLiteral("LaunchOptions"), std::nullopt},
+            {AppPath, QStringLiteral("LastPlayed"), std::nullopt},
+            {{QStringLiteral("Store"), QStringLiteral("apps"), QStringLiteral("20")}, QStringLiteral("k"), QStringLiteral("v")},
+            {{QStringLiteral("Store"), QStringLiteral("apps"), QStringLiteral("99")}, QStringLiteral("k"), QStringLiteral("v")},
+            {{QStringLiteral("Store"), QStringLiteral("more")}, QStringLiteral("a"), QStringLiteral("1")},
+            {{QStringLiteral("Store"), QStringLiteral("more")}, QStringLiteral("b"), QStringLiteral("2")},
+            {{QStringLiteral("Top")}, QStringLiteral("t"), QStringLiteral("1")},
+            {{QStringLiteral("Store")}, QStringLiteral("other"), std::nullopt},
+        };
+        for (int i = 0; i < 2000; ++i) {
+            const QByteArray input = i % 4 == 0 ? test::mutate(sample(), random) : sample();
+            QList<ValueEdit> edits;
+            const int count = int(random() % 6) + 1;
+            for (int k = 0; k < count; ++k) {
+                edits.append(pool[qsizetype(random() % std::uint32_t(pool.size()))]);
+            }
+            // Later edits of a value replace earlier ones in their place.
+            QList<ValueEdit> merged;
+            for (const ValueEdit &edit : edits) {
+                const auto same = std::ranges::find_if(merged, [&edit](const ValueEdit &m) {
+                    return m.sectionPath == edit.sectionPath && m.key.compare(edit.key, Qt::CaseInsensitive) == 0;
+                });
+                if (same != merged.end()) {
+                    *same = edit;
+                } else {
+                    merged.append(edit);
+                }
+            }
+            QByteArray together = input;
+            QByteArray oneByOne = input;
+            bool ok = true;
+            for (const ValueEdit &edit : merged) {
+                ok = ok && vdf::editText(oneByOne, edit);
+            }
+            QCOMPARE(vdf::editText(together, edits), ok);
+            if (ok) {
+                QCOMPARE(together, oneByOne);
+            } else {
+                QCOMPARE(together, input); // untouched on failure
+            }
+        }
     }
 
     void survivesDamagedInputWithoutBreakingIt()

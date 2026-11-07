@@ -3,6 +3,7 @@
 
 # Everything that needs neither a window nor QML, so tests use it directly.
 add_library(gfxtune_core STATIC
+    core/Logging.cpp
     core/vdf/KeyValues.cpp
     core/vdf/TextVdf.cpp
     core/vdf/BinaryVdf.cpp
@@ -57,11 +58,17 @@ qt_add_qml_module(gfxtune_ui
         qml/GameSettingsPane.qml
         qml/GpuPanel.qml
         qml/BackToBase.qml
+        qml/ChoiceSetting.qml
         qml/Cover.qml
         qml/FilterSlider.qml
+        qml/LastLaunch.qml
+        qml/LaunchStatus.qml
         qml/Note.qml
+        qml/PageHeader.qml
         qml/PerformanceHistory.qml
         qml/SettingSwitch.qml
+        qml/SliderSetting.qml
+        qml/SwitchSetting.qml
         qml/ValueComboBox.qml
 )
 target_link_libraries(gfxtune_ui PUBLIC gfxtune_app gfxtune_appplugin Qt6::Quick Qt6::QuickControls2)
@@ -72,6 +79,10 @@ qt_add_executable(gfxtune
 )
 target_compile_definitions(gfxtune PRIVATE PROJECT_VERSION="${PROJECT_VERSION}")
 target_link_libraries(gfxtune PRIVATE gfxtune_ui gfxtune_uiplugin Qt6::Widgets)
+# Our own QML modules are linked in above; Kirigami's and Qt's are loaded
+# from the system at run time. The scan for plugins to link in statically
+# only applies to a static Qt.
+set_target_properties(gfxtune PROPERTIES QT_QML_MODULE_NO_IMPORT_SCAN TRUE)
 
 # The launch helper. Kept small: it starts with every game it is added to.
 qt_add_executable(gfxtune-run run/main.cpp)

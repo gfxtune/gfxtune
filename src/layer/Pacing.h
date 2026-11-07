@@ -17,6 +17,8 @@ class FrameLimiter
 public:
     using Clock = std::chrono::steady_clock;
 
+    FrameLimiter() noexcept = default;
+
     // When the frame may go, for a cap of `fps`; 0 means no cap and resets.
     Clock::time_point slot(int fps, Clock::time_point now);
     // Waits until then: sleeps most of the way, spins the last bit.
@@ -24,7 +26,7 @@ public:
 
 private:
     int m_fps = 0;
-    Clock::time_point m_next{};
+    Clock::time_point m_next;
 };
 
 // A sampler's LOD bias with the user's texture detail (in hundredths) added,

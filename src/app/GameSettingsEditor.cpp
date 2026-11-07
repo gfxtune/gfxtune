@@ -5,6 +5,7 @@
 
 #include "GameLibrary.h"
 
+#include "Logging.h"
 #include "launch/LaunchLine.h"
 #include "settings/Profile.h"
 
@@ -13,6 +14,8 @@
 #include <QGuiApplication>
 #include <QLocale>
 #include <QVariantMap>
+
+#include <utility>
 
 namespace gfxtune
 {
@@ -64,7 +67,7 @@ GameSettingsEditor::~GameSettingsEditor()
 
 void GameSettingsEditor::setAppId(int appId)
 {
-    if (appId < 0 || (quint32(appId) == m_appId && !m_global)) {
+    if (appId < 0 || (std::cmp_equal(appId, m_appId) && !m_global)) {
         return;
     }
     flush();
@@ -198,7 +201,7 @@ QUrl GameSettingsEditor::cover() const
 
 void GameSettingsEditor::setAnisotropicFiltering(int level)
 {
-    if (GameSettings::AnisotropicLevels.contains(level)) {
+    if (settings::offered(GameSettings::AnisotropicLevels, level)) {
         edit(QStringLiteral("anisotropicFiltering"), [level](GameSettings &s) { s.anisotropicFiltering = level; });
     }
 }
@@ -264,7 +267,7 @@ void GameSettingsEditor::setScalingMode(int mode)
 
 void GameSettingsEditor::setRenderScale(int percent)
 {
-    if (GameSettings::RenderScales.contains(percent)) {
+    if (settings::offered(GameSettings::RenderScales, percent)) {
         edit(QStringLiteral("renderScale"), [percent](GameSettings &s) { s.renderScale = percent; });
     }
 }
@@ -277,7 +280,7 @@ void GameSettingsEditor::setSharpness(int value)
 
 void GameSettingsEditor::setLodBias(int hundredths)
 {
-    if (GameSettings::LodBiasLevels.contains(hundredths)) {
+    if (settings::offered(GameSettings::LodBiasLevels, hundredths)) {
         edit(QStringLiteral("lodBias"), [hundredths](GameSettings &s) { s.lodBias = hundredths; });
     }
 }
@@ -539,6 +542,9 @@ void GameSettingsEditor::flush()
     QString error;
     const bool saved =
         m_global ? m_store->saveGlobal(m_globalSettings, &error) : m_store->saveProfile(m_appId, m_profile, gameName(), &error);
+    if (!saved) {
+        qCWarning(lcSettings).noquote() << "Could not save the settings:" << error;
+    }
     setProblem(saved ? QString() : QStringLiteral("Could not save the settings: %1").arg(error));
     m_library->settingsChanged();
 }
@@ -583,6 +589,9 @@ void GameSettingsEditor::load()
     m_globalSettings = m_store->loadGlobal(&warnings);
     m_profile = m_appId != 0 ? m_store->loadProfile(m_appId, &warnings) : settings::GameProfile{};
     m_settings = m_global ? m_globalSettings : settings::effectiveSettings(m_globalSettings, m_profile);
+    for (const QString &warning : std::as_const(warnings)) {
+        qCWarning(lcSettings).noquote() << warning;
+    }
     setProblem(warnings.isEmpty()
                    ? QString()
                    : QStringLiteral("Some saved values could not be read and were reset: %1").arg(warnings.join(QStringLiteral("; "))));

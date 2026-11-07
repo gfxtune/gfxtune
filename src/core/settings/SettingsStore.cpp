@@ -3,6 +3,7 @@
 
 #include "SettingsStore.h"
 
+#include "Errors.h"
 #include "Profile.h"
 
 #include <QDir>
@@ -19,14 +20,6 @@ namespace gfxtune::settings
 
 namespace
 {
-
-bool fail(QString *error, const QString &message)
-{
-    if (error) {
-        *error = message;
-    }
-    return false;
-}
 
 class Reader
 {
@@ -74,14 +67,14 @@ public:
         return value;
     }
 
-    int oneOf(const QString &key, int fallback, const QList<int> &allowed)
+    int oneOf(const QString &key, int fallback, std::span<const int> allowed)
     {
         if (!m_file.contains(key)) {
             return fallback;
         }
         bool ok = false;
         const int value = m_file.value(key).toString().trimmed().toInt(&ok);
-        if (!ok || !allowed.contains(value)) {
+        if (!ok || !offered(allowed, value)) {
             reject(key, QStringLiteral("%1: not one of the offered values").arg(key));
             return fallback;
         }
@@ -213,8 +206,8 @@ constexpr int FileFormat = 2;
 
 } // namespace
 
-SettingsStore::SettingsStore(QString baseDir)
-    : m_baseDir(QDir::cleanPath(std::move(baseDir)))
+SettingsStore::SettingsStore(const QString &baseDir)
+    : m_baseDir(QDir::cleanPath(baseDir))
 {
 }
 
@@ -278,7 +271,7 @@ GameProfile SettingsStore::loadProfile(quint32 appId, QStringList *warnings) con
     if (in.has(QStringLiteral("game/format"))) {
         for (const SettingKind &kind : settingKinds()) {
             // A damaged value falls back to the global setting.
-            if (std::any_of(kind.keys.cbegin(), kind.keys.cend(), [&in](const QString &key) { return in.accepted(key); })) {
+            if (std::ranges::any_of(kind.keys, [&in](const QString &key) { return in.accepted(key); })) {
                 profile.changed.insert(kind.id);
             }
         }

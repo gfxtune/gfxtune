@@ -3,6 +3,8 @@
 
 #include "RunningGames.h"
 
+#include "shared/Sizes.h"
+
 #include <QDir>
 #include <QFile>
 
@@ -48,7 +50,7 @@ QHash<quint32, qint64> steamGameReapers(const QString &procRoot)
         if (readSmallFile(base + QStringLiteral("/comm"), 64).trimmed() != "reaper") {
             continue;
         }
-        const QList<QByteArray> args = readSmallFile(base + QStringLiteral("/cmdline"), 64 * 1024).split('\0');
+        const QList<QByteArray> args = readSmallFile(base + QStringLiteral("/cmdline"), 64 * KiB).split('\0');
         if (!args.contains(QByteArrayLiteral("SteamLaunch"))) {
             continue;
         }
@@ -95,7 +97,7 @@ QList<qint64> processTree(qint64 root, const QString &procRoot)
     }
     QList<qint64> tree{root};
     for (qsizetype i = 0; i < tree.size(); ++i) {
-        for (qint64 child : children.value(tree.at(i))) {
+        for (const qint64 child : children.value(tree.at(i))) {
             if (!tree.contains(child)) {
                 tree.append(child);
             }

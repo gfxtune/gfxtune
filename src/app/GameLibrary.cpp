@@ -3,6 +3,7 @@
 
 #include "GameLibrary.h"
 
+#include "Logging.h"
 #include "settings/Availability.h"
 
 #include "launch/LaunchLine.h"
@@ -10,6 +11,7 @@
 #include "steam/RunningGames.h"
 #include "steam/SteamProcess.h"
 
+#include <QFileInfo>
 #include <QHash>
 #include <QMutex>
 #include <QtConcurrentRun>
@@ -33,14 +35,14 @@ public:
         const QString key = game.installPath + QLatin1Char('\n') + game.buildId + QLatin1Char('\n')
             + (windows ? QLatin1Char('w') : QLatin1Char('l')) + executables.join(QLatin1Char('\n'));
         {
-            QMutexLocker lock(&m_mutex);
+            const QMutexLocker lock(&m_mutex);
             const auto it = m_entries.constFind(game.appId);
             if (it != m_entries.constEnd() && it->key == key) {
                 return it->report;
             }
         }
         const steam::GameFileReport report = steam::inspectGameFiles(game.installPath, executables, windows);
-        QMutexLocker lock(&m_mutex);
+        const QMutexLocker lock(&m_mutex);
         m_entries.insert(game.appId, {key, report});
         return report;
     }
@@ -100,7 +102,7 @@ void GameLibrary::runScan(bool inspect)
 
     steam::ScanOptions options = m_options;
     options.inspectGameFiles = inspect;
-    std::shared_ptr<InspectionCache> cache = m_cache;
+    const std::shared_ptr<InspectionCache> cache = m_cache;
     options.inspector = [cache](const steam::Game &game, const QStringList &executables, bool windows) {
         return cache->inspect(game, executables, windows);
     };
@@ -110,6 +112,13 @@ void GameLibrary::runScan(bool inspect)
 void GameLibrary::scanFinished()
 {
     m_scan = m_future.result();
+    // Each problem once, not again with every scan.
+    for (const QString &warning : std::as_const(m_scan.warnings)) {
+        if (!m_reportedWarnings.contains(warning)) {
+            m_reportedWarnings.insert(warning);
+            qCWarning(lcSteam).noquote() << warning;
+        }
+    }
     m_model.setGames(m_scan.games);
     reloadProfiles();
     m_watcher.setPaths(m_scan.watchPaths);
@@ -149,7 +158,10 @@ QString GameLibrary::gameName(int appId) const
 void GameLibrary::saveFacts()
 {
     for (const steam::Game &game : std::as_const(m_scan.games)) {
-        m_store->saveFacts(game.appId, settings::factsOf(game), game.name);
+        QString error;
+        if (!m_store->saveFacts(game.appId, settings::factsOf(game), game.name, &error)) {
+            qCWarning(lcSettings).noquote() << "Could not save what was found in" << game.name << "(" << error << ")";
+        }
     }
     reloadProfiles();
 }
@@ -227,13 +239,30 @@ void GameLibrary::syncLaunchLines()
             wanted.insert(game.appId);
         }
     }
+    const QString &path = m_scan.localConfigPath;
+    const QFileInfo before(path);
+    if (m_synced && m_synced->wanted == wanted && before.exists() && before.lastModified() == m_synced->modified
+        && before.size() == m_synced->size) {
+        return;
+    }
     QList<launch::LineChange> done;
     QString error;
-    const bool ok = launch::syncLaunchLines(m_scan.localConfigPath, wanted, &done, &error);
+    const bool ok = launch::syncLaunchLines(path, wanted, &done, &error);
+    const QFileInfo after(path);
+    m_synced.reset();
+    if (ok && after.exists()) {
+        m_synced = Synced{wanted, after.lastModified(), after.size()};
+    }
     const QString problem = ok ? QString() : error;
     if (problem != m_launchLineProblem) {
         m_launchLineProblem = problem;
+        if (!problem.isEmpty()) {
+            qCWarning(lcLaunch).noquote() << "Could not update Steam's launch options:" << problem;
+        }
         Q_EMIT gamesChanged();
+    }
+    for (const launch::LineChange &change : std::as_const(done)) {
+        qCDebug(lcLaunch).noquote() << "Launch options of" << change.appId << "now:" << change.after;
     }
     if (!done.isEmpty()) {
         refresh(); // show the new lines without waiting for the file watch

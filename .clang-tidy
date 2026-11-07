@@ -1,14 +1,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 gfxtune contributors
 
-# Static checks for the C++ code. Left out: checks that only restate the
-# compiler's warnings (-Wconversion and friends are on), and those that
-# argue with Qt's own idioms (parent-owned raw pointers, Q_OBJECT macros).
+# Static checks for the C++ code; `ci/build.sh tidy` runs them. Left out:
+# checks that only restate the compiler's warnings (-Wconversion and friends
+# are on), and those that argue with the idioms of Qt, KDE and Vulkan code:
+# int(x) casts, #pragma once, Vulkan structs zero-filled and then set field
+# by field, Vulkan's flag bits (signed enums), enums without a fixed size,
+# and return {a, b} for types such as QByteArray(size, fill).
 Checks: >
   -*,
   bugprone-*,
   -bugprone-easily-swappable-parameters,
+  -bugprone-invalid-enum-default-initialization,
   -bugprone-narrowing-conversions,
+  -bugprone-signed-bitwise,
   clang-analyzer-*,
   concurrency-*,
   cppcoreguidelines-slicing,
@@ -18,15 +23,24 @@ Checks: >
   -misc-non-private-member-variables-in-classes,
   -misc-no-recursion,
   modernize-*,
+  -modernize-avoid-c-style-cast,
+  -modernize-use-designated-initializers,
   -modernize-use-trailing-return-type,
   -modernize-use-nodiscard,
+  -modernize-return-braced-init-list,
   -modernize-avoid-c-arrays,
   performance-*,
+  -performance-enum-size,
   portability-*,
+  -portability-avoid-pragma-once,
   readability-container-size-empty,
   readability-duplicate-include,
   readability-make-member-function-const,
   readability-redundant-*,
   readability-simplify-boolean-expr,
 HeaderFilterRegex: '/src/(app|core|filters|layer|run|shared)/'
+ExcludeHeaderFilterRegex: '/third_party/'
 FormatStyle: file
+CheckOptions:
+  # "Until the loader's link" reads better than its De Morgan form.
+  readability-simplify-boolean-expr.SimplifyDeMorgan: false

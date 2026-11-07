@@ -5,6 +5,7 @@
 // "gfxtune-run %command%", applies the game's gfxtune settings and then
 // replaces itself with the game. Whatever goes wrong, the game still starts.
 
+#include "Logging.h"
 #include "launch/LastLaunch.h"
 #include "launch/LaunchPlan.h"
 #include "performance/Performance.h"
@@ -27,9 +28,11 @@ using namespace gfxtune;
 namespace
 {
 
+// Running the game's own command line is what this program is for; main()
+// only calls this with at least one argument.
 [[noreturn]] void runCommand(char *const command[])
 {
-    execvp(command[0], command);
+    execvp(command[0], command); // NOLINT(clang-analyzer-core.NonNullParamChecker,clang-analyzer-optin.taint.GenericTaint)
     std::perror("gfxtune-run");
     _exit(127);
 }
@@ -55,7 +58,7 @@ std::optional<launch::Screen> mainScreen()
     char name[] = "gfxtune-run";
     char *argv[] = {name, nullptr};
     // Our own arguments only: the game's must never reach Qt's parser.
-    QGuiApplication app(argc, argv);
+    const QGuiApplication app(argc, argv);
     const QScreen *screen = QGuiApplication::primaryScreen();
     if (!screen) {
         return std::nullopt;
@@ -120,7 +123,10 @@ int main(int argc, char *argv[])
     }
 
     const launch::LaunchPlan plan = launch::planLaunch(gameSettings, context);
-    launch::writeLastLaunch(store.baseDir(), appId, plan, QDateTime::currentDateTime());
+    if (!launch::writeLastLaunch(store.baseDir(), appId, plan, QDateTime::currentDateTime())) {
+        qCWarning(lcLaunch) << "Could not write" << launch::lastLaunchPath(store.baseDir(), appId);
+    }
+    qCDebug(lcLaunch).noquote() << "Applied:" << plan.applied.join(QStringLiteral("; "));
 
     for (const auto &[name, value] : plan.environment) {
         qputenv(name.toLocal8Bit().constData(), value.toLocal8Bit());
@@ -131,6 +137,7 @@ int main(int argc, char *argv[])
 
     std::vector<QByteArray> storage;
     std::vector<char *> full;
+    full.reserve(std::size_t(plan.wrapper.size()) + std::size_t(argc));
     for (const QString &part : plan.wrapper) {
         storage.push_back(part.toLocal8Bit());
     }

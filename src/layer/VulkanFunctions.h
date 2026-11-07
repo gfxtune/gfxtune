@@ -129,7 +129,7 @@ struct DeviceFunctions {
     bool complete() const
     {
         bool ok = true;
-#define GFXTUNE_CHECK(name) ok = ok && (name != nullptr || std::string_view(#name) == "GetDeviceQueue2");
+#define GFXTUNE_CHECK(name) ok = ok && ((name) != nullptr || std::string_view(#name) == "GetDeviceQueue2");
         GFXTUNE_DEVICE_FUNCTIONS(GFXTUNE_CHECK)
 #undef GFXTUNE_CHECK
         return ok;

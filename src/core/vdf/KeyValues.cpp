@@ -19,7 +19,7 @@ const Node *Node::child(QStringView name) const
 const Node *Node::find(std::initializer_list<QStringView> path) const
 {
     const Node *node = this;
-    for (QStringView name : path) {
+    for (const QStringView name : path) {
         node = node->child(name);
         if (!node) {
             return nullptr;

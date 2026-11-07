@@ -98,6 +98,8 @@ cmake --build build
 ctest --test-dir build
 ```
 
+Problems that do not show in the window, such as a Steam file that could not be read, are logged (in `journalctl --user` when gfxtune is started from the menu); `QT_LOGGING_RULES="gfxtune.*.debug=true" gfxtune` also logs what it does.
+
 `gfxtune --list-games` prints the Steam games gfxtune finds and what it reads about each one (how it runs, which graphics libraries it loads, FSR 3.1, what its Proton does with FSR 4, anti-cheat, whether Steam has saved its cover, current launch options). It only reads, and is meant for checking a system or attaching to a bug report. `man gfxtune` and `man gfxtune-run` describe both programs.
 
 ## Testing

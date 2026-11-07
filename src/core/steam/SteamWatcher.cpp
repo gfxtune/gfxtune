@@ -12,7 +12,7 @@ SteamWatcher::SteamWatcher(QObject *parent, int quietPeriodMs)
     m_quiet.setSingleShot(true);
     m_quiet.setInterval(quietPeriodMs);
     connect(&m_quiet, &QTimer::timeout, this, &SteamWatcher::changed);
-    auto restart = [this] { m_quiet.start(); };
+    const auto restart = [this] { m_quiet.start(); };
     connect(&m_watcher, &QFileSystemWatcher::fileChanged, this, restart);
     connect(&m_watcher, &QFileSystemWatcher::directoryChanged, this, restart);
 }

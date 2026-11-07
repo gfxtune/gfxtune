@@ -3,6 +3,8 @@
 
 #include "Game.h"
 
+#include "shared/Sizes.h"
+
 #include <QFile>
 #include <QFileInfo>
 #include <QRegularExpression>
@@ -35,7 +37,7 @@ Fsr4Support readFsr4Support(const QString &toolPath)
     }
 
     // The launch script is a Python file of a few hundred kilobytes.
-    constexpr qint64 MaxScriptSize = 8 * 1024 * 1024;
+    constexpr qint64 MaxScriptSize = 8 * MiB;
     QFile script(toolPath + QStringLiteral("/proton"));
     if (script.size() > MaxScriptSize || !script.open(QIODevice::ReadOnly)) {
         return Fsr4Support::Unknown;

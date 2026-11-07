@@ -22,9 +22,11 @@ struct ValueEdit {
     std::optional<QString> value; // no value removes the key
 };
 
-// Changes only the bytes of that one value; every other byte of the file
-// stays as it was. Missing sections are created. Returns false, leaving
-// `data` untouched, if the file cannot be read as VDF.
+// Changes only the bytes of those values; every other byte of the file
+// stays as it was. Missing sections are created. A later edit of the same
+// value replaces an earlier one. Returns false, leaving `data` untouched, if
+// the file cannot be read as VDF. One pass over the file for all edits.
+bool editText(QByteArray &data, const QList<ValueEdit> &edits, QString *error = nullptr);
 bool editText(QByteArray &data, const ValueEdit &edit, QString *error = nullptr);
 
 // The same edit on a parsed tree, used to check the result of editText().

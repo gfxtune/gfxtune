@@ -3,6 +3,8 @@
 
 #include "AmdGpu.h"
 
+#include "shared/Sizes.h"
+
 #include <QDir>
 #include <QFile>
 #include <QHash>
@@ -114,7 +116,7 @@ GpuScan findGpus(const QString &sysRoot, const QStringList &nameTables)
     }
     // A discrete card has far more video memory than a processor's built-in
     // graphics, which only reserves a little.
-    std::stable_sort(scan.amd.begin(), scan.amd.end(), [](const AmdGpu &a, const AmdGpu &b) { return a.vramBytes > b.vramBytes; });
+    std::ranges::stable_sort(scan.amd, [](const AmdGpu &a, const AmdGpu &b) { return a.vramBytes > b.vramBytes; });
     return scan;
 }
 
@@ -232,7 +234,7 @@ std::optional<QStringList> throttleReasons(const QByteArray &gpuMetrics, std::op
 std::optional<quint64> processVideoMemory(const QList<qint64> &pids, const QString &procRoot)
 {
     QHash<QByteArray, quint64> clients; // per DRM client, each counted once
-    for (qint64 pid : pids) {
+    for (const qint64 pid : pids) {
         const QString dir = procRoot + QStringLiteral("/%1/fdinfo/").arg(pid);
         const QStringList fds = QDir(dir).entryList(QDir::Files);
         for (const QString &fd : fds) {
@@ -244,7 +246,7 @@ std::optional<quint64> processVideoMemory(const QList<qint64> &pids, const QStri
             std::optional<quint64> resident;
             std::optional<quint64> legacy;
             bool amdgpu = false;
-            for (const QByteArray &line : file.read(16 * 1024).split('\n')) {
+            for (const QByteArray &line : file.read(16 * KiB).split('\n')) {
                 const qsizetype colon = line.indexOf(':');
                 if (colon < 0) {
                     continue;

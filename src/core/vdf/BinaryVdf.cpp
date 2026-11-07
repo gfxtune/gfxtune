@@ -3,6 +3,8 @@
 
 #include "BinaryVdf.h"
 
+#include "Errors.h"
+
 #include <QtEndian>
 
 #include <bit>
@@ -92,14 +94,6 @@ private:
     QByteArrayView m_data;
     qsizetype m_pos = 0;
 };
-
-bool fail(QString *error, const QString &message)
-{
-    if (error) {
-        *error = message;
-    }
-    return false;
-}
 
 } // namespace
 

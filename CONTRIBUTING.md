@@ -32,6 +32,7 @@ a virtual screen and the tools the system tests start games with. Then:
 | `ci/build.sh debug` | Debug build with warnings as errors, then every unit test |
 | `ci/build.sh asan` | The same with AddressSanitizer and UndefinedBehaviorSanitizer |
 | `ci/build.sh lint` | `qmllint` on every QML file, after a debug build |
+| `ci/build.sh tidy` | Build with clang, warnings as errors, then `clang-tidy` (`.clang-tidy`) |
 | `ci/build.sh checks` | Licence information (`reuse lint`) and C++ formatting |
 | `ci/build.sh format` | Formats the C++ code as `.clang-format` says |
 | `ci/build.sh package` | The Arch package with CachyOS's own build flags, tests included |

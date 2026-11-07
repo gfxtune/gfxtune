@@ -46,7 +46,7 @@ Availability availabilityFor(const steam::Game &game, const GameSettings &settin
     const QString openGlNote = QStringLiteral("This game draws with OpenGL, which this setting does not reach.");
     // The game's own Steam launch options win over gfxtune.
     const launch::OwnSettings own = launch::ownSettings(game.launchOptions);
-    auto setInSteam = [](const QString &what) {
+    const auto setInSteam = [](const QString &what) {
         return QStringLiteral("Set by %1 in this game's Steam launch options, which gfxtune leaves alone.").arg(what);
     };
 

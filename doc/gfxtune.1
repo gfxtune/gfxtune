@@ -64,6 +64,15 @@ the launch options of
 .TP
 .B STEAM_EXTRA_COMPAT_TOOLS_PATHS
 More folders with Proton builds, separated by colons, as Steam reads it.
+.TP
+.B QT_LOGGING_RULES
+Problems are logged as warnings in the categories
+.BR gfxtune.steam ,
+.B gfxtune.launch
+and
+.BR gfxtune.settings ;
+.B QT_LOGGING_RULES="gfxtune.*.debug=true"
+also logs what gfxtune does, such as each launch option it changes.
 .SH EXIT STATUS
 0 on success; 1 when
 .B \-\-remove\-launch\-lines

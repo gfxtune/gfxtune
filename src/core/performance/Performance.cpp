@@ -4,6 +4,7 @@
 #include "Performance.h"
 
 #include "shared/FrameHistogram.h"
+#include "shared/Sizes.h"
 
 #include <QDir>
 #include <QFile>
@@ -20,7 +21,9 @@ namespace gfxtune::performance
 namespace
 {
 
-const QString HistoryFile = QStringLiteral("history");
+constexpr QLatin1StringView HistoryFile("history");
+// A session file holds a histogram line of a few KiB; never read more than this.
+constexpr qint64 MaxSessionBytes = 256 * KiB;
 
 // "key=value" lines, as the layer writes them.
 QHash<QString, QString> readKeys(const QString &path, qint64 maxSize)
@@ -162,7 +165,7 @@ QString performanceDir(const QString &baseDir, quint32 appId)
 
 std::optional<Session> readSessionFile(const QString &path)
 {
-    return sessionFrom(readKeys(path, 256 * 1024), nullptr);
+    return sessionFrom(readKeys(path, MaxSessionBytes), nullptr);
 }
 
 QList<Session> loadHistory(const QString &dir, const std::function<bool(qint64)> &processAlive, int keep, const QDateTime &now)
@@ -192,7 +195,7 @@ QList<Session> loadHistory(const QString &dir, const std::function<bool(qint64)>
         }
         const QString path = dir + QLatin1Char('/') + name;
         QDateTime updated;
-        const auto session = sessionFrom(readKeys(path, 256 * 1024), &updated);
+        const auto session = sessionFrom(readKeys(path, MaxSessionBytes), &updated);
         if (stillWritten(*pid, updated, processAlive, now)) {
             if (session && session->seconds >= MinimumSeconds) {
                 Session s = *session;
@@ -209,8 +212,8 @@ QList<Session> loadHistory(const QString &dir, const std::function<bool(qint64)>
     }
 
     const auto newestFirst = [](const Session &a, const Session &b) { return a.start > b.start; };
-    std::sort(running.begin(), running.end(), newestFirst);
-    std::sort(history.begin(), history.end(), newestFirst);
+    std::ranges::sort(running, newestFirst);
+    std::ranges::sort(history, newestFirst);
     if (history.size() > keep) {
         history.resize(keep);
         folded = true;
@@ -239,7 +242,7 @@ bool clearHistory(const QString &dir, const std::function<bool(qint64)> &process
         }
         const QString path = dir + QLatin1Char('/') + name;
         QDateTime updated;
-        sessionFrom(readKeys(path, 256 * 1024), &updated);
+        sessionFrom(readKeys(path, MaxSessionBytes), &updated);
         if (!stillWritten(*pid, updated, processAlive, now)) {
             ok = QFile::remove(path) && ok;
         }

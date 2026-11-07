@@ -153,7 +153,7 @@ bool FullscreenPass::build(const Setup &setup, std::string *error)
         return false;
     }
     if (!bindings.empty()) {
-        VkDescriptorPoolSize poolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MaxSets * std::uint32_t(bindings.size())};
+        const VkDescriptorPoolSize poolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MaxSets * std::uint32_t(bindings.size())};
         auto pool = vkStruct<VkDescriptorPoolCreateInfo>(VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO);
         pool.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
         pool.maxSets = MaxSets;
@@ -183,7 +183,7 @@ bool FullscreenPass::build(const Setup &setup, std::string *error)
     attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     attachment.initialLayout = setup.initialLayout;
     attachment.finalLayout = setup.finalLayout;
-    VkAttachmentReference colourRef{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+    const VkAttachmentReference colourRef{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
     VkSubpassDescription subpass{};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount = 1;
@@ -240,7 +240,7 @@ bool FullscreenPass::build(const Setup &setup, std::string *error)
     stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     stages[1].module = fragment;
     stages[1].pName = "main";
-    auto vertexInput = vkStruct<VkPipelineVertexInputStateCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO);
+    const auto vertexInput = vkStruct<VkPipelineVertexInputStateCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO);
     auto assembly = vkStruct<VkPipelineInputAssemblyStateCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO);
     assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     auto viewport = vkStruct<VkPipelineViewportStateCreateInfo>(VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO);
@@ -360,7 +360,7 @@ void FullscreenPass::destroyDescriptor(VkDescriptorSet set) const
 void FullscreenPass::record(VkCommandBuffer cmd, VkFramebuffer framebuffer, VkExtent2D extent, VkDescriptorSet sources,
                             const void *push) const
 {
-    VkClearValue clear{};
+    const VkClearValue clear{};
     auto begin = vkStruct<VkRenderPassBeginInfo>(VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO);
     begin.renderPass = m_renderPass;
     begin.framebuffer = framebuffer;

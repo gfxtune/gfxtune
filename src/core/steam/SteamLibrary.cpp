@@ -448,6 +448,102 @@ void addIfExists(QStringList &paths, const QString &path)
     }
 }
 
+// Only the cache entries the scan needs: the installed apps and Steam Play's
+// list of tools and mappings.
+AppInfoFile readAppCache(const QString &root, const std::vector<Manifest> &apps, QStringList &warnings)
+{
+    QSet<quint32> wanted{SteamPlayManifestAppId};
+    for (const Manifest &app : apps) {
+        wanted.insert(app.appId);
+    }
+    AppInfoFile appInfo;
+    const QString path = root + QStringLiteral("/appcache/appinfo.vdf");
+    if (QFileInfo::exists(path)) {
+        QString problem;
+        if (!readAppInfo(path, wanted, appInfo, &problem)) {
+            warnings.append(QStringLiteral("%1: %2").arg(path, problem));
+        }
+        warnings += appInfo.warnings;
+    }
+    return appInfo;
+}
+
+const vdf::Node *appCacheEntry(const AppInfoFile &appInfo, quint32 appId)
+{
+    const auto entry = appInfo.apps.constFind(appId);
+    return entry != appInfo.apps.constEnd() ? &*entry : nullptr;
+}
+
+// What every game of a scan is resolved against.
+struct ScanContext {
+    QString root;
+    quint32 accountId = 0;
+    QHash<quint32, QString> launchOptions;
+    QHash<QString, QString> mapping; // Steam's compatibility tool choices
+    const vdf::Node *valveMappings = nullptr;
+    ToolCatalog tools;
+    QHash<QString, Fsr4Support> fsr4ByTool; // each tool's files read once
+};
+
+// Why an installed app is not listed as a game, or nothing if it is.
+QString reasonToSkip(const Manifest &app, const vdf::Node *info, const QSet<quint32> &listed)
+{
+    if (app.appId == SteamworksRedistAppId) {
+        return QStringLiteral("Steam's shared redistributables, not a game");
+    }
+    if (listed.contains(app.appId)) {
+        return QStringLiteral("installed in two libraries; listed once");
+    }
+    if (info && !isGameType(*info)) {
+        const vdf::Node *type = info->find({u"common", u"type"});
+        return QStringLiteral("not a game (Steam type: %1)").arg(type ? type->value : QString());
+    }
+    return {};
+}
+
+Game gameFrom(const Manifest &app, const vdf::Node *info, ScanContext &context)
+{
+    Game game;
+    game.appId = app.appId;
+    game.name = app.name.isEmpty() ? QStringLiteral("App %1").arg(app.appId) : app.name;
+    game.libraryPath = app.libraryPath;
+    game.installPath = app.installPath;
+    game.launchOptions = context.launchOptions.value(app.appId);
+    game.buildId = app.buildId;
+    game.coverPath = findCover(context.root, context.accountId, app.appId, listedCovers(info));
+    resolveRuntime(game, info, context.mapping, context.valveMappings, context.tools);
+    // Steam's store category 8 is "Valve Anti-Cheat enabled".
+    const vdf::Node *vac = info ? info->find({u"common", u"category", u"category_8"}) : nullptr;
+    if (vac && vac->value == QLatin1String("1")) {
+        game.antiCheat.append(QStringLiteral("Valve Anti-Cheat"));
+    }
+    if (game.runtime == Runtime::Proton && !game.tool.installPath.isEmpty()) {
+        auto known = context.fsr4ByTool.find(game.tool.installPath);
+        if (known == context.fsr4ByTool.end()) {
+            known = context.fsr4ByTool.insert(game.tool.installPath, readFsr4Support(game.tool.installPath));
+        }
+        game.tool.fsr4 = *known;
+    }
+    return game;
+}
+
+// What the game's own files say: graphics libraries, FSR 3.1, anti-cheat.
+void inspect(Game &game, const vdf::Node *info, const ScanOptions &options)
+{
+    const bool windows = game.runtime == Runtime::Proton;
+    const QStringList executables = info ? launchExecutables(*info, windows) : QStringList();
+    const GameFileReport report =
+        options.inspector ? options.inspector(game, executables, windows) : inspectGameFiles(game.installPath, executables, windows);
+    game.apis = report.apis;
+    game.fsr31Dx12 = report.fsr31Dx12;
+    game.fsr31Vulkan = report.fsr31Vulkan;
+    for (const QString &name : report.antiCheat) {
+        if (!game.antiCheat.contains(name)) {
+            game.antiCheat.append(name);
+        }
+    }
+}
+
 } // namespace
 
 ScanOptions ScanOptions::fromEnvironment()
@@ -485,108 +581,49 @@ SteamScan scanSteam(const ScanOptions &options)
             addIfExists(scan.watchPaths, library.path + QStringLiteral("/steamapps"));
         }
     }
+    const AppInfoFile appInfo = readAppCache(root, apps, scan.warnings);
+    const vdf::Node *steamPlay = appCacheEntry(appInfo, SteamPlayManifestAppId);
 
-    // Load only the cache entries we need: our games and the Steam Play list.
-    QSet<quint32> wanted{SteamPlayManifestAppId};
-    for (const Manifest &app : apps) {
-        wanted.insert(app.appId);
-    }
-    AppInfoFile appInfo;
-    const QString appInfoPath = root + QStringLiteral("/appcache/appinfo.vdf");
-    if (QFileInfo::exists(appInfoPath)) {
-        QString problem;
-        if (!readAppInfo(appInfoPath, wanted, appInfo, &problem)) {
-            scan.warnings.append(QStringLiteral("%1: %2").arg(appInfoPath, problem));
-        }
-        scan.warnings += appInfo.warnings;
-    }
-
-    const auto manifestEntry = appInfo.apps.constFind(SteamPlayManifestAppId);
-    const vdf::Node *steamPlay = manifestEntry != appInfo.apps.constEnd() ? &*manifestEntry : nullptr;
-
-    ToolCatalog tools;
-    tools.custom = readCustomTools(options.compatToolDirs + QStringList{root + QStringLiteral("/compatibilitytools.d")}, scan.warnings);
-    tools.valveTools = steamPlay ? steamPlay->find({u"extended", u"compat_tools"}) : nullptr;
-    tools.installedToolApps = toolApps;
-    const vdf::Node *valveMappings = steamPlay ? steamPlay->find({u"extended", u"app_mappings"}) : nullptr;
-
-    const QHash<QString, QString> mapping = readCompatMapping(root, scan.warnings);
+    ScanContext context;
+    context.root = root;
+    context.tools.custom =
+        readCustomTools(options.compatToolDirs + QStringList{root + QStringLiteral("/compatibilitytools.d")}, scan.warnings);
+    context.tools.valveTools = steamPlay ? steamPlay->find({u"extended", u"compat_tools"}) : nullptr;
+    context.tools.installedToolApps = toolApps;
+    context.valveMappings = steamPlay ? steamPlay->find({u"extended", u"app_mappings"}) : nullptr;
+    context.mapping = readCompatMapping(root, scan.warnings);
     scan.accountId = readAccountId(root, scan.warnings);
-    QHash<quint32, QString> launchOptions;
+    context.accountId = scan.accountId;
     if (scan.accountId != 0) {
         const QString userConfig = root + QStringLiteral("/userdata/%1/config").arg(scan.accountId);
         scan.localConfigPath = userConfig + QStringLiteral("/localconfig.vdf");
-        launchOptions = readLaunchOptions(scan.localConfigPath, scan.warnings);
+        context.launchOptions = readLaunchOptions(scan.localConfigPath, scan.warnings);
         addIfExists(scan.watchPaths, userConfig);
     }
 
     QSet<quint32> listed;
-    QHash<QString, Fsr4Support> fsr4ByTool; // each tool's files read once
     for (const Manifest &app : apps) {
-        if (app.appId == SteamworksRedistAppId) {
-            scan.skipped.append({app.appId, app.name, QStringLiteral("Steam's shared redistributables, not a game")});
-            continue;
-        }
-        if (listed.contains(app.appId)) {
-            scan.skipped.append({app.appId, app.name, QStringLiteral("installed in two libraries; listed once")});
-            continue;
-        }
-        const auto entry = appInfo.apps.constFind(app.appId);
-        const vdf::Node *info = entry != appInfo.apps.constEnd() ? &*entry : nullptr;
-        if (info && !isGameType(*info)) {
-            const vdf::Node *type = info->find({u"common", u"type"});
-            scan.skipped.append({app.appId, app.name, QStringLiteral("not a game (Steam type: %1)").arg(type ? type->value : QString())});
+        const vdf::Node *info = appCacheEntry(appInfo, app.appId);
+        const QString skip = reasonToSkip(app, info, listed);
+        if (!skip.isEmpty()) {
+            scan.skipped.append({app.appId, app.name, skip});
             continue;
         }
         listed.insert(app.appId);
-
-        Game game;
-        game.appId = app.appId;
-        game.name = app.name.isEmpty() ? QStringLiteral("App %1").arg(app.appId) : app.name;
-        game.libraryPath = app.libraryPath;
-        game.installPath = app.installPath;
-        game.launchOptions = launchOptions.value(app.appId);
-        game.buildId = app.buildId;
-        game.coverPath = findCover(root, scan.accountId, app.appId, listedCovers(info));
-        resolveRuntime(game, info, mapping, valveMappings, tools);
-        // Steam's store category 8 is "Valve Anti-Cheat enabled".
-        const vdf::Node *vac = info ? info->find({u"common", u"category", u"category_8"}) : nullptr;
-        if (vac && vac->value == QLatin1String("1")) {
-            game.antiCheat.append(QStringLiteral("Valve Anti-Cheat"));
-        }
-        if (game.runtime == Runtime::Proton && !game.tool.installPath.isEmpty()) {
-            auto known = fsr4ByTool.find(game.tool.installPath);
-            if (known == fsr4ByTool.end()) {
-                known = fsr4ByTool.insert(game.tool.installPath, readFsr4Support(game.tool.installPath));
-            }
-            game.tool.fsr4 = *known;
-        }
-
+        Game game = gameFrom(app, info, context);
         if (options.inspectGameFiles) {
-            const bool windows = game.runtime == Runtime::Proton;
-            const QStringList executables = info ? launchExecutables(*info, windows) : QStringList();
-            const GameFileReport report = options.inspector ? options.inspector(game, executables, windows)
-                                                            : inspectGameFiles(game.installPath, executables, windows);
-            game.apis = report.apis;
-            game.fsr31Dx12 = report.fsr31Dx12;
-            game.fsr31Vulkan = report.fsr31Vulkan;
-            for (const QString &name : report.antiCheat) {
-                if (!game.antiCheat.contains(name)) {
-                    game.antiCheat.append(name);
-                }
-            }
+            inspect(game, info, options);
         }
         scan.games.append(game);
     }
-
-    std::sort(scan.games.begin(), scan.games.end(), [](const Game &a, const Game &b) {
+    std::ranges::sort(scan.games, [](const Game &a, const Game &b) {
         const int order = a.name.localeAwareCompare(b.name);
         return order != 0 ? order < 0 : a.appId < b.appId;
     });
 
-    addIfExists(scan.watchPaths, root + QStringLiteral("/steamapps"));
-    addIfExists(scan.watchPaths, root + QStringLiteral("/config"));
-    addIfExists(scan.watchPaths, root + QStringLiteral("/appcache"));
+    for (const QString &folder : {QStringLiteral("/steamapps"), QStringLiteral("/config"), QStringLiteral("/appcache")}) {
+        addIfExists(scan.watchPaths, root + folder);
+    }
     for (const QString &folder : options.compatToolDirs) {
         addIfExists(scan.watchPaths, folder);
     }

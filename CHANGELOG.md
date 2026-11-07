@@ -14,8 +14,21 @@ change how settings are stored.
   gamescope) was listed under the last launch as applied, although nothing
   held it. It is now listed as not applied, with the reason.
 
+### Changed
+
+- Updating Steam's launch options for many games at once is much faster:
+  for 1,000 games, 72 ms instead of 7.6 s, so the first start with a large
+  library no longer freezes the window. The file is still checked before
+  it is written, and only the launch options change.
+- gfxtune no longer reads Steam's settings file again when neither the file
+  nor gfxtune's settings changed.
+
 ### Added
 
+- Problems that do not show in the window (a Steam file that could not be
+  read, a settings file that could not be written) are logged; see
+  `man gfxtune`.
+- Manual pages for `gfxtune` and `gfxtune-run`.
 - System tests: the package as installed, with test games started the way
   Steam starts them, Vulkan games and DirectX 11 and 12 games under Proton,
   on a virtual screen with software rendering. They check what reaches the
@@ -25,7 +38,8 @@ change how settings are stored.
 - Continuous integration on CachyOS's official container image, with the
   scripts in `ci/` that contributors run the same way.
 - Licence information for every file ([REUSE](https://reuse.software)),
-  a code format (`.clang-format`), and contributor documents.
+  a code format (`.clang-format`), static checks (`.clang-tidy`), and
+  contributor documents.
 
 ## 0.4.2 and earlier
 

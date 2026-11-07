@@ -64,7 +64,7 @@ QString GameListModel::detailText(const Game &game)
 
 void GameListModel::setGames(QList<Game> games)
 {
-    auto ids = [](const QList<Game> &list) {
+    const auto ids = [](const QList<Game> &list) {
         QList<quint32> out;
         out.reserve(list.size());
         for (const Game &g : list) {
@@ -89,7 +89,7 @@ void GameListModel::setGames(QList<Game> games)
     const QList<quint32> kept = ids(m_games);
     QList<quint32> newOrderOfKept;
     const QSet<quint32> keptSet(kept.cbegin(), kept.cend());
-    for (quint32 id : newIds) {
+    for (const quint32 id : newIds) {
         if (keptSet.contains(id)) {
             newOrderOfKept.append(id);
         }

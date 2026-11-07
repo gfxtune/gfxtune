@@ -154,7 +154,7 @@ inline Rgb adjustColour(Rgb c, const ShaderParams &p)
     for (float &x : c) {
         x = y + (x - y) * p.saturation;
     }
-    const float spread = std::clamp(*std::max_element(c.begin(), c.end()) - *std::min_element(c.begin(), c.end()), 0.0f, 1.0f);
+    const float spread = std::clamp(*std::ranges::max_element(c) - *std::ranges::min_element(c), 0.0f, 1.0f);
     const float vividness = 1.0f + p.vibrance * (1.0f - spread);
     const float y2 = luma(c);
     for (float &x : c) {

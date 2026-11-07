@@ -20,7 +20,7 @@ namespace gfxtune::settings
 class SettingsStore
 {
 public:
-    explicit SettingsStore(QString baseDir);
+    explicit SettingsStore(const QString &baseDir);
 
     // $XDG_CONFIG_HOME/gfxtune, usually ~/.config/gfxtune.
     static QString defaultBaseDir();

@@ -120,21 +120,23 @@ FrameLimiter g_limiter;
 
 InstanceData *instanceData(const void *handle)
 {
-    std::lock_guard lock(g_mutex);
+    const std::scoped_lock lock(g_mutex);
     const auto found = g_instances.find(dispatchKey(handle));
     return found != g_instances.end() ? found->second.get() : nullptr;
 }
 
 DeviceData *deviceData(const void *handle)
 {
-    std::lock_guard lock(g_mutex);
+    const std::scoped_lock lock(g_mutex);
     const auto found = g_devices.find(dispatchKey(handle));
     return found != g_devices.end() ? found->second.get() : nullptr;
 }
 
 std::string environment(const char *name)
 {
-    const char *value = std::getenv(name);
+    // Read while the game starts its instance; games do not change their
+    // environment while Vulkan is in use.
+    const char *value = std::getenv(name); // NOLINT(concurrency-mt-unsafe)
     return value ? std::string(value) : std::string();
 }
 
@@ -159,7 +161,7 @@ std::shared_ptr<PerformanceRecorder> recorder()
     if (dir.empty()) {
         return nullptr;
     }
-    std::lock_guard lock(g_mutex);
+    const std::scoped_lock lock(g_mutex);
     if (!g_recorder) {
         const std::string root = environment("GFXTUNE_SYSFS_ROOT");
         g_recorder = std::make_shared<PerformanceRecorder>(dir, root.empty() ? std::string("/sys") : root);
@@ -169,7 +171,7 @@ std::shared_ptr<PerformanceRecorder> recorder()
 
 bool presentsPrimary(const VkPresentInfoKHR &info)
 {
-    std::lock_guard lock(g_mutex);
+    const std::scoped_lock lock(g_mutex);
     for (uint32_t i = 0; i < info.swapchainCount; ++i) {
         if (info.pSwapchains[i] == g_primary) {
             return true;
@@ -180,7 +182,7 @@ bool presentsPrimary(const VkPresentInfoKHR &info)
 
 // ---- Per-swapchain resources ----
 
-void destroyImage(DeviceData &d, SwapchainData &swapchain, ImageResources &image)
+void destroyImage(DeviceData &d, const SwapchainData &swapchain, ImageResources &image)
 {
     if (image.fence != VK_NULL_HANDLE) {
         d.vk.WaitForFences(d.device, 1, &image.fence, VK_TRUE, UINT64_MAX);
@@ -213,7 +215,7 @@ void destroySwapchainData(DeviceData &d, SwapchainData &swapchain)
     swapchain.smaaReady = false;
 }
 
-bool createImage(DeviceData &d, SwapchainData &swapchain, VkImage swapchainImage, ImageResources &image, std::string *error)
+bool createImage(const DeviceData &d, const SwapchainData &swapchain, VkImage swapchainImage, ImageResources &image, std::string *error)
 {
     image.swapchainImage = swapchainImage;
 
@@ -225,7 +227,7 @@ bool createImage(DeviceData &d, SwapchainData &swapchain, VkImage swapchainImage
     if (!swapchain.pass->addTarget(image.copy.image, swapchainImage, swapchain.extent, image.target, error)) {
         return false;
     }
-    auto semaphore = vkStruct<VkSemaphoreCreateInfo>(VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO);
+    const auto semaphore = vkStruct<VkSemaphoreCreateInfo>(VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO);
     auto fence = vkStruct<VkFenceCreateInfo>(VK_STRUCTURE_TYPE_FENCE_CREATE_INFO);
     fence.flags = VK_FENCE_CREATE_SIGNALED_BIT;
     if (d.vk.CreateSemaphore(d.device, &semaphore, nullptr, &image.done) != VK_SUCCESS
@@ -238,7 +240,7 @@ bool createImage(DeviceData &d, SwapchainData &swapchain, VkImage swapchainImage
 
 // Checks everything the filters need from the device, the surface and the
 // format, and says why not otherwise.
-bool canFilter(DeviceData &d, const VkSwapchainCreateInfoKHR &info, std::string *reason)
+bool canFilter(const DeviceData &d, const VkSwapchainCreateInfoKHR &info, std::string *reason)
 {
     if (!d.vk.complete() || !d.setLoaderData || !d.instance || !d.instance->vk.GetPhysicalDeviceSurfaceCapabilitiesKHR) {
         *reason = "the Vulkan driver lacks functions the filters need";
@@ -399,7 +401,7 @@ VkCommandBuffer commandBuffer(DeviceData &d, ImageResources &image, uint32_t fam
 void recordFilter(const DeviceData &d, const SwapchainData &swapchain, const ImageResources &image, const filters::ShaderParams &params,
                   bool antiAlias)
 {
-    const VkCommandBuffer cmd = image.cmd;
+    VkCommandBuffer cmd = image.cmd;
     auto begin = vkStruct<VkCommandBufferBeginInfo>(VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO);
     begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     d.vk.BeginCommandBuffer(cmd, &begin);
@@ -480,7 +482,7 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateInstance(const VkInstanceCreateInfo *info, 
     auto data = std::make_unique<InstanceData>();
     data->instance = *instance;
     data->vk.load(*instance, next);
-    std::lock_guard lock(g_mutex);
+    const std::scoped_lock lock(g_mutex);
     g_instances[dispatchKey(*instance)] = std::move(data);
     return result;
 }
@@ -493,7 +495,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyInstance(VkInstance instance, const VkAllocati
     std::unique_ptr<InstanceData> data;
     std::shared_ptr<PerformanceRecorder> lastRecorder;
     {
-        std::lock_guard lock(g_mutex);
+        const std::scoped_lock lock(g_mutex);
         const auto found = g_instances.find(dispatchKey(instance));
         if (found == g_instances.end()) {
             return;
@@ -558,7 +560,7 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateDevice(VkPhysicalDevice physicalDevice, con
     data->deviceId = properties.deviceID;
     data->maxLodBias = properties.limits.maxSamplerLodBias;
 
-    std::lock_guard lock(g_mutex);
+    const std::scoped_lock lock(g_mutex);
     g_devices[dispatchKey(*device)] = std::move(data);
     return result;
 }
@@ -570,7 +572,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyDevice(VkDevice device, const VkAllocationCall
     }
     std::unique_ptr<DeviceData> data;
     {
-        std::lock_guard lock(g_mutex);
+        const std::scoped_lock lock(g_mutex);
         const auto found = g_devices.find(dispatchKey(device));
         if (found == g_devices.end()) {
             return;
@@ -596,7 +598,7 @@ VKAPI_ATTR void VKAPI_CALL GetDeviceQueue(VkDevice device, uint32_t family, uint
     DeviceData *d = deviceData(device);
     d->vk.GetDeviceQueue(device, family, index, queue);
     if (*queue) {
-        std::lock_guard lock(d->mutex);
+        const std::scoped_lock lock(d->mutex);
         d->queueFamilies[*queue] = family;
     }
 }
@@ -606,7 +608,7 @@ VKAPI_ATTR void VKAPI_CALL GetDeviceQueue2(VkDevice device, const VkDeviceQueueI
     DeviceData *d = deviceData(device);
     d->vk.GetDeviceQueue2(device, info, queue);
     if (*queue) {
-        std::lock_guard lock(d->mutex);
+        const std::scoped_lock lock(d->mutex);
         d->queueFamilies[*queue] = info->queueFamilyIndex;
     }
 }
@@ -615,7 +617,7 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateSwapchainKHR(VkDevice device, const VkSwapc
                                                   const VkAllocationCallbacks *allocator, VkSwapchainKHR *swapchain)
 {
     DeviceData *d = deviceData(device);
-    std::lock_guard lock(d->mutex);
+    const std::scoped_lock lock(d->mutex);
 
     auto data = std::make_unique<SwapchainData>();
     data->format = info->imageFormat;
@@ -645,7 +647,7 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateSwapchainKHR(VkDevice device, const VkSwapc
     const std::uint64_t area = std::uint64_t(info->imageExtent.width) * info->imageExtent.height;
     bool primary = false;
     {
-        std::lock_guard globalLock(g_mutex);
+        const std::scoped_lock globalLock(g_mutex);
         if (g_primary == VK_NULL_HANDLE || area >= g_primaryArea) {
             g_primary = *swapchain;
             g_primaryArea = area;
@@ -665,7 +667,7 @@ VKAPI_ATTR void VKAPI_CALL DestroySwapchainKHR(VkDevice device, VkSwapchainKHR s
 {
     DeviceData *d = deviceData(device);
     {
-        std::lock_guard lock(d->mutex);
+        const std::scoped_lock lock(d->mutex);
         const auto found = d->swapchains.find(swapchain);
         if (found != d->swapchains.end()) {
             destroySwapchainData(*d, *found->second);
@@ -673,7 +675,7 @@ VKAPI_ATTR void VKAPI_CALL DestroySwapchainKHR(VkDevice device, VkSwapchainKHR s
         }
     }
     {
-        std::lock_guard globalLock(g_mutex);
+        const std::scoped_lock globalLock(g_mutex);
         if (g_primary == swapchain) {
             g_primary = VK_NULL_HANDLE;
             g_primaryArea = 0;
@@ -688,7 +690,7 @@ VKAPI_ATTR void VKAPI_CALL DestroySwapchainKHR(VkDevice device, VkSwapchainKHR s
 VkResult drawFilters(DeviceData &d, VkQueue queue, const VkPresentInfoKHR &info, const filters::Values &values,
                      std::vector<VkSemaphore> &drawn)
 {
-    std::lock_guard lock(d.mutex);
+    const std::scoped_lock lock(d.mutex);
     const auto family = d.queueFamilies.find(queue);
     if (family == d.queueFamilies.end() || !(d.families[family->second].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
         return VK_SUCCESS;
@@ -713,7 +715,7 @@ VkResult drawFilters(DeviceData &d, VkQueue queue, const VkPresentInfoKHR &info,
         // On another queue than last time, the shared work images may still
         // be in use there: wait for this swapchain's earlier draws.
         if (smaa && swapchain.lastQueue != VK_NULL_HANDLE && swapchain.lastQueue != queue) {
-            for (ImageResources &other : swapchain.images) {
+            for (const ImageResources &other : swapchain.images) {
                 d.vk.WaitForFences(d.device, 1, &other.fence, VK_TRUE, 1'000'000'000);
             }
         }
@@ -783,7 +785,7 @@ VKAPI_ATTR VkResult VKAPI_CALL QueuePresentKHR(VkQueue queue, const VkPresentInf
     if (presentsPrimary(*info)) {
         FrameLimiter::Clock::time_point when;
         {
-            std::lock_guard lock(g_limiterMutex);
+            const std::scoped_lock lock(g_limiterMutex);
             when = g_limiter.slot(config.frameCap, FrameLimiter::Clock::now());
         }
         FrameLimiter::waitUntil(when);
@@ -799,7 +801,7 @@ VKAPI_ATTR VkResult VKAPI_CALL QueuePresentKHR(VkQueue queue, const VkPresentInf
 VKAPI_ATTR VkResult VKAPI_CALL CreateSampler(VkDevice device, const VkSamplerCreateInfo *info, const VkAllocationCallbacks *allocator,
                                              VkSampler *sampler)
 {
-    DeviceData *d = deviceData(device);
+    const DeviceData *d = deviceData(device);
     const int bias = settings().config().lodBias;
     if (bias == 0) {
         return d->vk.CreateSampler(device, info, allocator, sampler);
@@ -815,7 +817,7 @@ PFN_vkVoidFunction deviceHook(const char *name)
 {
 #define GFXTUNE_HOOK(fn)                                                                                                                   \
     if (std::strcmp(name, "vk" #fn) == 0) {                                                                                                \
-        return reinterpret_cast<PFN_vkVoidFunction>(&fn);                                                                                  \
+        return reinterpret_cast<PFN_vkVoidFunction>(&(fn));                                                                                \
     }
     GFXTUNE_HOOK(DestroyDevice)
     GFXTUNE_HOOK(GetDeviceQueue)
@@ -839,7 +841,7 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetInstanceProcAddr(VkInstance instance
     if (!instance) {
         return nullptr;
     }
-    InstanceData *data = instanceData(instance);
+    const InstanceData *data = instanceData(instance);
     if (!data) {
         return nullptr;
     }
@@ -856,7 +858,7 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetInstanceProcAddr(VkInstance instance
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetDeviceProcAddr(VkDevice device, const char *name)
 {
     GFXTUNE_HOOK(GetDeviceProcAddr)
-    DeviceData *data = device ? deviceData(device) : nullptr;
+    const DeviceData *data = device ? deviceData(device) : nullptr;
     if (!data) {
         return nullptr;
     }

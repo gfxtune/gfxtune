@@ -10,6 +10,7 @@
 #   ci/build.sh package   the Arch package with this system's makepkg
 #                         settings (CachyOS's in its container), tests included
 #   ci/build.sh lint      QML lint, after a debug build
+#   ci/build.sh tidy      build with clang, warnings as errors, then clang-tidy
 #   ci/build.sh checks    licence information (REUSE), C++ formatting, manual pages
 #   ci/build.sh format    formats the C++ code as .clang-format says
 set -euo pipefail
@@ -70,6 +71,13 @@ package)
 lint)
     cmake --build /tmp/gfxtune-build --target all_qmllint
     ;;
+tidy)
+    # clang-tidy reads the generated sources (moc, shaders) too: build first.
+    cmake -S "$source_dir" -B /tmp/gfxtune-tidy -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=clang++ \
+        -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DGFXTUNE_WERROR=ON >/dev/null
+    cmake --build /tmp/gfxtune-tidy
+    run-clang-tidy -p /tmp/gfxtune-tidy -config-file "$source_dir/.clang-tidy" -quiet -warnings-as-errors='*' "$source_dir/src/.*\.cpp$"
+    ;;
 checks)
     reuse --root "$source_dir" lint
     cpp_files | xargs -0 clang-format --dry-run --Werror
@@ -86,7 +94,7 @@ format)
     cpp_files | xargs -0 clang-format -i
     ;;
 *)
-    echo "usage: $0 debug|asan|package|lint|checks|format" >&2
+    echo "usage: $0 debug|asan|package|lint|tidy|checks|format" >&2
     exit 2
     ;;
 esac

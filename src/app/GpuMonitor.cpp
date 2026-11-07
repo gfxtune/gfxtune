@@ -17,12 +17,16 @@ namespace gfxtune
 namespace
 {
 
-const QString Missing = QStringLiteral("—");
+// Shown for a reading the card does not give.
+QString missing()
+{
+    return QStringLiteral("—");
+}
 
 template<typename T>
 QString whole(const std::optional<T> &value, const QString &unit)
 {
-    return value ? QStringLiteral("%1 %2").arg(qRound(double(*value))).arg(unit) : Missing;
+    return value ? QStringLiteral("%1 %2").arg(qRound(double(*value))).arg(unit) : missing();
 }
 
 void push(QList<qreal> &history, const std::optional<double> &value)
@@ -189,7 +193,7 @@ void GpuMonitor::clearHistory()
 QString GpuMonitor::heldBackBy() const
 {
     if (!m_reading.heldBackBy) {
-        return Missing;
+        return missing();
     }
     if (m_reading.heldBackBy->isEmpty()) {
         return QStringLiteral("Nothing");
@@ -201,23 +205,23 @@ QString GpuMonitor::heldBackBy() const
 
 QString GpuMonitor::cpuTemperature() const
 {
-    return m_cpuTemperature ? QStringLiteral("%1 °C").arg(qRound(*m_cpuTemperature)) : Missing;
+    return m_cpuTemperature ? QStringLiteral("%1 °C").arg(qRound(*m_cpuTemperature)) : missing();
 }
 
 QString GpuMonitor::cpuClock() const
 {
-    return m_cpuClock ? QStringLiteral("%1 GHz").arg(double(*m_cpuClock) / 1000.0, 0, 'f', 2) : Missing;
+    return m_cpuClock ? QStringLiteral("%1 GHz").arg(double(*m_cpuClock) / 1000.0, 0, 'f', 2) : missing();
 }
 
 QString GpuMonitor::gameFps() const
 {
-    return m_gameAppId != 0 ? QStringLiteral("%1 FPS").arg(qRound(m_gameFps)) : Missing;
+    return m_gameAppId != 0 ? QStringLiteral("%1 FPS").arg(qRound(m_gameFps)) : missing();
 }
 
 QString GpuMonitor::gameFrameTime() const
 {
     if (m_gameAppId == 0 || m_gameFrameMs <= 0) {
-        return Missing;
+        return missing();
     }
     return QStringLiteral("%1 ms · slowest %2 ms").arg(m_gameFrameMs, 0, 'f', 1).arg(m_gameFrameMsMax, 0, 'f', 1);
 }
@@ -225,7 +229,7 @@ QString GpuMonitor::gameFrameTime() const
 QString GpuMonitor::gameVideoMemory() const
 {
     if (!m_gameVideoMemory) {
-        return Missing;
+        return missing();
     }
     constexpr double GiB = 1024.0 * 1024.0 * 1024.0;
     return QStringLiteral("%1 GB").arg(double(*m_gameVideoMemory) / GiB, 0, 'f', 1);
@@ -235,7 +239,7 @@ QString GpuMonitor::gameVideoMemory() const
 qreal GpuMonitor::fpsHigh() const
 {
     qreal high = 60;
-    for (qreal v : m_fps) {
+    for (const qreal v : m_fps) {
         high = qMax(high, v);
     }
     return qCeil(high / 30) * 30;
@@ -277,7 +281,7 @@ QString GpuMonitor::voltage() const
 QString GpuMonitor::power() const
 {
     if (!m_reading.power) {
-        return Missing;
+        return missing();
     }
     const QString now = QString::number(qRound(*m_reading.power));
     return m_reading.powerLimit ? QStringLiteral("%1 / %2 W").arg(now).arg(qRound(*m_reading.powerLimit)) : now + QStringLiteral(" W");
@@ -286,7 +290,7 @@ QString GpuMonitor::power() const
 QString GpuMonitor::videoMemory() const
 {
     if (!m_reading.vramUsed || !m_reading.vramTotal) {
-        return Missing;
+        return missing();
     }
     constexpr double GiB = 1024.0 * 1024.0 * 1024.0;
     return QStringLiteral("%1 / %2 GB")
@@ -297,7 +301,7 @@ QString GpuMonitor::videoMemory() const
 QString GpuMonitor::fan() const
 {
     if (!m_reading.fanRpm && !m_reading.fanPercent) {
-        return Missing;
+        return missing();
     }
     if (m_reading.fanRpm && m_reading.fanPercent) {
         return QStringLiteral("%1 RPM · %2%").arg(*m_reading.fanRpm).arg(*m_reading.fanPercent);
@@ -310,7 +314,7 @@ qreal GpuMonitor::temperatureLow() const
 {
     qreal low = 100;
     for (const QList<qreal> *history : {&m_edge, &m_hotspot}) {
-        for (qreal v : *history) {
+        for (const qreal v : *history) {
             low = qMin(low, v);
         }
     }
@@ -321,7 +325,7 @@ qreal GpuMonitor::temperatureHigh() const
 {
     qreal high = 50;
     for (const QList<qreal> *history : {&m_edge, &m_hotspot}) {
-        for (qreal v : *history) {
+        for (const qreal v : *history) {
             high = qMax(high, v);
         }
     }
@@ -332,7 +336,7 @@ qreal GpuMonitor::temperatureHigh() const
 qreal GpuMonitor::powerHigh() const
 {
     qreal high = m_reading.powerLimit.value_or(100);
-    for (qreal v : m_power) {
+    for (const qreal v : m_power) {
         high = qMax(high, v);
     }
     return qCeil(high / 50) * 50;

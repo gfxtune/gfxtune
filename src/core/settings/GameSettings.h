@@ -9,8 +9,18 @@
 #include <QString>
 #include <QStringList>
 
+#include <algorithm>
+#include <array>
+#include <span>
+
 namespace gfxtune::settings
 {
+
+// Whether `value` is one of the values a setting offers.
+constexpr bool offered(std::span<const int> values, int value)
+{
+    return std::ranges::find(values, value) != values.end();
+}
 
 enum class VerticalSync {
     GameDefault,
@@ -70,9 +80,12 @@ struct GameSettings {
     static constexpr int MinFrameCap = 10;
     static constexpr int MaxFrameCap = 1000;
     static constexpr int MaxSharpness = 20;
-    static const QList<int> AnisotropicLevels;
-    static const QList<int> LodBiasLevels;
-    static const QList<int> RenderScales;
+    static constexpr std::array AnisotropicLevels{0, 2, 4, 8, 16};
+    // Game decides, sharper in quarter steps, then softer.
+    static constexpr std::array LodBiasLevels{0, -25, -50, -75, -100, -150, -200, 50, 100};
+    // Native, then the usual upscaler presets: ultra quality, quality,
+    // balanced, performance, ultra performance, then supersampling.
+    static constexpr std::array RenderScales{100, 77, 67, 59, 50, 33, 125, 150, 200};
 
     bool isDefault() const { return *this == GameSettings{}; }
     bool supersampling() const { return gamescope && renderScale > 100; }

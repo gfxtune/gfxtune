@@ -3,6 +3,7 @@
 
 #include "LaunchLines.h"
 
+#include "Errors.h"
 #include "LaunchLine.h"
 #include "vdf/TextVdf.h"
 #include "vdf/TextVdfEdit.h"
@@ -34,7 +35,7 @@ const QStringList &appsPath()
 QList<LineChange> planLineChanges(const QHash<quint32, QString> &launchOptions, const QSet<quint32> &wanted)
 {
     QList<LineChange> changes;
-    for (quint32 appId : wanted) {
+    for (const quint32 appId : wanted) {
         const QString before = launchOptions.value(appId);
         const QString after = withHelper(before);
         if (after != before) {
@@ -46,7 +47,7 @@ QList<LineChange> planLineChanges(const QHash<quint32, QString> &launchOptions, 
             changes.append({it.key(), it.value(), withoutHelper(it.value())});
         }
     }
-    std::sort(changes.begin(), changes.end(), [](const LineChange &a, const LineChange &b) { return a.appId < b.appId; });
+    std::ranges::sort(changes, [](const LineChange &a, const LineChange &b) { return a.appId < b.appId; });
     return changes;
 }
 
@@ -88,10 +89,7 @@ bool syncLaunchLines(const QString &localConfigPath, const QSet<quint32> &wanted
         return true;
     }
     if (!QFileInfo::exists(localConfigPath)) {
-        if (error) {
-            *error = QStringLiteral("Steam has not created %1 yet").arg(localConfigPath);
-        }
-        return false;
+        return fail(error, QStringLiteral("Steam has not created %1 yet").arg(localConfigPath));
     }
     QList<vdf::ValueEdit> edits;
     for (const LineChange &change : changes) {

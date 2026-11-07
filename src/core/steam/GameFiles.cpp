@@ -40,8 +40,8 @@ struct FolderIndex {
 };
 
 // What is said when only a guess can be made.
-const QString SomeAntiCheat = QStringLiteral("anti-cheat");
-const QString KernelDriver = QStringLiteral("a kernel driver, most likely anti-cheat");
+constexpr QLatin1StringView SomeAntiCheat("anti-cheat");
+constexpr QLatin1StringView KernelDriver("a kernel driver, most likely anti-cheat");
 
 void addAntiCheat(FolderIndex &index, const QString &name)
 {
@@ -208,7 +208,7 @@ GraphicsApis apisFromLibraries(const QStringList &libraries)
 QString antiCheatOfFile(const QString &fileName)
 {
     const auto is = [&fileName](std::initializer_list<const char *> names) {
-        return std::any_of(names.begin(), names.end(), [&fileName](const char *name) { return fileName == QLatin1String(name); });
+        return std::ranges::any_of(names, [&fileName](const char *name) { return fileName == QLatin1String(name); });
     };
     if (fileName.startsWith(QLatin1String("easyanticheat")) || is({"start_protected_game.exe"})) {
         return QStringLiteral("Easy Anti-Cheat");
@@ -299,7 +299,7 @@ GameFileReport inspectGameFiles(const QString &installPath, const QStringList &e
     // The launch entry is often a small launcher. Try the largest programs,
     // which are usually the game itself.
     std::vector<Program> programs = index.programs;
-    std::sort(programs.begin(), programs.end(), [](const Program &a, const Program &b) { return a.size > b.size; });
+    std::ranges::sort(programs, [](const Program &a, const Program &b) { return a.size > b.size; });
     int tried = 0;
     for (const Program &program : programs) {
         if (checked.contains(program.path)) {

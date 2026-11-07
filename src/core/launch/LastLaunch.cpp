@@ -79,7 +79,7 @@ std::optional<LastLaunch> readLastLaunch(const QString &baseDir, quint32 appId)
     if (!QFileInfo::exists(path)) {
         return std::nullopt;
     }
-    QSettings in(path, QSettings::IniFormat);
+    const QSettings in(path, QSettings::IniFormat);
     LastLaunch last;
     last.time = QDateTime::fromString(in.value(QStringLiteral("launch/time")).toString(), Qt::ISODate);
     if (!last.time.isValid()) {

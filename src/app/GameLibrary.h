@@ -8,12 +8,14 @@
 #include "steam/SteamLibrary.h"
 #include "steam/SteamWatcher.h"
 
+#include <QDateTime>
 #include <QFutureWatcher>
 #include <QObject>
 #include <QTimer>
 #include <QtQmlIntegration>
 
 #include <memory>
+#include <optional>
 
 namespace gfxtune
 {
@@ -123,6 +125,15 @@ private:
     int m_gamesUsingGlobal = 0;
     bool m_steamRunning = false;
     QString m_launchLineProblem;
+    // Steam's file as the last successful sync left it, and the games that
+    // had the line then: while neither changes there is nothing to do.
+    struct Synced {
+        QSet<quint32> wanted;
+        QDateTime modified;
+        qint64 size = -1;
+    };
+    std::optional<Synced> m_synced;
+    QSet<QString> m_reportedWarnings; // Steam file problems already logged
     bool m_loaded = false;
     bool m_scanning = false;
     bool m_inspecting = false;

@@ -57,7 +57,7 @@ private:
     std::mutex m_mutex;
     std::vector<Source> m_sources;
     std::chrono::milliseconds m_interval;
-    std::chrono::steady_clock::time_point m_lastCheck{};
+    std::chrono::steady_clock::time_point m_lastCheck;
     bool m_checked = false;
     filters::LayerConfig m_config;
 };

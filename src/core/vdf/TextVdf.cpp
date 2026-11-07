@@ -3,7 +3,9 @@
 
 #include "TextVdf.h"
 
+#include "Errors.h"
 #include "TextVdfTokenizer.h"
+#include "shared/Sizes.h"
 
 #include <QFile>
 
@@ -19,14 +21,6 @@ namespace
 
 constexpr int MaxDepth = 128;
 
-bool fail(QString *error, const QString &message)
-{
-    if (error) {
-        *error = message;
-    }
-    return false;
-}
-
 } // namespace
 
 bool parseText(QByteArrayView data, Node &root, QString *error)
@@ -38,7 +32,7 @@ bool parseText(QByteArrayView data, Node &root, QString *error)
     std::vector<Node *> open{&root};
 
     // Conditionals may follow keys and values; they carry no data we use.
-    auto nextToken = [&tokens]() {
+    const auto nextToken = [&tokens] {
         Token token = tokens.next();
         while (token.type == TokenType::Conditional) {
             token = tokens.next();
@@ -103,7 +97,7 @@ bool readTextFile(const QString &path, Node &root, QString *error, qint64 maxByt
         return fail(error, file.errorString());
     }
     if (file.size() > maxBytes) {
-        return fail(error, QStringLiteral("file is larger than %1 MB").arg(maxBytes / (1024 * 1024)));
+        return fail(error, QStringLiteral("file is larger than %1 MB").arg(maxBytes / MiB));
     }
     const QByteArray data = file.readAll();
     QString problem;

@@ -50,7 +50,7 @@ bool readNumber(const std::string &path, double &out)
 std::uint32_t readHex(const std::string &path)
 {
     std::string text = readSmallFile(path);
-    if (text.rfind("0x", 0) == 0) {
+    if (text.starts_with("0x")) {
         text.erase(0, 2);
     }
     std::uint32_t value = 0;
@@ -62,7 +62,8 @@ std::vector<std::string> entries(const std::string &dir)
 {
     std::vector<std::string> names;
     if (DIR *d = opendir(dir.c_str())) {
-        while (const dirent *e = readdir(d)) {
+        // Our own stream, read by this thread only.
+        while (const dirent *e = readdir(d)) { // NOLINT(concurrency-mt-unsafe)
             const std::string name = e->d_name;
             if (name != "." && name != "..") {
                 names.push_back(name);
@@ -97,7 +98,7 @@ bool GpuSensors::find(const std::string &sysfsRoot, std::uint32_t vendorId, std:
     const std::string drm = sysfsRoot + "/class/drm/";
     for (const std::string &card : entries(drm)) {
         // card0, card1...; not the connectors (card0-DP-1).
-        if (card.rfind("card", 0) != 0 || card.find('-') != std::string::npos) {
+        if (!card.starts_with("card") || card.find('-') != std::string::npos) {
             continue;
         }
         const std::string device = drm + card + "/device/";
@@ -105,7 +106,8 @@ bool GpuSensors::find(const std::string &sysfsRoot, std::uint32_t vendorId, std:
             continue;
         }
         for (const std::string &hwmon : entries(device + "hwmon")) {
-            const std::string dir = device + "hwmon/" + hwmon + "/";
+            std::string dir = device + "hwmon/";
+            dir.append(hwmon).append("/");
             for (int i = 1; i <= 9; ++i) {
                 const std::string label = readSmallFile(dir + "temp" + std::to_string(i) + "_label");
                 const std::string input = dir + "temp" + std::to_string(i) + "_input";
@@ -177,7 +179,7 @@ PerformanceRecorder::PerformanceRecorder(std::string dir, std::string sysfsRoot,
 PerformanceRecorder::~PerformanceRecorder()
 {
     {
-        std::lock_guard lock(m_mutex);
+        const std::scoped_lock lock(m_mutex);
         m_stop = true;
     }
     m_wake.notify_all();
@@ -194,7 +196,7 @@ std::string PerformanceRecorder::sessionPath() const
 
 void PerformanceRecorder::frame(Clock::time_point at)
 {
-    std::lock_guard lock(m_mutex);
+    const std::scoped_lock lock(m_mutex);
     if (m_last != Clock::time_point{}) {
         const std::int64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>(at - m_last).count();
         m_session.add(ns);
@@ -209,7 +211,7 @@ void PerformanceRecorder::frame(Clock::time_point at)
 
 void PerformanceRecorder::setDevice(std::uint32_t vendorId, std::uint32_t deviceId)
 {
-    std::lock_guard lock(m_mutex);
+    const std::scoped_lock lock(m_mutex);
     if (vendorId != m_vendor || deviceId != m_device) {
         m_vendor = vendorId;
         m_device = deviceId;
@@ -241,7 +243,7 @@ void PerformanceRecorder::tick(bool writeSession)
     std::uint32_t device = 0;
     bool deviceChanged = false;
     {
-        std::lock_guard lock(m_mutex);
+        const std::scoped_lock lock(m_mutex);
         frames = m_secondFrames;
         sumNs = m_secondSumNs;
         maxNs = m_secondMaxNs;

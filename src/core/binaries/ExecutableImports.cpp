@@ -3,6 +3,8 @@
 
 #include "ExecutableImports.h"
 
+#include "Errors.h"
+
 #include <QFile>
 #include <QtEndian>
 
@@ -19,14 +21,6 @@ namespace
 constexpr int MaxDescriptors = 4096;
 constexpr int MaxSections = 96;
 constexpr qsizetype MaxNameLength = 512;
-
-bool fail(QString *error, const QString &message)
-{
-    if (error) {
-        *error = message;
-    }
-    return false;
-}
 
 class Bytes
 {
@@ -146,7 +140,9 @@ bool parsePe(const Bytes &in, Imports &out, QString *error)
     }
 
     out.format = ExecutableFormat::Windows;
-    auto addName = [&](quint64 rva) {
+    // The address in a data directory entry (8 bytes each: address, size).
+    const auto directoryAddress = [&](int index) { return in.get<quint32>(directories + qint64(index) * 8); };
+    const auto addName = [&](quint64 rva) {
         if (const auto offset = rvaToOffset(sections, rva)) {
             if (const auto name = in.name(*offset)) {
                 const QString lower = name->toLower();
@@ -159,7 +155,7 @@ bool parsePe(const Bytes &in, Imports &out, QString *error)
 
     // Regular imports: data directory 1, 20-byte descriptors.
     if (*directoryCount > 1) {
-        const auto rva = in.get<quint32>(directories + 8);
+        const auto rva = directoryAddress(1);
         if (rva && *rva) {
             if (const auto start = rvaToOffset(sections, *rva)) {
                 for (int i = 0; i < MaxDescriptors; ++i) {
@@ -178,7 +174,7 @@ bool parsePe(const Bytes &in, Imports &out, QString *error)
     // Delay-loaded imports: data directory 13, 32-byte descriptors. Many
     // engines delay-load their Direct3D libraries.
     if (*directoryCount > 13) {
-        const auto rva = in.get<quint32>(directories + 13 * 8);
+        const auto rva = directoryAddress(13);
         if (rva && *rva) {
             if (const auto start = rvaToOffset(sections, *rva)) {
                 for (int i = 0; i < MaxDescriptors; ++i) {
@@ -304,9 +300,9 @@ bool parseElf(const Bytes &in, Imports &out, QString *error)
         if (*tag == 1) {
             needed.push_back(*value);
         } else if (*tag == 5) {
-            strtab = *value;
+            strtab = value;
         } else if (*tag == 10) {
-            strsz = *value;
+            strsz = value;
         }
     }
     if (!strtab) {
@@ -325,7 +321,7 @@ bool parseElf(const Bytes &in, Imports &out, QString *error)
     if (!tableOffset) {
         return true;
     }
-    for (quint64 index : needed) {
+    for (const quint64 index : needed) {
         if (strsz && index >= *strsz) {
             continue;
         }

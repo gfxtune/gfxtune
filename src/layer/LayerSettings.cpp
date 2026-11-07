@@ -3,6 +3,8 @@
 
 #include "LayerSettings.h"
 
+#include "shared/Sizes.h"
+
 #include <charconv>
 #include <cstdio>
 #include <fstream>
@@ -134,7 +136,7 @@ SettingsFile::SettingsFile(std::vector<std::string> paths, std::chrono::millisec
 
 filters::LayerConfig SettingsFile::config(std::chrono::steady_clock::time_point now)
 {
-    std::lock_guard lock(m_mutex);
+    const std::scoped_lock lock(m_mutex);
     if (m_checked && now - m_lastCheck < m_interval) {
         return m_config;
     }
@@ -163,7 +165,7 @@ filters::LayerConfig SettingsFile::config(std::chrono::steady_clock::time_point 
 void SettingsFile::reload()
 {
     // The app writes a few hundred bytes; never read much more than that.
-    constexpr std::streamsize MaxSize = 64 * 1024;
+    constexpr std::streamsize MaxSize = 64 * KiB;
     LayerSettings settings;
     for (const Source &source : m_sources) {
         if (source.size < 0) {

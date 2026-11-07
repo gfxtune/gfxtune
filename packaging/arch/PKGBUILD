@@ -11,8 +11,10 @@ pkgrel=1
 pkgdesc='Graphics and game tuning for Steam games, with in-game filters and GPU readings'
 arch=('x86_64')
 license=('GPL-3.0-or-later')
-# No link-time optimisation: GCC 16 at -O3 with LTO (CachyOS's default)
-# miscompiled the Steam file readers; every test passes without it.
+# No link-time optimisation: GCC 16.2 with LTO (CachyOS's default) turns
+# Qt's QStringView::compare() in a loop into a jump to unrelated code, which
+# broke the Steam file readers. A 30-line program without gfxtune's code
+# shows it; -fno-ipa-cp or -fno-thread-jumps hide it. check() catches it.
 options=('!debug' '!lto')
 depends=('qt6-base' 'qt6-declarative' 'kirigami' 'kquickcharts' 'qqc2-desktop-style' 'libdrm')
 makedepends=('cmake' 'glslang' 'vulkan-headers' 'vulkan-icd-loader')

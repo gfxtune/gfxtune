@@ -77,7 +77,7 @@ private:
 
     // Guarded by m_mutex.
     shared::FrameHistogram m_session;
-    Clock::time_point m_last{};
+    Clock::time_point m_last;
     std::uint64_t m_secondFrames = 0;
     std::int64_t m_secondSumNs = 0;
     std::int64_t m_secondMaxNs = 0;

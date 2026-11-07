@@ -6,8 +6,8 @@
 #include <algorithm>
 #include <cerrno>
 
+#include <ctime>
 #include <sched.h>
-#include <time.h>
 
 namespace gfxtune::layer
 {

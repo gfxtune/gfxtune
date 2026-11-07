@@ -3,6 +3,7 @@
 
 #include "AppInfo.h"
 
+#include "Errors.h"
 #include "vdf/BinaryVdf.h"
 
 #include <QFile>
@@ -25,14 +26,6 @@ constexpr qsizetype BytesBeforeSizeEnd = 8;
 
 constexpr qint32 MaxKeyTableEntries = 10'000'000;
 
-bool fail(QString *error, const QString &message)
-{
-    if (error) {
-        *error = message;
-    }
-    return false;
-}
-
 template<typename T>
 T readLE(QByteArrayView data, qsizetype pos)
 {
@@ -44,7 +37,7 @@ bool readKeyTable(QByteArrayView data, qint64 offset, QStringList &keys, QString
     if (offset < 16 || offset > data.size() - 4) {
         return fail(error, QStringLiteral("key table position is outside the file"));
     }
-    const qint32 count = readLE<qint32>(data, qsizetype(offset));
+    const auto count = readLE<qint32>(data, qsizetype(offset));
     if (count < 0 || count > MaxKeyTableEntries) {
         return fail(error, QStringLiteral("key table has an impossible size (%1)").arg(count));
     }
@@ -80,14 +73,14 @@ bool readAppInfo(const QString &path, const QSet<quint32> &wanted, AppInfoFile &
     // a few entries are needed.
     QByteArray buffer;
     QByteArrayView data;
-    if (uchar *mapped = file.map(0, size)) {
+    if (const uchar *mapped = file.map(0, size)) {
         data = QByteArrayView(reinterpret_cast<const char *>(mapped), qsizetype(size));
     } else {
         buffer = file.readAll();
         data = buffer;
     }
 
-    const quint32 magic = readLE<quint32>(data, 0);
+    const auto magic = readLE<quint32>(data, 0);
     qsizetype pos = 8; // magic and universe
     qsizetype limit = data.size();
     QStringList keyTable;
@@ -99,7 +92,7 @@ bool readAppInfo(const QString &path, const QSet<quint32> &wanted, AppInfoFile &
         if (data.size() < 16) {
             return fail(error, QStringLiteral("file is too short"));
         }
-        const qint64 tableOffset = readLE<qint64>(data, pos);
+        const auto tableOffset = readLE<qint64>(data, pos);
         if (!readKeyTable(data, tableOffset, keyTable, error)) {
             return false;
         }
@@ -112,14 +105,14 @@ bool readAppInfo(const QString &path, const QSet<quint32> &wanted, AppInfoFile &
 
     qsizetype remaining = wanted.size();
     while (remaining > 0 && limit - pos >= 4) {
-        const quint32 appId = readLE<quint32>(data, pos);
+        const auto appId = readLE<quint32>(data, pos);
         if (appId == 0) {
             break; // end marker
         }
         if (limit - pos < EntryHeaderSize) {
             return fail(error, QStringLiteral("entry for app %1 is cut off").arg(appId));
         }
-        const quint32 entrySize = readLE<quint32>(data, pos + 4);
+        const auto entrySize = readLE<quint32>(data, pos + 4);
         const qint64 entryEnd = qint64(pos) + BytesBeforeSizeEnd + entrySize;
         if (entrySize < EntryHeaderSize - BytesBeforeSizeEnd || entryEnd > limit) {
             return fail(error, QStringLiteral("entry for app %1 has an impossible size").arg(appId));

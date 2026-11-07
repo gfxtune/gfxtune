@@ -49,7 +49,7 @@ void setUpCommandLine(QCommandLineParser &parser)
 int main(int argc, char *argv[])
 {
     if (wantsTextOnly(argc, argv)) {
-        QCoreApplication app(argc, argv);
+        const QCoreApplication app(argc, argv);
         QCoreApplication::setApplicationName(QStringLiteral("gfxtune"));
         QCoreApplication::setApplicationVersion(QStringLiteral(PROJECT_VERSION));
         QCommandLineParser parser;
