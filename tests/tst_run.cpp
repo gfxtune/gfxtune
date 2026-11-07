@@ -25,7 +25,8 @@ namespace
 
 // Records its arguments (one per line, so spaces inside them show) and the
 // variables gfxtune sets.
-const QByteArray GameScript = "#!/bin/sh\n"
+const QByteArray GameScript =
+    "#!/bin/sh\n"
     "{\n"
     "  for a in \"$@\"; do printf 'arg=%s\\n' \"$a\"; done\n"
     "  for v in RADV_TEX_ANISO MESA_VK_WSI_PRESENT_MODE DXVK_CONFIG VKD3D_FRAME_RATE PROTON_FSR4_UPGRADE \\\n"
@@ -42,7 +43,8 @@ QByteArray wrapperScript(const QByteArray &name)
 }
 
 // Records its own arguments, then starts what follows "--".
-const QByteArray GamescopeScript = "#!/bin/sh\n"
+const QByteArray GamescopeScript =
+    "#!/bin/sh\n"
     "printf '%s\\n' \"$*\" > \"$TEST_OUT.gamescope\"\n"
     "while [ \"$1\" != \"--\" ]; do shift; done\n"
     "shift\n"
@@ -121,16 +123,24 @@ private:
     QStringList wrappersSaw() const
     {
         QFile file(m_out + QStringLiteral(".wrappers"));
-        return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts) : QStringList();
+        return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts)
+                                              : QStringList();
     }
 
     QStringList gameCommand() const { return {path(QStringLiteral("game.sh")), QStringLiteral("-dx12"), QStringLiteral("two words")}; }
+    // The game as Steam starts it under Proton, with a stand-in for Proton.
+    QStringList protonCommand() const
+    {
+        return QStringList{path(QStringLiteral("tools/Proton 11.0/proton")), QStringLiteral("waitforexitandrun")} + gameCommand();
+    }
 
 private Q_SLOTS:
     void initTestCase()
     {
         m_out = path(QStringLiteral("out.txt"));
         QVERIFY(test::writeFile(path(QStringLiteral("game.sh")), GameScript, true));
+        // Drops its verb and starts the game.
+        QVERIFY(test::writeFile(path(QStringLiteral("tools/Proton 11.0/proton")), "#!/bin/sh\nshift\nexec \"$@\"\n", true));
         QVERIFY(test::writeFile(path(QStringLiteral("bin/gamescope")), GamescopeScript, true));
         QVERIFY(test::writeFile(path(QStringLiteral("bin/gamemoderun")), wrapperScript("gamemoderun"), true));
         QVERIFY(test::writeFile(path(QStringLiteral("bin/mangohud")), wrapperScript("mangohud"), true));
@@ -218,7 +228,7 @@ private Q_SLOTS:
         s.frameCap = 90;
         s.fsr4 = settings::Fsr4::On;
         QVERIFY(test::saveGame(store(), 1001, s));
-        QCOMPARE(run(environment(QStringLiteral("1001")), gameCommand()), 0);
+        QCOMPARE(run(environment(QStringLiteral("1001")), protonCommand()), 0);
         const auto seen = gameSaw();
         QCOMPARE(seen.value(QStringLiteral("arg0")), QStringLiteral("-dx12"));
         QCOMPARE(seen.value(QStringLiteral("arg1")), QStringLiteral("two words"));
@@ -268,16 +278,13 @@ private Q_SLOTS:
 
     void capsProtonGamesInsideTheGameInGamescope()
     {
-        // A stand-in for Proton: drops its verb and starts the game.
-        const QString proton = path(QStringLiteral("tools/Proton 11.0/proton"));
-        QVERIFY(test::writeFile(proton, "#!/bin/sh\nshift\nexec \"$@\"\n", true));
         GameSettings s;
         s.measurePerformance = false; // the variables, not the layer
         s.gamescope = true;
         s.frameCapEnabled = true;
         s.frameCap = 60;
         QVERIFY(test::saveGame(store(), 1001, s));
-        QCOMPARE(run(environment(QStringLiteral("1001")), QStringList{proton, QStringLiteral("waitforexitandrun")} + gameCommand()), 0);
+        QCOMPARE(run(environment(QStringLiteral("1001")), protonCommand()), 0);
         // gamescope follows the monitor; DXVK and VKD3D-Proton hold the cap.
         const QString args = gamescopeSaw();
         QVERIFY2(args.startsWith(QLatin1String("-W ")), qPrintable(args));

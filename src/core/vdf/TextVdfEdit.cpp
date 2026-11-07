@@ -13,8 +13,8 @@ namespace gfxtune::vdf
 {
 
 using detail::Token;
-using detail::TokenType;
 using detail::Tokenizer;
+using detail::TokenType;
 
 namespace
 {

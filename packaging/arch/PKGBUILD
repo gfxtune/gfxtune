@@ -1,11 +1,14 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 gfxtune contributors
+
 # Builds gfxtune from the source folder this file belongs to.
 # From this folder:  makepkg -si
 # Remove with:       sudo pacman -R gfxtune
 
 pkgname=gfxtune
-pkgver=0.4.2
+pkgver=0.4.3
 pkgrel=1
-pkgdesc='Per-game graphics settings and live GPU readings for AMD Radeon cards'
+pkgdesc='Graphics and game tuning for Steam games, with in-game filters and GPU readings'
 arch=('x86_64')
 license=('GPL-3.0-or-later')
 # No link-time optimisation: GCC 16 at -O3 with LTO (CachyOS's default)

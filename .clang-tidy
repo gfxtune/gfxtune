@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 gfxtune contributors
+
+# Static checks for the C++ code. Left out: checks that only restate the
+# compiler's warnings (-Wconversion and friends are on), and those that
+# argue with Qt's own idioms (parent-owned raw pointers, Q_OBJECT macros).
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  clang-analyzer-*,
+  concurrency-*,
+  cppcoreguidelines-slicing,
+  cppcoreguidelines-virtual-class-destructor,
+  misc-*,
+  -misc-include-cleaner,
+  -misc-non-private-member-variables-in-classes,
+  -misc-no-recursion,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  -modernize-use-nodiscard,
+  -modernize-avoid-c-arrays,
+  performance-*,
+  portability-*,
+  readability-container-size-empty,
+  readability-duplicate-include,
+  readability-make-member-function-const,
+  readability-redundant-*,
+  readability-simplify-boolean-expr,
+HeaderFilterRegex: '/src/(app|core|filters|layer|run|shared)/'
+FormatStyle: file

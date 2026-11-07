@@ -1,0 +1,75 @@
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.\" SPDX-FileCopyrightText: 2026 gfxtune contributors
+.TH GFXTUNE 1 2026-11-07 "gfxtune @PROJECT_VERSION@" "User Commands"
+.SH NAME
+gfxtune \- graphics and game tuning for Steam games
+.SH SYNOPSIS
+.B gfxtune
+.RI [ option ]
+.SH DESCRIPTION
+.B gfxtune
+sets graphics options for all Steam games and for each game: anisotropic
+filtering, texture detail, vertical sync, a frame cap, FSR\~4, gamescope,
+GameMode, MangoHud, and in\-game filters (anti\-aliasing, sharpening and
+colour) drawn by its Vulkan layer. It also measures each play session and
+shows the graphics card's temperatures, power, clocks and load.
+.PP
+Settings reach a game through
+.BR gfxtune\-run (1),
+which gfxtune puts into the game's Steam launch options, before
+.BR %command% ,
+while Steam is closed. Without an option,
+.B gfxtune
+opens its window.
+.SH OPTIONS
+.TP
+.B \-\-list\-games
+Print the Steam games gfxtune finds and what it reads about each: how it
+runs (native or which Proton), the graphics libraries it loads, FSR\~3.1,
+anti\-cheat, and its current launch options. Only reads; nothing is changed.
+.TP
+.B \-\-remove\-launch\-lines
+Take
+.B gfxtune\-run
+out of every game's Steam launch options. Refuses while Steam is running,
+because Steam writes its settings back when it exits. The package does this
+for every user before gfxtune is removed.
+.TP
+.BR \-h ", " \-\-help
+Print the options and exit.
+.TP
+.BR \-v ", " \-\-version
+Print the version and exit.
+.SH FILES
+.TP
+.I ~/.config/gfxtune/global.ini
+The settings for all games.
+.TP
+.I ~/.config/gfxtune/games/APPID.ini
+One game's own changes to them, whether it uses them at all, an accepted
+anti\-cheat warning, and the anti\-cheat gfxtune found in the game.
+.TP
+.I ~/.config/gfxtune/last\-launch/
+What
+.B gfxtune\-run
+applied at each game's last start, and what the layer reported from inside it.
+.TP
+.I ~/.config/gfxtune/performance/APPID/
+Each game's measured play sessions.
+.PP
+gfxtune reads Steam's files where Steam keeps them and only ever changes
+the launch options of
+.IR localconfig.vdf .
+.SH ENVIRONMENT
+.TP
+.B STEAM_EXTRA_COMPAT_TOOLS_PATHS
+More folders with Proton builds, separated by colons, as Steam reads it.
+.SH EXIT STATUS
+0 on success; 1 when
+.B \-\-remove\-launch\-lines
+could not change Steam's settings, for example because Steam is running.
+.SH SEE ALSO
+.BR gfxtune\-run (1),
+.BR gamescope (1),
+.BR gamemoderun (1),
+.BR mangohud (1)

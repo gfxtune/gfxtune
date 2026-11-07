@@ -241,14 +241,38 @@ qreal GpuMonitor::fpsHigh() const
     return qCeil(high / 30) * 30;
 }
 
-QString GpuMonitor::temperature() const { return whole(m_reading.edgeTemp, QStringLiteral("°C")); }
-QString GpuMonitor::hotspot() const { return whole(m_reading.hotspotTemp, QStringLiteral("°C")); }
-QString GpuMonitor::memoryTemperature() const { return whole(m_reading.memoryTemp, QStringLiteral("°C")); }
-QString GpuMonitor::load() const { return whole(m_reading.load, QStringLiteral("%")); }
-QString GpuMonitor::memoryLoad() const { return whole(m_reading.memoryLoad, QStringLiteral("%")); }
-QString GpuMonitor::coreClock() const { return whole(m_reading.coreClock, QStringLiteral("MHz")); }
-QString GpuMonitor::memoryClock() const { return whole(m_reading.memoryClock, QStringLiteral("MHz")); }
-QString GpuMonitor::voltage() const { return whole(m_reading.voltage, QStringLiteral("mV")); }
+QString GpuMonitor::temperature() const
+{
+    return whole(m_reading.edgeTemp, QStringLiteral("°C"));
+}
+QString GpuMonitor::hotspot() const
+{
+    return whole(m_reading.hotspotTemp, QStringLiteral("°C"));
+}
+QString GpuMonitor::memoryTemperature() const
+{
+    return whole(m_reading.memoryTemp, QStringLiteral("°C"));
+}
+QString GpuMonitor::load() const
+{
+    return whole(m_reading.load, QStringLiteral("%"));
+}
+QString GpuMonitor::memoryLoad() const
+{
+    return whole(m_reading.memoryLoad, QStringLiteral("%"));
+}
+QString GpuMonitor::coreClock() const
+{
+    return whole(m_reading.coreClock, QStringLiteral("MHz"));
+}
+QString GpuMonitor::memoryClock() const
+{
+    return whole(m_reading.memoryClock, QStringLiteral("MHz"));
+}
+QString GpuMonitor::voltage() const
+{
+    return whole(m_reading.voltage, QStringLiteral("mV"));
+}
 
 QString GpuMonitor::power() const
 {
@@ -265,7 +289,9 @@ QString GpuMonitor::videoMemory() const
         return Missing;
     }
     constexpr double GiB = 1024.0 * 1024.0 * 1024.0;
-    return QStringLiteral("%1 / %2 GB").arg(double(*m_reading.vramUsed) / GiB, 0, 'f', 1).arg(double(*m_reading.vramTotal) / GiB, 0, 'f', 1);
+    return QStringLiteral("%1 / %2 GB")
+        .arg(double(*m_reading.vramUsed) / GiB, 0, 'f', 1)
+        .arg(double(*m_reading.vramTotal) / GiB, 0, 'f', 1);
 }
 
 QString GpuMonitor::fan() const

@@ -1,5 +1,6 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-or-later AND MIT
 // SPDX-FileCopyrightText: 2026 gfxtune contributors
+// SPDX-FileCopyrightText: 2020 Advanced Micro Devices, Inc.
 
 #pragma once
 

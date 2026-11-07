@@ -18,13 +18,20 @@ namespace
 QList<QPair<quint32, vdf::Node>> sampleApps()
 {
     return {
-        {10, section({}, {value(QStringLiteral("appid"), QStringLiteral("10")),
-                          section(QStringLiteral("common"), {value(QStringLiteral("name"), QStringLiteral("First")),
-                                                             value(QStringLiteral("type"), QStringLiteral("Game"))})})},
-        {20, section({}, {value(QStringLiteral("appid"), QStringLiteral("20")),
-                          section(QStringLiteral("common"), {value(QStringLiteral("name"), QStringLiteral("Second"))})})},
-        {30, section({}, {value(QStringLiteral("appid"), QStringLiteral("30")),
-                          section(QStringLiteral("common"), {value(QStringLiteral("name"), QStringLiteral("Third"))})})},
+        {10,
+         section(
+             {},
+             {value(QStringLiteral("appid"), QStringLiteral("10")),
+              section(QStringLiteral("common"),
+                      {value(QStringLiteral("name"), QStringLiteral("First")), value(QStringLiteral("type"), QStringLiteral("Game"))})})},
+        {20,
+         section({},
+                 {value(QStringLiteral("appid"), QStringLiteral("20")),
+                  section(QStringLiteral("common"), {value(QStringLiteral("name"), QStringLiteral("Second"))})})},
+        {30,
+         section({},
+                 {value(QStringLiteral("appid"), QStringLiteral("30")),
+                  section(QStringLiteral("common"), {value(QStringLiteral("name"), QStringLiteral("Third"))})})},
     };
 }
 

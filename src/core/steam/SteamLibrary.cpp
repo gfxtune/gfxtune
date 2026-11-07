@@ -121,8 +121,8 @@ QList<LibraryFolder> readLibraries(const QString &steamRoot, QStringList &warnin
 
 // Installed apps of one library, split into games-or-unknown and Steam's
 // own tools (Proton, the runtimes), recognized by their toolmanifest.vdf.
-void readManifests(const QString &library, std::vector<Manifest> &apps, QHash<quint32, Manifest> &tools,
-                   QList<SkippedApp> &skipped, QStringList &warnings)
+void readManifests(const QString &library, std::vector<Manifest> &apps, QHash<quint32, Manifest> &tools, QList<SkippedApp> &skipped,
+                   QStringList &warnings)
 {
     const QDir steamapps(library + QStringLiteral("/steamapps"));
     const QStringList files = steamapps.entryList({QStringLiteral("appmanifest_*.acf")}, QDir::Files, QDir::Name);
@@ -392,8 +392,8 @@ bool isGameType(const vdf::Node &appInfo)
 // Which runtime Steam uses, in Steam's order of precedence: the tool chosen
 // for this game, Valve's assignment for it, the game's own Linux version,
 // then the default tool for everything else.
-void resolveRuntime(Game &game, const vdf::Node *appInfo, const QHash<QString, QString> &mapping,
-                    const vdf::Node *valveMappings, const ToolCatalog &tools)
+void resolveRuntime(Game &game, const vdf::Node *appInfo, const QHash<QString, QString> &mapping, const vdf::Node *valveMappings,
+                    const ToolCatalog &tools)
 {
     const QString key = QString::number(game.appId);
     QString toolName = mapping.value(key);

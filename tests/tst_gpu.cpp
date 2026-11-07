@@ -45,7 +45,7 @@ void fakeFdinfo(const QString &proc, int pid, int fd, const QByteArray &text)
 QByteArray amdgpuClient(int client, const QByteArray &vram, const QByteArray &key = "drm-resident-vram")
 {
     return "pos:\t0\nflags:\t02100002\nmnt_id:\t25\ndrm-driver:\tamdgpu\ndrm-client-id:\t" + QByteArray::number(client)
-         + "\ndrm-memory-gtt:\t2048 KiB\n" + key + ":\t" + vram + "\n";
+        + "\ndrm-memory-gtt:\t2048 KiB\n" + key + ":\t" + vram + "\n";
 }
 
 // A hwmon sensor under <sys>/class/hwmon.
@@ -322,8 +322,10 @@ private Q_SLOTS:
         QTest::addColumn<int>("fanRpm");
         QTest::addColumn<int>("voltage");
         QTest::addColumn<QString>("videoMemory");
-        QTest::newRow("idle") << QStringLiteral("data/rx7900xt-idle.txt") << 69 << 26 << 84.0 << 68.0 << 592 << 663 << QStringLiteral("4.2 / 20.0 GB");
-        QTest::newRow("game") << QStringLiteral("data/rx7900xt-game.txt") << 32 << 1260 << 86.0 << 69.0 << 591 << 650 << QStringLiteral("4.5 / 20.0 GB");
+        QTest::newRow("idle") << QStringLiteral("data/rx7900xt-idle.txt") << 69 << 26 << 84.0 << 68.0 << 592 << 663
+                              << QStringLiteral("4.2 / 20.0 GB");
+        QTest::newRow("game") << QStringLiteral("data/rx7900xt-game.txt") << 32 << 1260 << 86.0 << 69.0 << 591 << 650
+                              << QStringLiteral("4.5 / 20.0 GB");
     }
 
     void readsARealRx7900Xt()
@@ -494,7 +496,8 @@ private Q_SLOTS:
         QVERIFY(!cpu::cpuLoad(*after, *after));
         QVERIFY(!cpu::cpuLoad(*after, *before));
 
-        for (const QByteArray &damaged : {QByteArray(), QByteArray("intr 1 2 3\n"), QByteArray("cpu  1 2\n"), QByteArray("cpu  1 2 x 4 5\n")}) {
+        for (const QByteArray &damaged :
+             {QByteArray(), QByteArray("intr 1 2 3\n"), QByteArray("cpu  1 2\n"), QByteArray("cpu  1 2 x 4 5\n")}) {
             test::writeFile(stat, damaged);
             QVERIFY2(!cpu::readCpuTimes(proc.path()), damaged.constData());
         }
@@ -579,7 +582,11 @@ private Q_SLOTS:
         const auto live = [&perf](quint32 appId, qint64 time, double fps) {
             test::writeFile(perf.filePath(QStringLiteral("%1/live").arg(appId)),
                             QStringLiteral("time=%1\nfps=%2\nframe_ms=%3\nframe_ms_max=%4\n")
-                                .arg(time).arg(fps).arg(1000.0 / fps).arg(2000.0 / fps).toUtf8());
+                                .arg(time)
+                                .arg(fps)
+                                .arg(1000.0 / fps)
+                                .arg(2000.0 / fps)
+                                .toUtf8());
         };
         const qint64 now = QDateTime::currentSecsSinceEpoch();
         live(1001, now - 60, 30); // a game that stopped a minute ago
@@ -590,7 +597,8 @@ private Q_SLOTS:
         // The game's processes: Steam's reaper, the game below it, and what holds memory on the card.
         const QByteArray reaper = "/x/Steam/ubuntu12_32/reaper";
         test::writeFile(proc.filePath(QStringLiteral("50/comm")), "reaper\n");
-        test::writeFile(proc.filePath(QStringLiteral("50/cmdline")), reaper + '\0' + "SteamLaunch" + '\0' + "AppId=1002" + '\0' + "--" + '\0' + "./game" + '\0');
+        test::writeFile(proc.filePath(QStringLiteral("50/cmdline")),
+                        reaper + '\0' + "SteamLaunch" + '\0' + "AppId=1002" + '\0' + "--" + '\0' + "./game" + '\0');
         test::writeFile(proc.filePath(QStringLiteral("50/stat")), "50 (reaper) S 1 50 50 0\n");
         test::writeFile(proc.filePath(QStringLiteral("51/stat")), "51 (game) S 50 50 50 0\n");
         fakeFdinfo(proc.path(), 51, 4, amdgpuClient(3, "3145728 KiB"));

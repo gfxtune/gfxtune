@@ -12,14 +12,14 @@
 
 using namespace gfxtune;
 using namespace gfxtune::steam;
-using test::section;
-using test::value;
-using vdf::Node;
 using test::FakeSteam;
 using test::file;
 using test::OlderAccount;
 using test::RecentAccount;
 using test::RecentAccountFolder;
+using test::section;
+using test::value;
+using vdf::Node;
 
 namespace
 {
@@ -71,8 +71,9 @@ private Q_SLOTS:
         for (const Game &game : scan.games) {
             names << game.name;
         }
-        QCOMPARE(names, (QStringList{s("App 1010"), s("Ashfall Protocol"), s("Copper Coast"), s("Hollow Orbit"), s("Lanternfall"),
-                                     s("Neon Drift"), s("Stonewake")}));
+        QCOMPARE(names,
+                 (QStringList{s("App 1010"), s("Ashfall Protocol"), s("Copper Coast"), s("Hollow Orbit"), s("Lanternfall"), s("Neon Drift"),
+                              s("Stonewake")}));
         // The damaged manifest is reported, not fatal.
         QVERIFY(scan.warnings.filter(s("appmanifest_1012.acf")).size() == 1);
     }
@@ -179,11 +180,13 @@ private Q_SLOTS:
     {
         FakeSteam steam;
         steam.build();
-        steam.text(steam.root + s("/config/loginusers.vdf"), file({section(s("users"), {
-            section(QString::number(OlderAccount), {value(s("Timestamp"), s("1800000000"))}),
-            section(QString::number(RecentAccount), {value(s("Timestamp"), s("1700000000"))}),
-            value(s("junk"), s("x")),
-        })}));
+        steam.text(steam.root + s("/config/loginusers.vdf"),
+                   file({section(s("users"),
+                                 {
+                                     section(QString::number(OlderAccount), {value(s("Timestamp"), s("1800000000"))}),
+                                     section(QString::number(RecentAccount), {value(s("Timestamp"), s("1700000000"))}),
+                                     value(s("junk"), s("x")),
+                                 })}));
         const SteamScan scan = scanSteam(steam.options());
         QCOMPARE(scan.accountId, quint32(OlderAccount & 0xFFFFFFFFu));
         QVERIFY(findGame(scan, 1001)->launchOptions.isEmpty()); // that account has no settings file
@@ -218,10 +221,12 @@ private Q_SLOTS:
     {
         FakeSteam steam;
         steam.build();
-        steam.text(steam.root + s("/steamapps/libraryfolders.vdf"), file({section(s("LibraryFolders"), {
-            value(s("TimeNextStatsReport"), s("1")),
-            value(s("1"), steam.lib2),
-        })}));
+        steam.text(steam.root + s("/steamapps/libraryfolders.vdf"),
+                   file({section(s("LibraryFolders"),
+                                 {
+                                     value(s("TimeNextStatsReport"), s("1")),
+                                     value(s("1"), steam.lib2),
+                                 })}));
         const SteamScan scan = scanSteam(steam.options());
         QCOMPARE(scan.libraries.size(), 2);
         QVERIFY(findGame(scan, 1002));

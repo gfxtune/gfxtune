@@ -17,18 +17,19 @@ class TextVdfTest : public QObject
 private Q_SLOTS:
     void readsNestedSections()
     {
-        const QByteArray text = "\"libraryfolders\"\n"
-        "{\n"
-        "\t\"0\"\n"
-        "\t{\n"
-        "\t\t\"path\"\t\t\"/games/steam\"\n"
-        "\t\t\"apps\"\n"
-        "\t\t{\n"
-        "\t\t\t\"1001\"\t\t\"12345\"\n"
-        "\t\t}\n"
-        "\t}\n"
-        "\t\"contentstatsid\"\t\t\"-123\"\n"
-        "}";
+        const QByteArray text =
+            "\"libraryfolders\"\n"
+            "{\n"
+            "\t\"0\"\n"
+            "\t{\n"
+            "\t\t\"path\"\t\t\"/games/steam\"\n"
+            "\t\t\"apps\"\n"
+            "\t\t{\n"
+            "\t\t\t\"1001\"\t\t\"12345\"\n"
+            "\t\t}\n"
+            "\t}\n"
+            "\t\"contentstatsid\"\t\t\"-123\"\n"
+            "}";
         Node root;
         QString error;
         QVERIFY2(vdf::parseText(text, root, &error), qPrintable(error));
@@ -67,13 +68,14 @@ private Q_SLOTS:
 
     void skipsCommentsAndConditionals()
     {
-        const QByteArray text = "// leading comment\n"
-        "\"root\" // after a key\n"
-        "{\n"
-        "\t\"a\"\t\"1\"\t[$WIN32]\n"
-        "\t\"b\" [$LINUX] { \"c\" \"2\" }\n"
-        "\t// \"hidden\" \"3\"\n"
-        "}";
+        const QByteArray text =
+            "// leading comment\n"
+            "\"root\" // after a key\n"
+            "{\n"
+            "\t\"a\"\t\"1\"\t[$WIN32]\n"
+            "\t\"b\" [$LINUX] { \"c\" \"2\" }\n"
+            "\t// \"hidden\" \"3\"\n"
+            "}";
         Node root;
         QString error;
         QVERIFY2(vdf::parseText(text, root, &error), qPrintable(error));
@@ -180,10 +182,11 @@ private Q_SLOTS:
     {
         Node original;
         original.isSection = true;
-        original.children.push_back(test::section(QStringLiteral("A"), {
-            test::value(QStringLiteral("quote\"key"), QStringLiteral("back\\slash \"q\"")),
-            test::section(QStringLiteral("empty"), {}),
-        }));
+        original.children.push_back(test::section(QStringLiteral("A"),
+                                                  {
+                                                      test::value(QStringLiteral("quote\"key"), QStringLiteral("back\\slash \"q\"")),
+                                                      test::section(QStringLiteral("empty"), {}),
+                                                  }));
         Node parsed;
         QVERIFY(vdf::parseText(test::writeText(original), parsed));
         QCOMPARE(parsed.find({u"A", u"quote\"key"})->value, QStringLiteral("back\\slash \"q\""));
@@ -192,7 +195,9 @@ private Q_SLOTS:
 
     void survivesDamagedInput()
     {
-        const QByteArray sample = "\"UserLocalConfigStore\" { \"Software\" { \"Valve\" { \"Steam\" { \"apps\" { \"1001\" { \"LaunchOptions\" \"x \\\"y\\\" %command%\" } } } } } }";
+        const QByteArray sample =
+            "\"UserLocalConfigStore\" { \"Software\" { \"Valve\" { \"Steam\" { \"apps\" { \"1001\" { \"LaunchOptions\" \"x \\\"y\\\" "
+            "%command%\" } } } } } }";
         std::mt19937 random(20261020);
         for (int i = 0; i < 20000; ++i) {
             Node root;

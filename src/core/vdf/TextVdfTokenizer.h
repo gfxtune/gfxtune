@@ -148,8 +148,7 @@ private:
         const qsizetype start = m_pos;
         while (m_pos < m_data.size()) {
             const char c = m_data[m_pos];
-            if (c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' || c == '\v' || c == '"' || c == '{'
-                || c == '}') {
+            if (c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' || c == '\v' || c == '"' || c == '{' || c == '}') {
                 break;
             }
             ++m_pos;

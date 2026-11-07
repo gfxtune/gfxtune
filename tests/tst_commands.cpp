@@ -37,8 +37,7 @@ private:
             process.kill();
             return {};
         }
-        return {process.exitStatus() == QProcess::NormalExit ? process.exitCode() : -1,
-                QString::fromUtf8(process.readAllStandardOutput())};
+        return {process.exitStatus() == QProcess::NormalExit ? process.exitCode() : -1, QString::fromUtf8(process.readAllStandardOutput())};
     }
 
     // The lines printed for one game, from its heading to the blank line.

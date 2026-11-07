@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 gfxtune contributors
+
 # Private working notes and development helpers, never published
 CLAUDE.md
 CONTEXT.md
@@ -16,6 +19,8 @@ CONTEXT.md
 
 # Tooling caches and editor files
 /.cache/
+__pycache__/
+.pytest_cache/
 compile_commands.json
 CMakeLists.txt.user*
 *.swp

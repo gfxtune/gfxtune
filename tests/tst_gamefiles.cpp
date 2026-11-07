@@ -19,10 +19,7 @@ class GameFilesTest : public QObject
 private:
     QTemporaryDir m_dir;
 
-    QString gameFolder(const QString &name)
-    {
-        return m_dir.filePath(name);
-    }
+    QString gameFolder(const QString &name) { return m_dir.filePath(name); }
 
 private Q_SLOTS:
     void followsLaunchEntryIgnoringCaseAndSlashes()
@@ -38,8 +35,10 @@ private Q_SLOTS:
         // Engines such as Unity: the program loads the engine library, which
         // loads Direct3D.
         const QString root = gameFolder(QStringLiteral("engine"));
-        QVERIFY(test::writeFile(root + QStringLiteral("/Game.exe"), test::writePe(true, {QStringLiteral("UnityPlayer.dll"), QStringLiteral("kernel32.dll")})));
-        QVERIFY(test::writeFile(root + QStringLiteral("/UnityPlayer.dll"), test::writePe(true, {QStringLiteral("d3d11.dll")}, {QStringLiteral("d3d12.dll")})));
+        QVERIFY(test::writeFile(root + QStringLiteral("/Game.exe"),
+                                test::writePe(true, {QStringLiteral("UnityPlayer.dll"), QStringLiteral("kernel32.dll")})));
+        QVERIFY(test::writeFile(root + QStringLiteral("/UnityPlayer.dll"),
+                                test::writePe(true, {QStringLiteral("d3d11.dll")}, {QStringLiteral("d3d12.dll")})));
         const auto report = steam::inspectGameFiles(root, {QStringLiteral("Game.exe")}, true);
         QCOMPARE(report.apis, GraphicsApi::DirectX11 | GraphicsApi::DirectX12);
     }
@@ -61,12 +60,14 @@ private Q_SLOTS:
         // Unity's player links OpenGL and loads Direct3D 11 only at run time.
         const QString root = gameFolder(QStringLiteral("unity"));
         QVERIFY(test::writeFile(root + QStringLiteral("/Raftlike.exe"), test::writePe(true, {QStringLiteral("UnityPlayer.dll")})));
-        QVERIFY(test::writeFile(root + QStringLiteral("/UnityPlayer.dll"), test::writePe(true, {QStringLiteral("OPENGL32.dll"), QStringLiteral("kernel32.dll")})));
+        QVERIFY(test::writeFile(root + QStringLiteral("/UnityPlayer.dll"),
+                                test::writePe(true, {QStringLiteral("OPENGL32.dll"), QStringLiteral("kernel32.dll")})));
         auto report = steam::inspectGameFiles(root, {QStringLiteral("Raftlike.exe")}, true);
         QCOMPARE(report.apis, GraphicsApis(GraphicsApi::DirectX11));
 
         // A Unity game that links Vulkan keeps what it links.
-        QVERIFY(test::writeFile(root + QStringLiteral("/UnityPlayer.dll"), test::writePe(true, {QStringLiteral("vulkan-1.dll"), QStringLiteral("OPENGL32.dll")})));
+        QVERIFY(test::writeFile(root + QStringLiteral("/UnityPlayer.dll"),
+                                test::writePe(true, {QStringLiteral("vulkan-1.dll"), QStringLiteral("OPENGL32.dll")})));
         report = steam::inspectGameFiles(root, {QStringLiteral("Raftlike.exe")}, true);
         QVERIFY(report.apis & GraphicsApi::Vulkan);
     }
@@ -74,7 +75,8 @@ private Q_SLOTS:
     void dropsOpenGlWhenAWindowsGameLinksDirectX()
     {
         const QString root = gameFolder(QStringLiteral("both"));
-        QVERIFY(test::writeFile(root + QStringLiteral("/Game.exe"), test::writePe(true, {QStringLiteral("d3d11.dll"), QStringLiteral("opengl32.dll")})));
+        QVERIFY(test::writeFile(root + QStringLiteral("/Game.exe"),
+                                test::writePe(true, {QStringLiteral("d3d11.dll"), QStringLiteral("opengl32.dll")})));
         QCOMPARE(steam::inspectGameFiles(root, {QStringLiteral("Game.exe")}, true).apis, GraphicsApis(GraphicsApi::DirectX11));
 
         // Without DirectX or Unity, OpenGL is what it is.
@@ -84,7 +86,8 @@ private Q_SLOTS:
 
         // Native games are left as found: Linux libraries are a good guide.
         const QString native = gameFolder(QStringLiteral("native-both"));
-        QVERIFY(test::writeFile(native + QStringLiteral("/game"), test::writeElf(true, {QStringLiteral("libvulkan.so.1"), QStringLiteral("libGL.so.1")}), true));
+        QVERIFY(test::writeFile(native + QStringLiteral("/game"),
+                                test::writeElf(true, {QStringLiteral("libvulkan.so.1"), QStringLiteral("libGL.so.1")}), true));
         QCOMPARE(steam::inspectGameFiles(native, {QStringLiteral("game")}, false).apis, GraphicsApi::Vulkan | GraphicsApi::OpenGL);
     }
 
@@ -104,7 +107,8 @@ private Q_SLOTS:
     void readsNativeGames()
     {
         const QString root = gameFolder(QStringLiteral("native"));
-        QVERIFY(test::writeFile(root + QStringLiteral("/game.x86_64"), test::writeElf(true, {QStringLiteral("UnityPlayer.so"), QStringLiteral("libc.so.6")}), true));
+        QVERIFY(test::writeFile(root + QStringLiteral("/game.x86_64"),
+                                test::writeElf(true, {QStringLiteral("UnityPlayer.so"), QStringLiteral("libc.so.6")}), true));
         QVERIFY(test::writeFile(root + QStringLiteral("/UnityPlayer.so"), test::writeElf(true, {QStringLiteral("libGL.so.1")})));
         // Not executable, so not a program even though it is an ELF file.
         QVERIFY(test::writeFile(root + QStringLiteral("/data/tool"), test::writeElf(true, {QStringLiteral("libvulkan.so.1")})));
@@ -197,7 +201,8 @@ private Q_SLOTS:
         QVERIFY(test::writeFile(ace + QStringLiteral("/Game.exe"), test::writePe(true, {QStringLiteral("d3d12.dll")})));
         QVERIFY(test::writeFile(ace + QStringLiteral("/AntiCheatExpert/ACE-Base64.sys"), "x"));
         QVERIFY(test::writeFile(ace + QStringLiteral("/AntiCheatExpert/SGuard64.exe"), "x"));
-        QCOMPARE(steam::inspectGameFiles(ace, {QStringLiteral("Game.exe")}, true).antiCheat, QStringList{QStringLiteral("Anti-Cheat Expert")});
+        QCOMPARE(steam::inspectGameFiles(ace, {QStringLiteral("Game.exe")}, true).antiCheat,
+                 QStringList{QStringLiteral("Anti-Cheat Expert")});
 
         // Nothing by name: the guesses stay.
         const QString unknown = gameFolder(QStringLiteral("unknown-guard"));

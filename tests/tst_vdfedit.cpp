@@ -79,24 +79,29 @@ private Q_SLOTS:
 
     void addsAKeyToAnExistingSection()
     {
-        const QByteArray out = edited(sample(), {{QStringLiteral("Store"), QStringLiteral("APPS"), QStringLiteral("20")},
-                                                 QStringLiteral("LaunchOptions"), QStringLiteral("x")});
+        const QByteArray out = edited(sample(),
+                                      {{QStringLiteral("Store"), QStringLiteral("APPS"), QStringLiteral("20")},
+                                       QStringLiteral("LaunchOptions"),
+                                       QStringLiteral("x")});
         QVERIFY(!out.isEmpty());
         QVERIFY(out.contains("\t\t\"20\"\n\t\t{\n\t\t\t\"LaunchOptions\"\t\t\"x\"\n\t\t}"));
     }
 
     void createsMissingSections()
     {
-        const QByteArray out = edited(sample(), {{QStringLiteral("Store"), QStringLiteral("apps"), QStringLiteral("30")},
-                                                 QStringLiteral("LaunchOptions"), QStringLiteral("x")});
+        const QByteArray out = edited(sample(),
+                                      {{QStringLiteral("Store"), QStringLiteral("apps"), QStringLiteral("30")},
+                                       QStringLiteral("LaunchOptions"),
+                                       QStringLiteral("x")});
         QVERIFY(!out.isEmpty());
         QVERIFY(out.contains("\t\t\"30\"\n\t\t{\n\t\t\t\"LaunchOptions\"\t\t\"x\"\n\t\t}"));
 
-        const QByteArray deeper = edited(sample(), {{QStringLiteral("Store"), QStringLiteral("new"), QStringLiteral("deep")},
-                                                    QStringLiteral("k"), QStringLiteral("v")});
+        const QByteArray deeper = edited(
+            sample(), {{QStringLiteral("Store"), QStringLiteral("new"), QStringLiteral("deep")}, QStringLiteral("k"), QStringLiteral("v")});
         QVERIFY(!deeper.isEmpty());
 
-        const QByteArray fromNothing = edited(QByteArray(), {{QStringLiteral("A"), QStringLiteral("B")}, QStringLiteral("k"), QStringLiteral("v")});
+        const QByteArray fromNothing =
+            edited(QByteArray(), {{QStringLiteral("A"), QStringLiteral("B")}, QStringLiteral("k"), QStringLiteral("v")});
         QCOMPARE(fromNothing, QByteArray("\"A\"\n{\n\t\"B\"\n\t{\n\t\t\"k\"\t\t\"v\"\n\t}\n}\n"));
     }
 
@@ -149,10 +154,12 @@ private Q_SLOTS:
         QVERIFY(test::writeFile(path, sample()));
         QFile::setPermissions(path, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ReadGroup);
         QString error;
-        QVERIFY2(vdf::editTextFile(path, {{AppPath, QStringLiteral("LaunchOptions"), QStringLiteral("a")},
-                                          {{QStringLiteral("Store"), QStringLiteral("apps"), QStringLiteral("20")},
-                                           QStringLiteral("LaunchOptions"), QStringLiteral("b")}},
-                                    &error),
+        QVERIFY2(vdf::editTextFile(path,
+                                   {{AppPath, QStringLiteral("LaunchOptions"), QStringLiteral("a")},
+                                    {{QStringLiteral("Store"), QStringLiteral("apps"), QStringLiteral("20")},
+                                     QStringLiteral("LaunchOptions"),
+                                     QStringLiteral("b")}},
+                                   &error),
                  qPrintable(error));
         Node tree;
         QVERIFY(vdf::readTextFile(path, tree));

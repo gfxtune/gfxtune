@@ -93,21 +93,28 @@ Availability availabilityFor(const steam::Game &game, const GameSettings &settin
     } else if (game.runtime == Runtime::Proton && (!game.apis || openGl)) {
         a.frameCap = {true, QStringLiteral("Only takes effect if the game uses DirectX 9 to 12.")};
     } else if (game.runtime == Runtime::Proton) {
-        a.frameCap = {false, layerLocked ? QStringLiteral("This game draws with Vulkan itself: the cap needs %1.").arg(lockedLayer)
-                                         : QStringLiteral("This game draws with Vulkan itself: the cap needs performance measuring or a filter on.")};
+        a.frameCap = {false,
+                      layerLocked
+                          ? QStringLiteral("This game draws with Vulkan itself: the cap needs %1.").arg(lockedLayer)
+                          : QStringLiteral("This game draws with Vulkan itself: the cap needs performance measuring or a filter on.")};
     } else if (settings.gamescope && gamescopeUsable) {
-        a.frameCap = {true, QStringLiteral("gamescope holds the cap only while vertical sync is on, in the game or with Vertical sync set to On here.")};
+        a.frameCap = {
+            true,
+            QStringLiteral("gamescope holds the cap only while vertical sync is on, in the game or with Vertical sync set to On here.")};
     } else if (gamescopeUsable) {
-        a.frameCap = {false, openGl        ? QStringLiteral("Turn on gamescope to cap this game's frame rate.")
-                             : layerLocked ? QStringLiteral("Turn on gamescope to cap this game's frame rate, or accept the risk under In-game filters.")
-                                           : QStringLiteral("Turn on performance measuring or gamescope to cap this game's frame rate.")};
+        a.frameCap = {false,
+                      openGl ? QStringLiteral("Turn on gamescope to cap this game's frame rate.")
+                          : layerLocked
+                          ? QStringLiteral("Turn on gamescope to cap this game's frame rate, or accept the risk under In-game filters.")
+                          : QStringLiteral("Turn on performance measuring or gamescope to cap this game's frame rate.")};
     } else if (own.gamescope) {
         a.frameCap = {false, QStringLiteral("This game's Steam launch options start gamescope; set the frame rate there.")};
     } else {
         a.frameCap = {false, QStringLiteral("Capping this game's frame rate needs gamescope, which is not installed.")};
     }
     if (a.frameCap.available && !layer && own.environment.contains(QStringLiteral("DXVK_CONFIG")) && game.runtime == Runtime::Proton) {
-        a.frameCap.note = QStringLiteral("DirectX 9 to 11 games: this game's Steam launch options set DXVK_CONFIG, so the cap only reaches DirectX 12.");
+        a.frameCap.note =
+            QStringLiteral("DirectX 9 to 11 games: this game's Steam launch options set DXVK_CONFIG, so the cap only reaches DirectX 12.");
     }
 
     const QString fsr4Cost = QStringLiteral("FSR 4 looks better than FSR 3.1 but costs some performance on RDNA 3 cards.");
@@ -149,8 +156,11 @@ Availability availabilityFor(const steam::Game &game, const GameSettings &settin
     }
     if (a.filters.available && !game.antiCheat.isEmpty() && !settings.filtersRiskAccepted) {
         a.filtersLocked = true;
-        a.filtersWarning = QStringLiteral("%1 ships %2. The filters and performance measuring run inside the game, like MangoHud does. No bans are known for this kind of tool, but nobody can promise there will never be one. Using them on this game is your responsibility.")
-                               .arg(game.name, game.antiCheat.join(QStringLiteral(" and ")));
+        a.filtersWarning =
+            QStringLiteral(
+                "%1 ships %2. The filters and performance measuring run inside the game, like MangoHud does. No bans are known for this "
+                "kind of tool, but nobody can promise there will never be one. Using them on this game is your responsibility.")
+                .arg(game.name, game.antiCheat.join(QStringLiteral(" and ")));
     }
 
     if (own.gamescope) {
@@ -158,7 +168,9 @@ Availability availabilityFor(const steam::Game &game, const GameSettings &settin
     } else if (!system.gamescopeInstalled) {
         a.gamescope = {false, QStringLiteral("gamescope is not installed.")};
     } else if (settings.supersampling()) {
-        a.gamescope.note = QStringLiteral("Supersampling: the game draws bigger than the screen and is scaled down smoothly; the upscaler and its sharpness are not used.");
+        a.gamescope.note = QStringLiteral(
+            "Supersampling: the game draws bigger than the screen and is scaled down smoothly; the upscaler and its sharpness are not "
+            "used.");
     }
 
     // Texture detail: the layer sets it for every sampler; without it DXVK
@@ -182,7 +194,9 @@ Availability availabilityFor(const steam::Game &game, const GameSettings &settin
     } else if (openGl && game.runtime != Runtime::Proton) {
         a.measurePerformance = {false, QStringLiteral("This game draws with OpenGL, which gfxtune cannot measure.")};
     } else {
-        a.measurePerformance = {true, QStringLiteral("Frame rate, frame times and the card's readings while you play, kept for each session. It reads the clock once per frame and nothing more.")};
+        a.measurePerformance = {true,
+                                QStringLiteral("Frame rate, frame times and the card's readings while you play, kept for each session. It "
+                                               "reads the clock once per frame and nothing more.")};
     }
     if (a.measurePerformance.available && a.filtersLocked) {
         a.measurePerformance.note = QStringLiteral("Locked until you accept the risk under In-game filters.");
@@ -198,10 +212,12 @@ Availability availabilityFor(const steam::Game &game, const GameSettings &settin
     if (own.mangoHud || own.environment.contains(QStringLiteral("MANGOHUD"))) {
         a.mangoHud = {false, QStringLiteral("This game's Steam launch options already start MangoHud.")};
     } else if (own.gamescope) {
-        a.mangoHud = {false, QStringLiteral("This game's Steam launch options start gamescope; add --mangoapp to its options there for MangoHud.")};
+        a.mangoHud = {
+            false, QStringLiteral("This game's Steam launch options start gamescope; add --mangoapp to its options there for MangoHud.")};
     } else if (settings.gamescope && a.gamescope.available) {
         if (system.mangoAppInstalled) {
-            a.mangoHud.note = QStringLiteral("Inside gamescope, gamescope shows it through mangoapp. MangoHud's own settings decide what it shows.");
+            a.mangoHud.note =
+                QStringLiteral("Inside gamescope, gamescope shows it through mangoapp. MangoHud's own settings decide what it shows.");
         } else {
             a.mangoHud = {false, QStringLiteral("Inside gamescope MangoHud needs mangoapp, which is not installed.")};
         }
@@ -217,18 +233,22 @@ Availability availabilityForAll(const GameSettings &settings, const SystemInfo &
 {
     Availability a;
     a.verticalSync.note = QStringLiteral("OpenGL games know only Off and On.");
-    a.lodBias.note = QStringLiteral("Reaches every game gfxtune measures or filters, OpenGL ones aside; otherwise only DirectX 9 to 11 games under Proton.");
+    a.lodBias.note = QStringLiteral(
+        "Reaches every game gfxtune measures or filters, OpenGL ones aside; otherwise only DirectX 9 to 11 games under Proton.");
     a.frameCap.note = QStringLiteral("Exact in every game gfxtune measures; otherwise through DXVK and VKD3D-Proton, or gamescope.");
     a.fsr4.note = QStringLiteral("Reaches games that run through Proton and ship FSR 3.1.");
     // While either is on, gfxtune keeps out of games with anti-cheat (see
     // holdsBackForAntiCheat()).
-    const QString antiCheat = QStringLiteral("While on, gfxtune keeps out of games with anti-cheat until you accept the risk or change a setting on their page.");
+    const QString antiCheat =
+        QStringLiteral("While on, gfxtune keeps out of games with anti-cheat until you accept the risk or change a setting on their page.");
     a.filters.note = QStringLiteral("Reach games that draw with Vulkan or DirectX, not while a game shows HDR. ") + antiCheat;
-    a.measurePerformance.note = QStringLiteral("Frame rate, frame times and the card's readings while you play, kept for each session. ") + antiCheat;
+    a.measurePerformance.note =
+        QStringLiteral("Frame rate, frame times and the card's readings while you play, kept for each session. ") + antiCheat;
     if (!system.gamescopeInstalled) {
         a.gamescope = {false, QStringLiteral("gamescope is not installed.")};
     } else if (settings.supersampling()) {
-        a.gamescope.note = QStringLiteral("Supersampling: games draw bigger than the screen and are scaled down smoothly; the upscaler and its sharpness are not used.");
+        a.gamescope.note = QStringLiteral(
+            "Supersampling: games draw bigger than the screen and are scaled down smoothly; the upscaler and its sharpness are not used.");
     }
     if (!system.gameModeInstalled) {
         a.gameMode = {false, QStringLiteral("GameMode is not installed.")};

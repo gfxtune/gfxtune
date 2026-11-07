@@ -53,8 +53,7 @@ QList<Session> loadHistory(const QString &dir, const std::function<bool(qint64)>
                            const QDateTime &now = QDateTime::currentDateTime());
 // Removes the history and finished session files; a session still being
 // written stays.
-bool clearHistory(const QString &dir, const std::function<bool(qint64)> &processAlive,
-                  const QDateTime &now = QDateTime::currentDateTime());
+bool clearHistory(const QString &dir, const std::function<bool(qint64)> &processAlive, const QDateTime &now = QDateTime::currentDateTime());
 
 // The last second of a game that is being measured, when fresh.
 struct Live {

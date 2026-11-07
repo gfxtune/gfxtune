@@ -357,7 +357,8 @@ void FullscreenPass::destroyDescriptor(VkDescriptorSet set) const
     }
 }
 
-void FullscreenPass::record(VkCommandBuffer cmd, VkFramebuffer framebuffer, VkExtent2D extent, VkDescriptorSet sources, const void *push) const
+void FullscreenPass::record(VkCommandBuffer cmd, VkFramebuffer framebuffer, VkExtent2D extent, VkDescriptorSet sources,
+                            const void *push) const
 {
     VkClearValue clear{};
     auto begin = vkStruct<VkRenderPassBeginInfo>(VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO);

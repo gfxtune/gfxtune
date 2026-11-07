@@ -347,7 +347,8 @@ bool parseImports(QByteArrayView data, Imports &out, QString *error)
     if (data.startsWith("MZ")) {
         return parsePe(in, out, error);
     }
-    if (data.startsWith("\x7F" "ELF")) {
+    if (data.startsWith("\x7F"
+                        "ELF")) {
         return parseElf(in, out, error);
     }
     return fail(error, QStringLiteral("not a program"));

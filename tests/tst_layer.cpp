@@ -14,11 +14,11 @@
 #include "Pacing.h"
 #include "Recorder.h"
 #include "Smaa.h"
+#include "VulkanFunctions.h"
+#include "filters/Filters.h"
 #include "shared/FrameHistogram.h"
 #include "support/FakeSysfs.h"
 #include "support/Fixtures.h"
-#include "VulkanFunctions.h"
-#include "filters/Filters.h"
 
 #include <QDir>
 #include <QElapsedTimer>
@@ -204,11 +204,12 @@ struct Vulkan {
         vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);
         std::vector<VkExtensionProperties> list(count);
         vkEnumerateInstanceExtensionProperties(nullptr, &count, list.data());
-        return std::any_of(list.begin(), list.end(), [name](const VkExtensionProperties &e) { return std::strcmp(e.extensionName, name) == 0; });
+        return std::any_of(list.begin(), list.end(),
+                           [name](const VkExtensionProperties &e) { return std::strcmp(e.extensionName, name) == 0; });
     }
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL onMessage(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT,
-                                                     const VkDebugUtilsMessengerCallbackDataEXT *data, void *user)
+                                                    const VkDebugUtilsMessengerCallbackDataEXT *data, void *user)
     {
         if (severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
             static_cast<Vulkan *>(user)->problems << QString::fromUtf8(data->pMessage);
@@ -254,12 +255,14 @@ struct Vulkan {
             return false;
         }
         if (debug) {
-            auto messengerInfo = layer::vkStruct<VkDebugUtilsMessengerCreateInfoEXT>(VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT);
+            auto messengerInfo =
+                layer::vkStruct<VkDebugUtilsMessengerCreateInfoEXT>(VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT);
             messengerInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
             messengerInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT;
             messengerInfo.pfnUserCallback = &onMessage;
             messengerInfo.pUserData = this;
-            const auto create = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
+            const auto create =
+                reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
             create(instance, &messengerInfo, nullptr, &messenger);
         }
 
@@ -290,7 +293,8 @@ struct Vulkan {
 
         if (headless) {
             auto surfaceInfo = layer::vkStruct<VkHeadlessSurfaceCreateInfoEXT>(VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT);
-            const auto createSurface = reinterpret_cast<PFN_vkCreateHeadlessSurfaceEXT>(vkGetInstanceProcAddr(instance, "vkCreateHeadlessSurfaceEXT"));
+            const auto createSurface =
+                reinterpret_cast<PFN_vkCreateHeadlessSurfaceEXT>(vkGetInstanceProcAddr(instance, "vkCreateHeadlessSurfaceEXT"));
             VkBool32 supported = VK_FALSE;
             if (!createSurface || createSurface(instance, &surfaceInfo, nullptr, &surface) != VK_SUCCESS
                 || vkGetPhysicalDeviceSurfaceSupportKHR(physical, family, surface, &supported) != VK_SUCCESS || !supported) {
@@ -378,7 +382,8 @@ struct Vulkan {
         vkGetBufferMemoryRequirements(device, b.buffer, &needs);
         auto allocate = layer::vkStruct<VkMemoryAllocateInfo>(VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO);
         allocate.allocationSize = needs.size;
-        allocate.memoryTypeIndex = memoryType(needs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        allocate.memoryTypeIndex =
+            memoryType(needs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         vkAllocateMemory(device, &allocate, nullptr, &b.memory);
         vkBindBufferMemory(device, b.buffer, b.memory, 0);
         vkMapMemory(device, b.memory, 0, VK_WHOLE_SIZE, 0, &b.mapped);
@@ -471,7 +476,8 @@ struct Vulkan {
         b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         b.image = image;
         b.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-        vk.CmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1, &b);
+        vk.CmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                              &b);
     }
 
     static VkBufferImageCopy wholeImage()
@@ -590,8 +596,9 @@ private Q_SLOTS:
                                     "enable_environment": {"GFXTUNE_FILTERS": "1"},
                                     "disable_environment": {"DISABLE_GFXTUNE_FILTERS": "1"}}})"));
         const QByteArray dataDirs = qgetenv("XDG_DATA_DIRS");
-        qputenv("XDG_DATA_DIRS", m_dir.filePath(QStringLiteral("installed")).toUtf8() + ':'
-                                     + (dataDirs.isEmpty() ? QByteArray("/usr/local/share:/usr/share") : dataDirs));
+        qputenv("XDG_DATA_DIRS",
+                m_dir.filePath(QStringLiteral("installed")).toUtf8() + ':'
+                    + (dataDirs.isEmpty() ? QByteArray("/usr/local/share:/usr/share") : dataDirs));
         m_noImplicitLayers = m_dir.filePath(QStringLiteral("no-implicit-layers"));
         QVERIFY(QDir().mkpath(m_noImplicitLayers));
         qputenv("VK_IMPLICIT_LAYER_PATH", m_noImplicitLayers.toUtf8());
@@ -613,12 +620,13 @@ private Q_SLOTS:
     void readsTheSettingsFile()
     {
         const Values v = layer::parseLayerConfig(
-            "[game]\nsharpening=99\n"
-            "[filters]\nenabled=false\nsharpening=55\nbrightness=-12\ncontrast= 7 \ngamma=180\n"
-            "saturation=-100\nvibrance=101\ntemperature=x\nunknown=3\n; comment\n"
-            "[gamescope]\nsharpness=4\n"
-            // The same names in another section are not filters.
-            "[other]\nsharpening=7\ncontrast=9\n").filters;
+                             "[game]\nsharpening=99\n"
+                             "[filters]\nenabled=false\nsharpening=55\nbrightness=-12\ncontrast= 7 \ngamma=180\n"
+                             "saturation=-100\nvibrance=101\ntemperature=x\nunknown=3\n; comment\n"
+                             "[gamescope]\nsharpness=4\n"
+                             // The same names in another section are not filters.
+                             "[other]\nsharpening=7\ncontrast=9\n")
+                             .filters;
         QCOMPARE(v.enabled, false);
         QCOMPARE(v.sharpening, 55);
         QCOMPARE(v.brightness, -12);
@@ -662,9 +670,12 @@ private Q_SLOTS:
     void layersTheGameOverTheGlobalSettings()
     {
         layer::LayerSettings settings;
-        layer::readLayerSettings("[filters]\nenabled=true\nsharpening=40\ncontrast=10\n[frames]\nframe_cap_enabled=true\nframe_cap=141\n"
-                                 "[image]\nlod_bias=-50\n", settings);
-        layer::readLayerSettings("[filters]\ncontrast=-20\nanti_aliasing=smaa\n[frames]\nframe_cap_enabled=false\nframe_cap=141\n", settings);
+        layer::readLayerSettings(
+            "[filters]\nenabled=true\nsharpening=40\ncontrast=10\n[frames]\nframe_cap_enabled=true\nframe_cap=141\n"
+            "[image]\nlod_bias=-50\n",
+            settings);
+        layer::readLayerSettings("[filters]\ncontrast=-20\nanti_aliasing=smaa\n[frames]\nframe_cap_enabled=false\nframe_cap=141\n",
+                                 settings);
         const filters::LayerConfig config = settings.config();
         QCOMPARE(config.filters.sharpening, 40);
         QCOMPARE(config.filters.contrast, -20);
@@ -738,8 +749,8 @@ private Q_SLOTS:
         QFETCH(int, which);
         const auto f = VkFormat(format);
         const QStringList layers = Vulkan::availableLayers().contains(QStringLiteral("VK_LAYER_KHRONOS_validation"))
-                                       ? QStringList{QStringLiteral("VK_LAYER_KHRONOS_validation")}
-                                       : QStringList{};
+            ? QStringList{QStringLiteral("VK_LAYER_KHRONOS_validation")}
+            : QStringList{};
         Vulkan v;
         if (!v.create(layers, false)) {
             QSKIP(qPrintable(v.why));
@@ -815,7 +826,8 @@ private Q_SLOTS:
         if (Vulkan::availableLayers().contains(QStringLiteral("VK_LAYER_KHRONOS_validation"))) {
             layers << QStringLiteral("VK_LAYER_KHRONOS_validation");
         }
-        QVERIFY2(Vulkan::availableLayers().contains(QStringLiteral("VK_LAYER_GFXTUNE_filters")), "the build's layer manifest was not found");
+        QVERIFY2(Vulkan::availableLayers().contains(QStringLiteral("VK_LAYER_GFXTUNE_filters")),
+                 "the build's layer manifest was not found");
 
         Values values = sample(2);
         values.sharpening = 40;
@@ -833,7 +845,8 @@ private Q_SLOTS:
         vkGetPhysicalDeviceSurfaceFormatsKHR(v.physical, v.surface, &formatCount, formats.data());
         std::optional<VkSurfaceFormatKHR> chosen;
         for (const VkSurfaceFormatKHR &sf : formats) {
-            if ((sf.format == VK_FORMAT_B8G8R8A8_UNORM || sf.format == VK_FORMAT_R8G8B8A8_UNORM) && sf.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            if ((sf.format == VK_FORMAT_B8G8R8A8_UNORM || sf.format == VK_FORMAT_R8G8B8A8_UNORM)
+                && sf.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
                 chosen = sf;
                 break;
             }
@@ -900,7 +913,8 @@ private Q_SLOTS:
             auto fenceInfo = layer::vkStruct<VkFenceCreateInfo>(VK_STRUCTURE_TYPE_FENCE_CREATE_INFO);
             VkFence acquireFence = VK_NULL_HANDLE;
             vkCreateFence(v.device, &fenceInfo, nullptr, &acquireFence);
-            if (const VkResult r = vkAcquireNextImageKHR(v.device, swapchain, UINT64_MAX, VK_NULL_HANDLE, acquireFence, &index); r != VK_SUCCESS) {
+            if (const VkResult r = vkAcquireNextImageKHR(v.device, swapchain, UINT64_MAX, VK_NULL_HANDLE, acquireFence, &index);
+                r != VK_SUCCESS) {
                 why = QStringLiteral("first acquire: %1").arg(int(r));
                 return {};
             }
@@ -948,7 +962,8 @@ private Q_SLOTS:
                     held.clear();
                 }
                 vkResetFences(v.device, 1, &acquireFence);
-                if (const VkResult r = vkAcquireNextImageKHR(v.device, swapchain, UINT64_MAX, VK_NULL_HANDLE, acquireFence, &again); r != VK_SUCCESS) {
+                if (const VkResult r = vkAcquireNextImageKHR(v.device, swapchain, UINT64_MAX, VK_NULL_HANDLE, acquireFence, &again);
+                    r != VK_SUCCESS) {
                     why = QStringLiteral("acquire again: %1").arg(int(r));
                     break;
                 }
@@ -1030,7 +1045,8 @@ private Q_SLOTS:
         for (int i = 0; i < 3; ++i) {
             presents += presentFrameCounting();
         }
-        QVERIFY2(timer.elapsed() >= (presents - 1) * 50 - 5, qPrintable(QStringLiteral("%1 presents in %2 ms").arg(presents).arg(timer.elapsed())));
+        QVERIFY2(timer.elapsed() >= (presents - 1) * 50 - 5,
+                 qPrintable(QStringLiteral("%1 presents in %2 ms").arg(presents).arg(timer.elapsed())));
 
         // Measured as it ran: the live file is there within a second.
         QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(m_performance + QStringLiteral("/live")), 3000);
@@ -1200,7 +1216,8 @@ private Q_SLOTS:
             b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
             b.image = texture;
             b.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 2, 0, 1};
-            v.vk.CmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &b);
+            v.vk.CmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                                    &b);
             VkBufferImageCopy levels[2]{};
             levels[0].imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
             levels[0].imageExtent = {2, 2, 1};
@@ -1212,7 +1229,8 @@ private Q_SLOTS:
             b.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
             b.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
             b.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            v.vk.CmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &b);
+            v.vk.CmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr,
+                                    1, &b);
         }));
 
         std::string error;
@@ -1369,8 +1387,8 @@ private Q_SLOTS:
         QFETCH(int, format);
         const auto f = VkFormat(format);
         const QStringList layers = Vulkan::availableLayers().contains(QStringLiteral("VK_LAYER_KHRONOS_validation"))
-                                       ? QStringList{QStringLiteral("VK_LAYER_KHRONOS_validation")}
-                                       : QStringList{};
+            ? QStringList{QStringLiteral("VK_LAYER_KHRONOS_validation")}
+            : QStringList{};
         Vulkan v;
         if (!v.create(layers, false)) {
             QSKIP(qPrintable(v.why));
@@ -1442,7 +1460,8 @@ private Q_SLOTS:
                     const int got = uint8_t(out[qsizetype(i) + c]);
                     const int was = uint8_t(in[qsizetype(i) + c]);
                     if (!nearEdge) {
-                        QVERIFY2(std::abs(got - was) <= slack, qPrintable(QStringLiteral("(%1, %2) changed from %3 to %4").arg(x).arg(y).arg(was).arg(got)));
+                        QVERIFY2(std::abs(got - was) <= slack,
+                                 qPrintable(QStringLiteral("(%1, %2) changed from %3 to %4").arg(x).arg(y).arg(was).arg(got)));
                     } else if (was == 255 || was == 0) {
                         blended += (got > 8 && got < 247) ? 1 : 0;
                     }

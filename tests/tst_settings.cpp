@@ -156,14 +156,15 @@ private Q_SLOTS:
     {
         QTemporaryDir dir;
         const SettingsStore store(dir.filePath(QStringLiteral("gfxtune")));
-        QVERIFY(test::writeFile(store.pathFor(7), "[image]\nanisotropic_filtering=3\n"
-                                                  "[frames]\nframe_cap_enabled=yes\nframe_cap=5\nvertical_sync=sometimes\n"
-                                                  "[upscaling]\nfsr4_upgrade=true\n"
-                                                  "[gamescope]\nenabled=TRUE\nrender_scale=66\nsharpness=21\nfilter=xbr\nscaling=fill\n"
-                                                  "[filters]\nenabled=maybe\nsharpening=500\ncontrast=x\ngamma=150\nanti_aliasing=fxaa\n"
-                                                  "[performance]\nmeasure=often\n"
-                                                  "[launch]\ngamemode=1\nmangohud=true\n"
-                                                  "[other]\nunknown_key=1\nlod_bias=-50\n"));
+        QVERIFY(test::writeFile(store.pathFor(7),
+                                "[image]\nanisotropic_filtering=3\n"
+                                "[frames]\nframe_cap_enabled=yes\nframe_cap=5\nvertical_sync=sometimes\n"
+                                "[upscaling]\nfsr4_upgrade=true\n"
+                                "[gamescope]\nenabled=TRUE\nrender_scale=66\nsharpness=21\nfilter=xbr\nscaling=fill\n"
+                                "[filters]\nenabled=maybe\nsharpening=500\ncontrast=x\ngamma=150\nanti_aliasing=fxaa\n"
+                                "[performance]\nmeasure=often\n"
+                                "[launch]\ngamemode=1\nmangohud=true\n"
+                                "[other]\nunknown_key=1\nlod_bias=-50\n"));
         QStringList warnings;
         const GameSettings loaded = store.load(7, &warnings);
         const GameSettings defaults;
@@ -269,20 +270,28 @@ private Q_SLOTS:
         const int proton = int(Runtime::Proton);
         const int native = int(Runtime::Native);
         QTest::newRow("Proton DX11") << proton << dx11 << false << false << true << true << true << true << true << false << true;
-        QTest::newRow("Proton DX12 with FSR 3.1") << proton << dx12 << true << false << true << true << true << true << true << true << true;
-        QTest::newRow("Proton DX12, gamescope on") << proton << dx12 << false << true << true << true << true << true << true << false << true;
-        QTest::newRow("Proton, gamescope on but missing") << proton << dx12 << false << true << false << true << true << true << true << false << false;
-        QTest::newRow("Proton Vulkan, no gamescope") << proton << vulkan << false << false << false << true << true << true << false << false << false;
+        QTest::newRow("Proton DX12 with FSR 3.1")
+            << proton << dx12 << true << false << true << true << true << true << true << true << true;
+        QTest::newRow("Proton DX12, gamescope on")
+            << proton << dx12 << false << true << true << true << true << true << true << false << true;
+        QTest::newRow("Proton, gamescope on but missing")
+            << proton << dx12 << false << true << false << true << true << true << true << false << false;
+        QTest::newRow("Proton Vulkan, no gamescope")
+            << proton << vulkan << false << false << false << true << true << true << false << false << false;
         QTest::newRow("Proton, graphics unknown") << proton << 0 << false << false << true << true << true << true << true << false << true;
-        QTest::newRow("Proton DX11 and 12") << proton << (dx11 | dx12) << true << false << true << true << true << true << true << true << true;
+        QTest::newRow("Proton DX11 and 12") << proton << (dx11 | dx12) << true << false << true << true << true << true << true << true
+                                            << true;
         QTest::newRow("native Vulkan") << native << vulkan << false << false << true << true << true << true << false << false << true;
         // Mesa's own switch reaches OpenGL vertical sync; nothing else does.
         QTest::newRow("native OpenGL") << native << gl << false << false << false << false << true << false << false << false << false;
         // Windows games often link OpenGL without using it: only a note.
         QTest::newRow("Proton, OpenGL guess") << proton << gl << false << false << true << true << true << true << true << false << true;
-        QTest::newRow("native OpenGL, gamescope on") << native << gl << false << true << true << false << true << true << true << false << true;
-        QTest::newRow("native, FSR DLL present") << native << vulkan << true << false << true << true << true << true << false << false << true;
-        QTest::newRow("unknown runtime") << int(Runtime::Unknown) << 0 << false << false << true << true << true << false << false << false << true;
+        QTest::newRow("native OpenGL, gamescope on")
+            << native << gl << false << true << true << false << true << true << true << false << true;
+        QTest::newRow("native, FSR DLL present")
+            << native << vulkan << true << false << true << true << true << true << false << false << true;
+        QTest::newRow("unknown runtime") << int(Runtime::Unknown) << 0 << false << false << true << true << true << false << false << false
+                                         << true;
     }
 
     void decidesWhatAppliesToAGame()
@@ -835,14 +844,15 @@ private Q_SLOTS:
     {
         QTemporaryDir dir;
         const SettingsStore store(dir.filePath(QStringLiteral("gfxtune")));
-        QVERIFY(test::writeFile(store.pathFor(1001), "[game]\nname=Ashfall Protocol\nsteam_app_id=1001\n"
-                                                     "[image]\nanisotropic_filtering=0\nlod_bias=0\n"
-                                                     "[frames]\nframe_cap_enabled=true\nframe_cap=60\nvertical_sync=game\n"
-                                                     "[upscaling]\nfsr4=proton\n"
-                                                     "[gamescope]\nenabled=false\nfilter=fsr\nscaling=auto\nrender_scale=100\nsharpness=10\n"
-                                                     "[filters]\nenabled=true\nsharpening=40\nbrightness=0\ncontrast=0\ngamma=100\nsaturation=0\n"
-                                                     "vibrance=0\ntemperature=0\nanti_aliasing=off\nrisk_accepted=true\n"
-                                                     "[performance]\nmeasure=true\n[launch]\ngamemode=false\nmangohud=false\n"));
+        QVERIFY(test::writeFile(store.pathFor(1001),
+                                "[game]\nname=Ashfall Protocol\nsteam_app_id=1001\n"
+                                "[image]\nanisotropic_filtering=0\nlod_bias=0\n"
+                                "[frames]\nframe_cap_enabled=true\nframe_cap=60\nvertical_sync=game\n"
+                                "[upscaling]\nfsr4=proton\n"
+                                "[gamescope]\nenabled=false\nfilter=fsr\nscaling=auto\nrender_scale=100\nsharpness=10\n"
+                                "[filters]\nenabled=true\nsharpening=40\nbrightness=0\ncontrast=0\ngamma=100\nsaturation=0\n"
+                                "vibrance=0\ntemperature=0\nanti_aliasing=off\nrisk_accepted=true\n"
+                                "[performance]\nmeasure=true\n[launch]\ngamemode=false\nmangohud=false\n"));
         const GameProfile profile = store.loadProfile(1001);
         QCOMPARE(profile.changed, (QSet<QString>{QStringLiteral("frameCap"), QStringLiteral("filterSharpening")}));
         QVERIFY(profile.usesGlobal);
@@ -901,7 +911,9 @@ private Q_SLOTS:
     void decidesWhereFiltersWork()
     {
         SystemInfo system;
-        const auto filtersFor = [&system](Runtime runtime, GraphicsApis apis) { return availabilityFor(game(runtime, apis), GameSettings{}, system).filters; };
+        const auto filtersFor = [&system](Runtime runtime, GraphicsApis apis) {
+            return availabilityFor(game(runtime, apis), GameSettings{}, system).filters;
+        };
         QVERIFY(!filtersFor(Runtime::Native, GraphicsApi::OpenGL).available);
         QVERIFY(filtersFor(Runtime::Native, GraphicsApi::OpenGL).note.contains(QLatin1String("OpenGL")));
         QVERIFY(!filtersFor(Runtime::Unknown, {}).available);
@@ -1075,29 +1087,39 @@ private Q_SLOTS:
         QCOMPARE(steam::listedCovers(&empty), QStringList());
 
         const QString hash = QStringLiteral("0123456789abcdef0123456789abcdef01234567");
-        const vdf::Node info = section({}, {section(QStringLiteral("common"), {section(QStringLiteral("library_assets_full"), {
-            section(QStringLiteral("library_capsule"), {
-                section(QStringLiteral("image"), {
-                    value(QStringLiteral("english"), hash + QStringLiteral("/library_capsule.jpg")),
-                    value(QStringLiteral("schinese"), QStringLiteral("library_600x900_schinese.jpg")),
-                    value(QStringLiteral("japanese"), QStringLiteral("../../../etc/passwd.jpg")),
-                    value(QStringLiteral("koreana"), QStringLiteral("/tmp/absolute.jpg")),
-                    value(QStringLiteral("french"), QStringLiteral("not-a-hash/library_capsule.jpg")),
-                    value(QStringLiteral("german"), hash.toUpper() + QStringLiteral("/library_capsule.jpg")),
-                    value(QStringLiteral("dutch"), QStringLiteral("library_capsule.exe")),
-                    value(QStringLiteral("polish"), QString()),
-                    section(QStringLiteral("nested"), {}),
-                }),
-                section(QStringLiteral("image2x"), {
-                    value(QStringLiteral("english"), hash + QStringLiteral("/library_capsule_2x.jpg")),
-                    value(QStringLiteral("schinese"), QStringLiteral("library_600x900_schinese.jpg")),
-                }),
-            }),
-            section(QStringLiteral("library_hero"), {section(QStringLiteral("image"), {value(QStringLiteral("english"), QStringLiteral("library_hero.jpg"))})}),
-        })})});
-        QCOMPARE(steam::listedCovers(&info), (QStringList{hash + QStringLiteral("/library_capsule.jpg"),
-                                                          QStringLiteral("library_600x900_schinese.jpg"),
-                                                          hash + QStringLiteral("/library_capsule_2x.jpg")}));
+        const vdf::Node info = section(
+            {},
+            {section(
+                QStringLiteral("common"),
+                {section(
+                    QStringLiteral("library_assets_full"),
+                    {
+                        section(QStringLiteral("library_capsule"),
+                                {
+                                    section(QStringLiteral("image"),
+                                            {
+                                                value(QStringLiteral("english"), hash + QStringLiteral("/library_capsule.jpg")),
+                                                value(QStringLiteral("schinese"), QStringLiteral("library_600x900_schinese.jpg")),
+                                                value(QStringLiteral("japanese"), QStringLiteral("../../../etc/passwd.jpg")),
+                                                value(QStringLiteral("koreana"), QStringLiteral("/tmp/absolute.jpg")),
+                                                value(QStringLiteral("french"), QStringLiteral("not-a-hash/library_capsule.jpg")),
+                                                value(QStringLiteral("german"), hash.toUpper() + QStringLiteral("/library_capsule.jpg")),
+                                                value(QStringLiteral("dutch"), QStringLiteral("library_capsule.exe")),
+                                                value(QStringLiteral("polish"), QString()),
+                                                section(QStringLiteral("nested"), {}),
+                                            }),
+                                    section(QStringLiteral("image2x"),
+                                            {
+                                                value(QStringLiteral("english"), hash + QStringLiteral("/library_capsule_2x.jpg")),
+                                                value(QStringLiteral("schinese"), QStringLiteral("library_600x900_schinese.jpg")),
+                                            }),
+                                }),
+                        section(QStringLiteral("library_hero"),
+                                {section(QStringLiteral("image"), {value(QStringLiteral("english"), QStringLiteral("library_hero.jpg"))})}),
+                    })})});
+        QCOMPARE(steam::listedCovers(&info),
+                 (QStringList{hash + QStringLiteral("/library_capsule.jpg"), QStringLiteral("library_600x900_schinese.jpg"),
+                              hash + QStringLiteral("/library_capsule_2x.jpg")}));
     }
 };
 

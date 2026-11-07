@@ -140,7 +140,8 @@ private:
 // Reads every setting the file has onto `s`; what it lacks stays as it was.
 void readSettings(Reader &in, GameSettings &s)
 {
-    s.anisotropicFiltering = in.oneOf(QStringLiteral("image/anisotropic_filtering"), s.anisotropicFiltering, GameSettings::AnisotropicLevels);
+    s.anisotropicFiltering =
+        in.oneOf(QStringLiteral("image/anisotropic_filtering"), s.anisotropicFiltering, GameSettings::AnisotropicLevels);
     s.lodBias = in.oneOf(QStringLiteral("image/lod_bias"), s.lodBias, GameSettings::LodBiasLevels);
     s.frameCapEnabled = in.flag(QStringLiteral("frames/frame_cap_enabled"), s.frameCapEnabled);
     s.frameCap = in.number(QStringLiteral("frames/frame_cap"), s.frameCap, GameSettings::MinFrameCap, GameSettings::MaxFrameCap);
@@ -198,7 +199,8 @@ QList<std::pair<QString, QVariant>> keyValues(const GameSettings &s)
         {QStringLiteral("filters/saturation"), f.saturation},
         {QStringLiteral("filters/vibrance"), f.vibrance},
         {QStringLiteral("filters/temperature"), f.temperature},
-        {QStringLiteral("filters/anti_aliasing"), QString::fromLatin1(filters::AntiAliasingNames[filters::AntiAliasing.clamp(f.antiAliasing)])},
+        {QStringLiteral("filters/anti_aliasing"),
+         QString::fromLatin1(filters::AntiAliasingNames[filters::AntiAliasing.clamp(f.antiAliasing)])},
         {QStringLiteral("performance/measure"), s.measurePerformance},
         {QStringLiteral("launch/gamemode"), s.gameMode},
         {QStringLiteral("launch/mangohud"), s.mangoHud},

@@ -43,9 +43,9 @@ bool writeFile(const QString &path, const QByteArray &data, bool executable = fa
 
 // The owner, group and other bits of QFileDevice::Permissions, without the
 // "current user" bits Qt adds, which depend on who runs the test.
-inline constexpr QFileDevice::Permissions FileModeBits =
-    QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner | QFileDevice::ReadGroup
-    | QFileDevice::WriteGroup | QFileDevice::ExeGroup | QFileDevice::ReadOther | QFileDevice::WriteOther | QFileDevice::ExeOther;
+inline constexpr QFileDevice::Permissions FileModeBits = QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner
+    | QFileDevice::ReadGroup | QFileDevice::WriteGroup | QFileDevice::ExeGroup | QFileDevice::ReadOther | QFileDevice::WriteOther
+    | QFileDevice::ExeOther;
 
 // Saves `settings` as a game's own: every setting that differs from the
 // defaults becomes one of its changes.

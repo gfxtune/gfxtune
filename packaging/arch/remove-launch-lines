@@ -1,4 +1,7 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 gfxtune contributors
+#
 # Run by pacman (as root) before gfxtune is removed. For every user with a
 # Steam folder, runs "gfxtune --remove-launch-lines" as that user, which
 # refuses while their Steam is open because Steam rewrites its settings on

@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 gfxtune contributors
+
+# Copyright and licences of the files that cannot carry them in a comment.
+# See https://reuse.software; `reuse lint` checks the whole tree.
+version = 1
+
+[[annotations]]
+path = ["README.md", "NOTICE.md", "CHANGELOG.md", "CONTRIBUTING.md", "SECURITY.md", ".github/**", "src/layer/gfxtune_filters.json.in"]
+SPDX-FileCopyrightText = "2026 gfxtune contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Readings from an AMD Radeon RX 7900 XT, for the card panel's tests.
+[[annotations]]
+path = "tests/data/**"
+SPDX-FileCopyrightText = "2026 gfxtune contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = "src/layer/third_party/smaa/**"
+SPDX-FileCopyrightText = [
+    "2013 Jorge Jimenez <jorge@iryoku.com>",
+    "2013 Jose I. Echevarria <joseignacioechevarria@gmail.com>",
+    "2013 Belen Masia <bmasia@unizar.es>",
+    "2013 Fernando Navarro <fernandn@microsoft.com>",
+    "2013 Diego Gutierrez <diegog@unizar.es>",
+]
+SPDX-License-Identifier = "MIT"

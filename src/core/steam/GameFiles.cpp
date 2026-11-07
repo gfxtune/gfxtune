@@ -59,7 +59,10 @@ bool isLinuxProgram(const QFileInfo &info)
     if (!file.open(QIODevice::ReadOnly)) {
         return false;
     }
-    return file.read(4) == QByteArrayLiteral("\x7F" "ELF");
+    return file.read(4)
+        == QByteArrayLiteral(
+               "\x7F"
+               "ELF");
 }
 
 void indexFile(const QFileInfo &info, const QString &relative, bool windowsGame, FolderIndex &index)
@@ -158,8 +161,8 @@ GraphicsApis apisOfProgram(const QString &programPath, const FolderIndex &index,
     return apis;
 }
 
-constexpr auto DirectXApis = GraphicsApi::DirectX8 | GraphicsApi::DirectX9 | GraphicsApi::DirectX10
-    | GraphicsApi::DirectX11 | GraphicsApi::DirectX12;
+constexpr auto DirectXApis =
+    GraphicsApi::DirectX8 | GraphicsApi::DirectX9 | GraphicsApi::DirectX10 | GraphicsApi::DirectX11 | GraphicsApi::DirectX12;
 
 // Windows programs often link OpenGL without drawing with it. Seen on real
 // games: Unity's player links OpenGL and loads Direct3D 11, its Windows
@@ -193,9 +196,9 @@ GraphicsApis apisFromLibraries(const QStringList &libraries)
             apis |= GraphicsApi::DirectX8;
         } else if (lib == QLatin1String("vulkan-1.dll") || lib.startsWith(QLatin1String("libvulkan.so"))) {
             apis |= GraphicsApi::Vulkan;
-        } else if (lib == QLatin1String("opengl32.dll") || lib.startsWith(QLatin1String("libgl.so")) || lib.startsWith(QLatin1String("libglx.so"))
-                   || lib.startsWith(QLatin1String("libopengl.so")) || lib.startsWith(QLatin1String("libegl.so"))
-                   || lib.startsWith(QLatin1String("libglesv2.so"))) {
+        } else if (lib == QLatin1String("opengl32.dll") || lib.startsWith(QLatin1String("libgl.so"))
+                   || lib.startsWith(QLatin1String("libglx.so")) || lib.startsWith(QLatin1String("libopengl.so"))
+                   || lib.startsWith(QLatin1String("libegl.so")) || lib.startsWith(QLatin1String("libglesv2.so"))) {
             apis |= GraphicsApi::OpenGL;
         }
     }
@@ -213,8 +216,8 @@ QString antiCheatOfFile(const QString &fileName)
     if (is({"beservice.exe", "beservice_x64.exe", "beclient.dll", "beclient_x64.dll", "beclient_x64.so"})) {
         return QStringLiteral("BattlEye");
     }
-    const bool program = fileName.endsWith(QLatin1String(".exe")) || fileName.endsWith(QLatin1String(".dll"))
-        || fileName.endsWith(QLatin1String(".sys"));
+    const bool program =
+        fileName.endsWith(QLatin1String(".exe")) || fileName.endsWith(QLatin1String(".dll")) || fileName.endsWith(QLatin1String(".sys"));
     if (program && (fileName.startsWith(QLatin1String("sguard")) || fileName.startsWith(QLatin1String("ace-")))) {
         return QStringLiteral("Anti-Cheat Expert");
     }

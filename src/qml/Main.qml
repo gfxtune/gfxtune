@@ -148,7 +148,7 @@ Kirigami.ApplicationWindow {
     Kirigami.PromptDialog {
         id: aboutDialog
         title: "gfxtune " + Qt.application.version
-        subtitle: "Per-game graphics settings and live GPU readings for Linux.\nLicensed under the GNU GPL, version 3 or later."
+        subtitle: "Graphics and game tuning for Steam games on CachyOS.\nLicensed under the GNU GPL, version 3 or later."
         standardButtons: Kirigami.Dialog.Close
     }
 }

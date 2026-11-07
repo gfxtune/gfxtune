@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 gfxtune contributors
+
+name: Bug report
+description: Something gfxtune does wrong, or a setting that does not reach a game.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the game's page
+        2. Set ...
+        3. Start the game from Steam
+  - type: input
+    id: version
+    attributes:
+      label: gfxtune version
+      description: The output of `gfxtune --version`.
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System
+      description: Distribution and kernel (`uname -r`), graphics card, Mesa version.
+      placeholder: CachyOS, kernel 7.1.4-1-cachyos, Radeon RX 9070 XT, Mesa 26.2.6
+    validations:
+      required: true
+  - type: input
+    id: game
+    attributes:
+      label: Game
+      description: The game's name, and the Proton version it runs with, if any.
+  - type: textarea
+    id: last-launch
+    attributes:
+      label: Last launch
+      description: What the game's page shows under "Last launch", if this is about a game.
+  - type: textarea
+    id: list-games
+    attributes:
+      label: gfxtune --list-games
+      description: >
+        Optional. It lists your installed Steam games and their launch
+        options; remove anything you would rather not share.
+      render: text

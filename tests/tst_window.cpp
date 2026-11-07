@@ -19,12 +19,12 @@
 #include <QQmlApplicationEngine>
 #include <QQmlError>
 #include <QQmlListReference>
-#include <QQuickStyle>
 #include <QQuickItem>
+#include <QQuickStyle>
 #include <QQuickWindow>
-#include <QWheelEvent>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QWheelEvent>
 #include <QtQml/QQmlExtensionPlugin>
 
 Q_IMPORT_QML_PLUGIN(Gfxtune_BackendPlugin)
@@ -79,7 +79,8 @@ void writeRealCovers(const test::FakeSteam &steam)
     QImage cover(60, 90, QImage::Format_RGB32);
     cover.fill(QColor(40, 90, 160));
     const QString cache = steam.root + QStringLiteral("/appcache/librarycache/");
-    for (const QString &coverPath : {cache + QStringLiteral("1001/library_600x900.jpg"), cache + QStringLiteral("1002/") + test::NeonDriftCover}) {
+    for (const QString &coverPath :
+         {cache + QStringLiteral("1001/library_600x900.jpg"), cache + QStringLiteral("1002/") + test::NeonDriftCover}) {
         QVERIFY(QDir().mkpath(QFileInfo(coverPath).path()));
         QVERIFY(cover.save(coverPath, "JPEG"));
     }
@@ -99,8 +100,7 @@ private:
 
         Window(GameLibrary &library, GameSettingsEditor &editor, GpuMonitor &gpu)
         {
-            QObject::connect(&engine, &QQmlEngine::warnings, &engine,
-                             [this](const QList<QQmlError> &list) { warnings += list; });
+            QObject::connect(&engine, &QQmlEngine::warnings, &engine, [this](const QList<QQmlError> &list) { warnings += list; });
             engine.setInitialProperties({
                 {QStringLiteral("library"), QVariant::fromValue(&library)},
                 {QStringLiteral("editor"), QVariant::fromValue(&editor)},
@@ -123,10 +123,7 @@ private:
     };
 
 private Q_SLOTS:
-    void initTestCase()
-    {
-        QQuickStyle::setStyle(QStringLiteral("org.kde.desktop"));
-    }
+    void initTestCase() { QQuickStyle::setStyle(QStringLiteral("org.kde.desktop")); }
 
     void showsALibraryAndSelectsTheFirstGame()
     {
@@ -187,8 +184,7 @@ private Q_SLOTS:
         const int before = editor.verticalSync();
         const QPointF at = box->mapToScene(QPointF(box->width() / 2, box->height() / 2));
         for (int i = 0; i < 6; ++i) {
-            QWheelEvent wheel(at, w.window->mapToGlobal(at), {}, QPoint(0, -120), Qt::NoButton, Qt::NoModifier,
-                              Qt::NoScrollPhase, false);
+            QWheelEvent wheel(at, w.window->mapToGlobal(at), {}, QPoint(0, -120), Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
             QCoreApplication::sendEvent(w.window, &wheel);
         }
         QTest::qWait(100);
@@ -248,8 +244,9 @@ private Q_SLOTS:
         const QString perf = performance::performanceRoot(store.baseDir());
         QVERIFY(test::writeFile(perf + QStringLiteral("/1003/history"),
                                 "1789990000,3900.0,468000,120.00,95.40,80.60,60.4,74.6,88.0,210.4,97.0\n"));
-        QVERIFY(test::writeFile(perf + QStringLiteral("/1003/live"), "time=" + QByteArray::number(QDateTime::currentSecsSinceEpoch() + 30)
-                                                                         + "\nfps=0\n")); // the clock jumped: not shown
+        QVERIFY(test::writeFile(perf + QStringLiteral("/1003/live"),
+                                "time=" + QByteArray::number(QDateTime::currentSecsSinceEpoch() + 30)
+                                    + "\nfps=0\n")); // the clock jumped: not shown
         GameLibrary library(steam.options(), &store, nullptr, proc.path());
         GameSettingsEditor editor(&library, &store, settings::SystemInfo{true});
         QTemporaryDir sys;
@@ -304,8 +301,9 @@ private Q_SLOTS:
         QVERIFY(table->mapToItem(pane, QPointF(table->width(), 0)).x() <= pane->width());
 
         // A game being played shows in the panel.
-        QVERIFY(test::writeFile(perf + QStringLiteral("/1003/live"), "time=" + QByteArray::number(QDateTime::currentSecsSinceEpoch())
-                                                                         + "\nfps=88\nframe_ms=11.4\nframe_ms_max=19\n"));
+        QVERIFY(test::writeFile(perf + QStringLiteral("/1003/live"),
+                                "time=" + QByteArray::number(QDateTime::currentSecsSinceEpoch())
+                                    + "\nfps=88\nframe_ms=11.4\nframe_ms_max=19\n"));
         QTRY_VERIFY(game->isVisible());
         QCOMPARE(gpu.gameFps(), QStringLiteral("88 FPS"));
 
@@ -354,7 +352,8 @@ private Q_SLOTS:
         QVERIFY(!header->isVisible());
         QVERIFY(usesGlobal->isVisible());
 
-        QTest::mouseClick(w.window, Qt::LeftButton, {}, allGames->mapToScene(QPointF(allGames->width() / 2, allGames->height() / 2)).toPoint());
+        QTest::mouseClick(w.window, Qt::LeftButton, {},
+                          allGames->mapToScene(QPointF(allGames->width() / 2, allGames->height() / 2)).toPoint());
         QTRY_VERIFY(editor.isGlobal());
         QTRY_VERIFY(header->isVisible());
         QVERIFY(!usesGlobal->isVisible());
@@ -375,7 +374,8 @@ private Q_SLOTS:
         QTRY_VERIFY(!backTo->isVisible());
 
         // Out of the global settings, a change is measured against "left alone".
-        QTest::mouseClick(w.window, Qt::LeftButton, {}, usesGlobal->mapToScene(QPointF(usesGlobal->height() / 2, usesGlobal->height() / 2)).toPoint());
+        QTest::mouseClick(w.window, Qt::LeftButton, {},
+                          usesGlobal->mapToScene(QPointF(usesGlobal->height() / 2, usesGlobal->height() / 2)).toPoint());
         QTRY_VERIFY(!editor.usesGlobal());
         QCOMPARE(editor.anisotropicFiltering(), 0);
         editor.setAnisotropicFiltering(8);

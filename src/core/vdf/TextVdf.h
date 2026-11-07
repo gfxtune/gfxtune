@@ -18,7 +18,6 @@ bool parseText(QByteArrayView data, Node &root, QString *error = nullptr);
 
 // Reads and parses a file. Files larger than `maxBytes` are refused rather
 // than loaded, so a damaged or unexpected file cannot exhaust memory.
-bool readTextFile(const QString &path, Node &root, QString *error = nullptr,
-                  qint64 maxBytes = qint64(64) * 1024 * 1024);
+bool readTextFile(const QString &path, Node &root, QString *error = nullptr, qint64 maxBytes = qint64(64) * 1024 * 1024);
 
 } // namespace gfxtune::vdf

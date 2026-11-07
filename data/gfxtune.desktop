@@ -1,8 +1,11 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 gfxtune contributors
+
 [Desktop Entry]
 Type=Application
 Name=gfxtune
 GenericName=Graphics Settings
-Comment=Per-game graphics settings and live GPU readings
+Comment=Graphics and game tuning for Steam games on CachyOS
 Exec=gfxtune
 Icon=preferences-desktop-gaming
 Terminal=false

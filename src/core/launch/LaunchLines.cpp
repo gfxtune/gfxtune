@@ -20,8 +20,11 @@ namespace
 const QStringList &appsPath()
 {
     static const QStringList path{
-        QStringLiteral("UserLocalConfigStore"), QStringLiteral("Software"), QStringLiteral("Valve"),
-        QStringLiteral("Steam"), QStringLiteral("apps"),
+        QStringLiteral("UserLocalConfigStore"),
+        QStringLiteral("Software"),
+        QStringLiteral("Valve"),
+        QStringLiteral("Steam"),
+        QStringLiteral("apps"),
     };
     return path;
 }
@@ -94,8 +97,7 @@ bool syncLaunchLines(const QString &localConfigPath, const QSet<quint32> &wanted
     for (const LineChange &change : changes) {
         QStringList path = appsPath();
         path.append(QString::number(change.appId));
-        edits.append({path, QStringLiteral("LaunchOptions"),
-                      change.after.isEmpty() ? std::nullopt : std::optional<QString>(change.after)});
+        edits.append({path, QStringLiteral("LaunchOptions"), change.after.isEmpty() ? std::nullopt : std::optional<QString>(change.after)});
     }
     return vdf::editTextFile(localConfigPath, edits, error);
 }

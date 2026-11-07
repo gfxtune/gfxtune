@@ -30,11 +30,11 @@ QByteArray sessionText(qint64 start, qint64 updated, double seconds, double fps,
         histogram.add(frameNs);
     }
     return "# Written by gfxtune's Vulkan layer: one play session.\n"
-           "start=" + QByteArray::number(start) + "\nupdated=" + QByteArray::number(updated)
-         + "\nhistogram=" + QByteArray::fromStdString(histogram.serialize())
-         + "\ngpu_samples=" + QByteArray::number(samples) + "\nedge_sum=" + QByteArray::number(samples * 60.5)
-         + "\nhotspot_sum=" + QByteArray::number(samples * 75.0) + "\nhotspot_max=88\npower_sum="
-         + QByteArray::number(samples * 210.0) + "\nload_sum=" + QByteArray::number(samples * 97.0) + "\n";
+           "start="
+        + QByteArray::number(start) + "\nupdated=" + QByteArray::number(updated)
+        + "\nhistogram=" + QByteArray::fromStdString(histogram.serialize()) + "\ngpu_samples=" + QByteArray::number(samples)
+        + "\nedge_sum=" + QByteArray::number(samples * 60.5) + "\nhotspot_sum=" + QByteArray::number(samples * 75.0)
+        + "\nhotspot_max=88\npower_sum=" + QByteArray::number(samples * 210.0) + "\nload_sum=" + QByteArray::number(samples * 97.0) + "\n";
 }
 
 void writeSession(const QString &dir, qint64 pid, const QByteArray &text)

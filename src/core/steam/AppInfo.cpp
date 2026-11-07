@@ -106,7 +106,8 @@ bool readAppInfo(const QString &path, const QSet<quint32> &wanted, AppInfoFile &
         pos += 8;
         limit = qsizetype(tableOffset);
     } else {
-        return fail(error, QStringLiteral("unsupported format (marker 0x%1); Steam may have changed it").arg(magic, 8, 16, QLatin1Char('0')));
+        return fail(error,
+                    QStringLiteral("unsupported format (marker 0x%1); Steam may have changed it").arg(magic, 8, 16, QLatin1Char('0')));
     }
 
     qsizetype remaining = wanted.size();

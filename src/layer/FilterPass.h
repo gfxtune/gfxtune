@@ -35,8 +35,8 @@ public:
     };
 
     // `finalLayout` is the target's layout after the draw.
-    static std::unique_ptr<FilterPass> create(const DeviceFunctions &vk, VkDevice device, VkFormat format,
-                                              VkImageLayout finalLayout, std::string *error);
+    static std::unique_ptr<FilterPass> create(const DeviceFunctions &vk, VkDevice device, VkFormat format, VkImageLayout finalLayout,
+                                              std::string *error);
 
     VkFormat format() const { return m_pass->format(); }
 

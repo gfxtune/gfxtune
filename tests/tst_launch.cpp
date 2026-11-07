@@ -70,15 +70,18 @@ private Q_SLOTS:
         QTest::newRow("empty") << QString() << QStringLiteral("gfxtune-run %command%");
         QTest::newRow("spaces only") << QStringLiteral("   ") << QStringLiteral("gfxtune-run %command%");
         QTest::newRow("bare command") << QStringLiteral("%command%") << QStringLiteral("gfxtune-run %command%");
-        QTest::newRow("wrapper kept first") << QStringLiteral("gamemoderun %command%") << QStringLiteral("gamemoderun gfxtune-run %command%");
-        QTest::newRow("variables and arguments")
-            << QStringLiteral("PROTON_LOG=1 mangohud %command% -dx12 --skip-intro")
-            << QStringLiteral("PROTON_LOG=1 mangohud gfxtune-run %command% -dx12 --skip-intro");
+        QTest::newRow("wrapper kept first") << QStringLiteral("gamemoderun %command%")
+                                            << QStringLiteral("gamemoderun gfxtune-run %command%");
+        QTest::newRow("variables and arguments") << QStringLiteral("PROTON_LOG=1 mangohud %command% -dx12 --skip-intro")
+                                                 << QStringLiteral("PROTON_LOG=1 mangohud gfxtune-run %command% -dx12 --skip-intro");
         QTest::newRow("plain arguments keep their meaning")
             << QStringLiteral(" -novid -high ") << QStringLiteral("gfxtune-run %command% -novid -high");
-        QTest::newRow("already there") << QStringLiteral("gamemoderun gfxtune-run %command%") << QStringLiteral("gamemoderun gfxtune-run %command%");
-        QTest::newRow("already there by path") << QStringLiteral("/usr/bin/gfxtune-run %command%") << QStringLiteral("/usr/bin/gfxtune-run %command%");
-        QTest::newRow("user's own gamescope") << QStringLiteral("gamescope -f -- %command%") << QStringLiteral("gamescope -f -- gfxtune-run %command%");
+        QTest::newRow("already there") << QStringLiteral("gamemoderun gfxtune-run %command%")
+                                       << QStringLiteral("gamemoderun gfxtune-run %command%");
+        QTest::newRow("already there by path") << QStringLiteral("/usr/bin/gfxtune-run %command%")
+                                               << QStringLiteral("/usr/bin/gfxtune-run %command%");
+        QTest::newRow("user's own gamescope") << QStringLiteral("gamescope -f -- %command%")
+                                              << QStringLiteral("gamescope -f -- gfxtune-run %command%");
     }
 
     void addsTheHelperBeforeTheCommand()
@@ -120,8 +123,8 @@ private Q_SLOTS:
     {
         const OwnSettings own = ownSettings(QStringLiteral(
             "PROTON_FSR4_UPGRADE=1 RADV_TEX_ANISO=8 DXVK_CONFIG=\"dxgi.maxFrameRate = 60\" /usr/bin/gamescope -f -- %command% NOT_THIS=1"));
-        QCOMPARE(own.environment, (QSet<QString>{QStringLiteral("PROTON_FSR4_UPGRADE"), QStringLiteral("RADV_TEX_ANISO"),
-                                                 QStringLiteral("DXVK_CONFIG")}));
+        QCOMPARE(own.environment,
+                 (QSet<QString>{QStringLiteral("PROTON_FSR4_UPGRADE"), QStringLiteral("RADV_TEX_ANISO"), QStringLiteral("DXVK_CONFIG")}));
         QVERIFY(own.gamescope);
 
         const OwnSettings none = ownSettings(QStringLiteral("gamemoderun %command% -gamescope"));
@@ -149,13 +152,16 @@ private Q_SLOTS:
         s.frameCapEnabled = true;
         s.frameCap = 141;
         s.fsr4 = settings::Fsr4::On;
-        const LaunchPlan plan = planLaunch(s, context());
+        LaunchContext c = context();
+        c.proton = true;
+        const LaunchPlan plan = planLaunch(s, c);
         QCOMPARE(envValue(plan, QStringLiteral("RADV_TEX_ANISO")), QStringLiteral("16"));
         QCOMPARE(envValue(plan, QStringLiteral("MESA_VK_WSI_PRESENT_MODE")), QStringLiteral("mailbox"));
         QCOMPARE(envValue(plan, QStringLiteral("VKD3D_FRAME_RATE")), QStringLiteral("141"));
         QCOMPARE(envValue(plan, QStringLiteral("PROTON_FSR4_UPGRADE")), QStringLiteral("1"));
-        QCOMPARE(envValue(plan, QStringLiteral("DXVK_CONFIG")),
-                 QStringLiteral("d3d11.samplerAnisotropy = 16; d3d9.samplerAnisotropy = 16; dxgi.maxFrameRate = 141; d3d9.maxFrameRate = 141"));
+        QCOMPARE(
+            envValue(plan, QStringLiteral("DXVK_CONFIG")),
+            QStringLiteral("d3d11.samplerAnisotropy = 16; d3d9.samplerAnisotropy = 16; dxgi.maxFrameRate = 141; d3d9.maxFrameRate = 141"));
         QVERIFY(plan.wrapper.isEmpty());
         QCOMPARE(plan.applied.size(), 4);
     }
@@ -242,6 +248,7 @@ private Q_SLOTS:
         s.frameCapEnabled = true;
         s.fsr4 = settings::Fsr4::On;
         LaunchContext c = context();
+        c.proton = true;
         c.environment.insert(QStringLiteral("PROTON_FSR4_UPGRADE"), QStringLiteral("4.0.2"));
         c.environment.insert(QStringLiteral("DXVK_CONFIG"), QStringLiteral("dxgi.syncInterval = 0"));
         const LaunchPlan plan = planLaunch(s, c);
@@ -259,6 +266,7 @@ private Q_SLOTS:
         GameSettings s;
         s.frameCapEnabled = true;
         LaunchContext c = context();
+        c.proton = true;
         c.environment.insert(QStringLiteral("DXVK_CONFIG"), QStringLiteral("x = 1"));
         c.environment.insert(QStringLiteral("VKD3D_FRAME_RATE"), QStringLiteral("30"));
         const LaunchPlan plan = planLaunch(s, c);
@@ -277,11 +285,12 @@ private Q_SLOTS:
         s.frameCapEnabled = true;
         s.frameCap = 120;
         const LaunchPlan plan = planLaunch(s, context());
-        QCOMPARE(plan.wrapper, (QStringList{QStringLiteral("gamescope"), QStringLiteral("-W"), QStringLiteral("2560"),
-                                            QStringLiteral("-H"), QStringLiteral("1440"), QStringLiteral("-w"), QStringLiteral("1714"),
-                                            QStringLiteral("-h"), QStringLiteral("964"), QStringLiteral("-r"), QStringLiteral("120"),
-                                            QStringLiteral("-F"), QStringLiteral("fsr"), QStringLiteral("-S"), QStringLiteral("fit"),
-                                            QStringLiteral("--sharpness"), QStringLiteral("5"), QStringLiteral("-f"), QStringLiteral("--")}));
+        QCOMPARE(plan.wrapper,
+                 (QStringList{QStringLiteral("gamescope"), QStringLiteral("-W"), QStringLiteral("2560"), QStringLiteral("-H"),
+                              QStringLiteral("1440"), QStringLiteral("-w"), QStringLiteral("1714"), QStringLiteral("-h"),
+                              QStringLiteral("964"), QStringLiteral("-r"), QStringLiteral("120"), QStringLiteral("-F"),
+                              QStringLiteral("fsr"), QStringLiteral("-S"), QStringLiteral("fit"), QStringLiteral("--sharpness"),
+                              QStringLiteral("5"), QStringLiteral("-f"), QStringLiteral("--")}));
         // Outside Proton, gamescope's screen is the cap; the in-game limiters stay off.
         QVERIFY(!setsEnv(plan, QStringLiteral("VKD3D_FRAME_RATE")));
         QVERIFY(!setsEnv(plan, QStringLiteral("DXVK_CONFIG")));
@@ -357,7 +366,8 @@ private Q_SLOTS:
         LaunchPlan plan = planLaunch(s, c);
         QVERIFY(!setsEnv(plan, QStringLiteral("GFXTUNE_FILTERS")));
         QVERIFY(!setsEnv(plan, QStringLiteral("GFXTUNE_PERF_DIR")));
-        QCOMPARE(plan.notApplied, QStringList{QStringLiteral("In-game filters and measuring: locked until the anti-cheat risk is accepted")});
+        QCOMPARE(plan.notApplied,
+                 QStringList{QStringLiteral("In-game filters and measuring: locked until the anti-cheat risk is accepted")});
         // The cap falls back to DXVK and VKD3D-Proton.
         QVERIFY(setsEnv(plan, QStringLiteral("VKD3D_FRAME_RATE")));
         QVERIFY(plan.applied.contains(QStringLiteral("Frame rate cap 90")));
@@ -372,6 +382,28 @@ private Q_SLOTS:
         s = GameSettings{};
         s.measurePerformance = false;
         QVERIFY(planLaunch(s, c).notApplied.isEmpty());
+    }
+
+    // A native game without the layer or gamescope: DXVK and VKD3D-Proton are
+    // not there to hold a cap, so none is claimed.
+    void claimsNoCapNothingHolds()
+    {
+        GameSettings s;
+        s.measurePerformance = false;
+        s.frameCapEnabled = true;
+        s.frameCap = 60;
+        const LaunchPlan plan = planLaunch(s, context());
+        QVERIFY(!setsEnv(plan, QStringLiteral("VKD3D_FRAME_RATE")));
+        QVERIFY(!setsEnv(plan, QStringLiteral("DXVK_CONFIG")));
+        QVERIFY(plan.applied.isEmpty());
+        QCOMPARE(plan.notApplied,
+                 QStringList{QStringLiteral("Frame rate cap: needs gfxtune's layer or gamescope, and neither runs in this game")});
+
+        // gamescope switched on but not installed: the same.
+        s.gamescope = true;
+        QVERIFY(
+            planLaunch(s, context(false))
+                .notApplied.contains(QStringLiteral("Frame rate cap: needs gfxtune's layer or gamescope, and neither runs in this game")));
     }
 
     // One limiter at a time: the layer's whenever it loads.
@@ -413,7 +445,8 @@ private Q_SLOTS:
         c.proton = true;
         plan = planLaunch(s, c);
         QVERIFY(!setsEnv(plan, QStringLiteral("GFXTUNE_FILTERS")));
-        QCOMPARE(envValue(plan, QStringLiteral("DXVK_CONFIG")), QStringLiteral("d3d11.samplerLodBias = -0.50; d3d9.samplerLodBias = -0.50"));
+        QCOMPARE(envValue(plan, QStringLiteral("DXVK_CONFIG")),
+                 QStringLiteral("d3d11.samplerLodBias = -0.50; d3d9.samplerLodBias = -0.50"));
         QCOMPARE(plan.applied, QStringList{QStringLiteral("Texture detail -0.50 (DirectX 9 to 11)")});
 
         // Softer textures: a positive bias.
@@ -435,11 +468,8 @@ private Q_SLOTS:
     void syncsOpenGlGamesToo()
     {
         const QList<std::pair<VerticalSync, QString>> modes{
-            {VerticalSync::Off, QStringLiteral("0")},
-            {VerticalSync::On, QStringLiteral("3")},
-            {VerticalSync::Fast, QString()},
-            {VerticalSync::Adaptive, QString()},
-            {VerticalSync::GameDefault, QString()},
+            {VerticalSync::Off, QStringLiteral("0")}, {VerticalSync::On, QStringLiteral("3")}, {VerticalSync::Fast, QString()},
+            {VerticalSync::Adaptive, QString()},      {VerticalSync::GameDefault, QString()},
         };
         for (const auto &[mode, value] : modes) {
             GameSettings s;
@@ -465,16 +495,18 @@ private Q_SLOTS:
         s.upscaleFilter = UpscaleFilter::Fsr; // not used when scaling down
         s.sharpness = 15;
         const LaunchPlan plan = planLaunch(s, context());
-        QCOMPARE(plan.wrapper, (QStringList{QStringLiteral("gamescope"), QStringLiteral("-W"), QStringLiteral("2560"),
-                                            QStringLiteral("-H"), QStringLiteral("1440"), QStringLiteral("-w"), QStringLiteral("3840"),
-                                            QStringLiteral("-h"), QStringLiteral("2160"), QStringLiteral("-F"), QStringLiteral("linear"),
-                                            QStringLiteral("-S"), QStringLiteral("auto"), QStringLiteral("-f"), QStringLiteral("--")}));
+        QCOMPARE(plan.wrapper,
+                 (QStringList{QStringLiteral("gamescope"), QStringLiteral("-W"), QStringLiteral("2560"), QStringLiteral("-H"),
+                              QStringLiteral("1440"), QStringLiteral("-w"), QStringLiteral("3840"), QStringLiteral("-h"),
+                              QStringLiteral("2160"), QStringLiteral("-F"), QStringLiteral("linear"), QStringLiteral("-S"),
+                              QStringLiteral("auto"), QStringLiteral("-f"), QStringLiteral("--")}));
         QCOMPARE(plan.applied, QStringList{QStringLiteral("gamescope: drawn at 3840×2160, scaled down to 2560×1440")});
 
         // Twice the size of a 4K screen stays an even, valid size.
         s.renderScale = 200;
         const LaunchPlan big = planLaunch(s, context(true, Screen{3840, 2160, 120}));
-        QCOMPARE(big.wrapper.mid(5, 4), (QStringList{QStringLiteral("-w"), QStringLiteral("7680"), QStringLiteral("-h"), QStringLiteral("4320")}));
+        QCOMPARE(big.wrapper.mid(5, 4),
+                 (QStringList{QStringLiteral("-w"), QStringLiteral("7680"), QStringLiteral("-h"), QStringLiteral("4320")}));
     }
 
     void startsGameModeAndMangoHud()
@@ -519,7 +551,8 @@ private Q_SLOTS:
         QCOMPARE(plan.wrapper.first(), QStringLiteral("gamemoderun"));
         QCOMPARE(plan.wrapper.at(1), QStringLiteral("gamescope"));
         QVERIFY(!plan.wrapper.contains(QStringLiteral("mangohud")));
-        QCOMPARE(plan.wrapper.mid(plan.wrapper.size() - 3), (QStringList{QStringLiteral("--mangoapp"), QStringLiteral("-f"), QStringLiteral("--")}));
+        QCOMPARE(plan.wrapper.mid(plan.wrapper.size() - 3),
+                 (QStringList{QStringLiteral("--mangoapp"), QStringLiteral("-f"), QStringLiteral("--")}));
         QVERIFY(plan.applied.contains(QStringLiteral("MangoHud (gamescope's mangoapp)")));
 
         c.mangoAppInstalled = false;
@@ -539,16 +572,23 @@ private Q_SLOTS:
         QTest::addColumn<QStringList>("command");
         QTest::addColumn<bool>("proton");
         const QString game = QStringLiteral("/games/Raft/Raft.exe");
-        QTest::newRow("Proton") << QStringList{QStringLiteral("/steam/steamapps/common/Proton - Experimental/proton"), QStringLiteral("waitforexitandrun"), game} << true;
-        QTest::newRow("behind the runtime")
-            << QStringList{QStringLiteral("/steam/steamapps/common/SteamLinuxRuntime_sniper/_v2-entry-point"), QStringLiteral("--verb=waitforexitandrun"),
-                           QStringLiteral("--"), QStringLiteral("/usr/share/steam/compatibilitytools.d/proton-cachyos/proton"), QStringLiteral("waitforexitandrun"), game}
-            << true;
-        QTest::newRow("native game") << QStringList{QStringLiteral("/games/Stardew Valley/StardewValley")} << false;
-        QTest::newRow("native, runtime only")
-            << QStringList{QStringLiteral("/steam/SteamLinuxRuntime_sniper/_v2-entry-point"), QStringLiteral("--verb=waitforexitandrun"), QStringLiteral("--"), QStringLiteral("/games/cs2/cs2.sh")}
-            << false;
-        QTest::newRow("a program named proton, no verb") << QStringList{QStringLiteral("/games/proton"), QStringLiteral("-fullscreen")} << false;
+        QTest::newRow("Proton") << QStringList{QStringLiteral("/steam/steamapps/common/Proton - Experimental/proton"),
+                                               QStringLiteral("waitforexitandrun"), game}
+                                << true;
+        QTest::newRow("behind the runtime") << QStringList{
+            QStringLiteral("/steam/steamapps/common/SteamLinuxRuntime_sniper/_v2-entry-point"),
+            QStringLiteral("--verb=waitforexitandrun"),
+            QStringLiteral("--"),
+            QStringLiteral("/usr/share/steam/compatibilitytools.d/proton-cachyos/proton"),
+            QStringLiteral("waitforexitandrun"),
+            game} << true;
+        QTest::newRow("native game") << QStringList{QStringLiteral("/games/Farm Days/FarmDays")} << false;
+        QTest::newRow("native, runtime only") << QStringList{QStringLiteral("/steam/SteamLinuxRuntime_sniper/_v2-entry-point"),
+                                                             QStringLiteral("--verb=waitforexitandrun"), QStringLiteral("--"),
+                                                             QStringLiteral("/games/arena/arena.sh")}
+                                              << false;
+        QTest::newRow("a program named proton, no verb")
+            << QStringList{QStringLiteral("/games/proton"), QStringLiteral("-fullscreen")} << false;
         QTest::newRow("proton only in a folder name") << QStringList{QStringLiteral("/games/proton/run"), QStringLiteral("run")} << false;
         QTest::newRow("verb before proton") << QStringList{QStringLiteral("waitforexitandrun"), QStringLiteral("/x/proton")} << false;
         QTest::newRow("nothing") << QStringList{} << false;
@@ -592,15 +632,20 @@ private Q_SLOTS:
         GameSettings s;
         s.gamescope = true;
         s.frameCapEnabled = true;
-        LaunchContext c = context(installed, screenKnown ? std::optional<Screen>(Screen{1920, 1080, 60}) : std::nullopt);
-        if (insideGamescope) {
-            c.environment.insert(QStringLiteral("GAMESCOPE_WAYLAND_DISPLAY"), QStringLiteral("gamescope-0"));
+        for (bool proton : {false, true}) {
+            LaunchContext c = context(installed, screenKnown ? std::optional<Screen>(Screen{1920, 1080, 60}) : std::nullopt);
+            c.proton = proton;
+            if (insideGamescope) {
+                c.environment.insert(QStringLiteral("GAMESCOPE_WAYLAND_DISPLAY"), QStringLiteral("gamescope-0"));
+            }
+            const LaunchPlan plan = planLaunch(s, c);
+            QVERIFY(plan.wrapper.isEmpty());
+            QVERIFY(!plan.notApplied.isEmpty() || plan.keptFromSteam.contains(QStringLiteral("gamescope")));
+            // Under Proton the cap falls back to the in-game limiters; a
+            // native game has none.
+            QCOMPARE(setsEnv(plan, QStringLiteral("VKD3D_FRAME_RATE")), proton);
+            QCOMPARE(plan.applied.contains(QStringLiteral("Frame rate cap 60")), proton);
         }
-        const LaunchPlan plan = planLaunch(s, c);
-        QVERIFY(plan.wrapper.isEmpty());
-        QVERIFY(!plan.notApplied.isEmpty() || plan.keptFromSteam.contains(QStringLiteral("gamescope")));
-        // The cap falls back to the in-game limiters.
-        QVERIFY(setsEnv(plan, QStringLiteral("VKD3D_FRAME_RATE")));
     }
 
     void keepsRenderSizesSane()
@@ -645,7 +690,8 @@ private Q_SLOTS:
         auto process = [&](const char *pid, const char *comm, uint uid) {
             test::writeFile(proc.filePath(QString::fromLatin1(pid) + QStringLiteral("/comm")), QByteArray(comm) + '\n');
             test::writeFile(proc.filePath(QString::fromLatin1(pid) + QStringLiteral("/status")),
-                            "Name:\t" + QByteArray(comm) + "\nUid:\t" + QByteArray::number(uid) + "\t" + QByteArray::number(uid) + "\t0\t0\n");
+                            "Name:\t" + QByteArray(comm) + "\nUid:\t" + QByteArray::number(uid) + "\t" + QByteArray::number(uid)
+                                + "\t0\t0\n");
         };
         process("10", "bash", me);
         process("11", "steamwebhelper", me);

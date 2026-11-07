@@ -54,8 +54,7 @@ int listGames(QTextStream &out)
         out << '\n' << game.appId << "  " << game.name << (running.contains(game.appId) ? "  [running]" : "") << '\n';
         QString runsAs = runtimeName(game.runtime);
         if (game.runtime == Runtime::Proton) {
-            runsAs += game.tool.name.isEmpty() ? QStringLiteral(" (Steam's default)")
-                                               : QStringLiteral(" (%1)").arg(game.tool.displayName);
+            runsAs += game.tool.name.isEmpty() ? QStringLiteral(" (Steam's default)") : QStringLiteral(" (%1)").arg(game.tool.displayName);
         }
         out << "    runs as:   " << runsAs << '\n';
         const QString apis = apiNames(game.apis);

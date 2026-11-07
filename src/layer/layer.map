@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   SPDX-FileCopyrightText: 2026 gfxtune contributors */
+
 /* Only the loader's entry point leaves the layer; everything else stays
    private, so nothing clashes with the game's own libraries. */
 {

@@ -1,0 +1,51 @@
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.\" SPDX-FileCopyrightText: 2026 gfxtune contributors
+.TH GFXTUNE\-RUN 1 2026-11-07 "gfxtune @PROJECT_VERSION@" "User Commands"
+.SH NAME
+gfxtune\-run \- start a Steam game with its gfxtune settings
+.SH SYNOPSIS
+.B gfxtune\-run
+.I command
+.RI [ argument ...]
+.PP
+In a game's Steam launch options:
+.B gfxtune\-run %command%
+.SH DESCRIPTION
+.B gfxtune\-run
+reads the settings
+.BR gfxtune (1)
+keeps for all games and for the game Steam is starting (found from
+.BR SteamAppId ),
+sets the matching options of Mesa, DXVK, VKD3D\-Proton and Proton as
+environment variables, starts gamescope, GameMode or MangoHud around the
+game where they are switched on, and then replaces itself with the game.
+When a filter or performance measuring is on, it asks Vulkan to load
+gfxtune's layer into the game, and only that game.
+.PP
+Whatever the game's Steam launch options already set wins: a variable they
+set, or gamescope, GameMode or MangoHud they start, is left as it is.
+What was applied, kept or left out is written to
+.IR ~/.config/gfxtune/last\-launch/APPID.ini ,
+which the game's page in gfxtune shows.
+.PP
+Whatever goes wrong, the game still starts: with nothing to do, an unknown
+game or a wrapper that cannot start,
+.B gfxtune\-run
+starts the command unchanged.
+.SH ENVIRONMENT
+.TP
+.B SteamAppId
+The game Steam is starting; set by Steam.
+.B SteamGameId
+and
+.B STEAM_COMPAT_APP_ID
+are read when it is missing.
+.TP
+.B DISABLE_GFXTUNE_FILTERS=1
+Keeps gfxtune's Vulkan layer out of the game whatever its settings say.
+.SH EXIT STATUS
+The game's own, since
+.B gfxtune\-run
+becomes the game. 2 without a command; 127 when the command cannot be started.
+.SH SEE ALSO
+.BR gfxtune (1)

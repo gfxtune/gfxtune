@@ -19,7 +19,8 @@ const QList<SettingKind> &settingKinds()
     static const QList<SettingKind> kinds{
         {QStringLiteral("anisotropicFiltering"), {QStringLiteral("image/anisotropic_filtering")}, GFXTUNE_COPY(anisotropicFiltering)},
         {QStringLiteral("lodBias"), {QStringLiteral("image/lod_bias")}, GFXTUNE_COPY(lodBias)},
-        {QStringLiteral("frameCap"), {QStringLiteral("frames/frame_cap_enabled"), QStringLiteral("frames/frame_cap")},
+        {QStringLiteral("frameCap"),
+         {QStringLiteral("frames/frame_cap_enabled"), QStringLiteral("frames/frame_cap")},
          [](const GameSettings &from, GameSettings &to) {
              to.frameCapEnabled = from.frameCapEnabled;
              to.frameCap = from.frameCap;

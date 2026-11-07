@@ -42,12 +42,18 @@ void addCard(const QString &root, int index, const FakeCard &card)
     const QString h = d + QStringLiteral("hwmon/hwmon%1/").arg(index);
     const QList<std::pair<const char *, QByteArray>> files{
         {"name", "amdgpu"},
-        {"temp1_label", "edge"},     {"temp1_input", "41000"},
-        {"temp2_label", "junction"}, {"temp2_input", "46000"},
-        {"temp3_label", "mem"},      {"temp3_input", "52000"},
-        {"power1_average", "21000000"}, {"power1_cap", "315000000"},
-        {"freq1_input", "28000000"}, {"freq2_input", "96000000"},
-        {"fan1_input", "0"}, {"pwm1", "0"},
+        {"temp1_label", "edge"},
+        {"temp1_input", "41000"},
+        {"temp2_label", "junction"},
+        {"temp2_input", "46000"},
+        {"temp3_label", "mem"},
+        {"temp3_input", "52000"},
+        {"power1_average", "21000000"},
+        {"power1_cap", "315000000"},
+        {"freq1_input", "28000000"},
+        {"freq2_input", "96000000"},
+        {"fan1_input", "0"},
+        {"pwm1", "0"},
         {"in0_input", "632"},
     };
     for (const auto &[name, value] : files) {
@@ -63,11 +69,12 @@ void setCardFile(const QString &root, int index, const QString &relative, const 
 QString writeNameTable(const QString &dir)
 {
     const QString path = dir + QStringLiteral("/amdgpu.ids");
-    writeFile(path, "# List of AMDGPU IDs\n#\n\n1.0.0\n"
-                    "744C,\tC8,\tAMD Radeon RX 7900 XTX\n"
-                    "744C,\tCC,\tAMD Radeon RX 7900 XT\n"
-                    "15BF,\tC2,\tAMD Radeon 780M Graphics\n"
-                    "13C0,\tC1,\tAMD Radeon Graphics, with a comma\n");
+    writeFile(path,
+              "# List of AMDGPU IDs\n#\n\n1.0.0\n"
+              "744C,\tC8,\tAMD Radeon RX 7900 XTX\n"
+              "744C,\tCC,\tAMD Radeon RX 7900 XT\n"
+              "15BF,\tC2,\tAMD Radeon 780M Graphics\n"
+              "13C0,\tC1,\tAMD Radeon Graphics, with a comma\n");
     return path;
 }
 

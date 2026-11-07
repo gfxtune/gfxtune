@@ -34,7 +34,8 @@ private Q_SLOTS:
         QTemporaryDir dir;
         const QString proc = dir.path();
         const QByteArray reaper = "/home/user/.local/share/Steam/ubuntu12_32/reaper";
-        fakeProcess(proc, QStringLiteral("100"), "reaper", {reaper, "SteamLaunch", "AppId=1001", "--", "/x/proton", "waitforexitandrun", "game.exe"});
+        fakeProcess(proc, QStringLiteral("100"), "reaper",
+                    {reaper, "SteamLaunch", "AppId=1001", "--", "/x/proton", "waitforexitandrun", "game.exe"});
         fakeProcess(proc, QStringLiteral("101"), "reaper", {reaper, "SteamLaunch", "AppId=1002", "--", "./game"});
         // A reaper that is not launching a game.
         fakeProcess(proc, QStringLiteral("200"), "reaper", {reaper, "something", "AppId=2000"});
@@ -86,10 +87,7 @@ private Q_SLOTS:
         QCOMPARE(steam::processTree(100, QStringLiteral("/does/not/exist")), QList<qint64>{100});
     }
 
-    void handlesAMissingProcFolder()
-    {
-        QCOMPARE(steam::runningSteamApps(QStringLiteral("/does/not/exist")), QSet<quint32>());
-    }
+    void handlesAMissingProcFolder() { QCOMPARE(steam::runningSteamApps(QStringLiteral("/does/not/exist")), QSet<quint32>()); }
 
     void readsTheRealProcWithoutErrors()
     {

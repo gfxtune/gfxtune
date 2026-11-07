@@ -19,8 +19,8 @@ namespace gfxtune
 
 using settings::GameSettings;
 
-GameSettingsEditor::GameSettingsEditor(GameLibrary *library, settings::SettingsStore *store, settings::SystemInfo system,
-                                       QObject *parent, int saveDelayMs)
+GameSettingsEditor::GameSettingsEditor(GameLibrary *library, settings::SettingsStore *store, settings::SystemInfo system, QObject *parent,
+                                       int saveDelayMs)
     : QObject(parent)
     , m_library(library)
     , m_store(store)
@@ -43,7 +43,9 @@ GameSettingsEditor::GameSettingsEditor(GameLibrary *library, settings::SettingsS
     connect(&m_reportPoll, &QTimer::timeout, this, [this] {
         const auto report = launch::readFilterReport(m_store->baseDir(), m_appId);
         const bool changed = report.has_value() != m_filterReport.has_value()
-            || (report && (report->time != m_filterReport->time || report->running != m_filterReport->running || report->detail != m_filterReport->detail));
+            || (report
+                && (report->time != m_filterReport->time || report->running != m_filterReport->running
+                    || report->detail != m_filterReport->detail));
         if (changed) {
             m_filterReport = report;
             Q_EMIT launchChanged();
@@ -316,8 +318,8 @@ QVariantList GameSettingsEditor::sessions() const
     QVariantList list;
     for (const performance::Session &s : m_sessions) {
         const int minutes = std::max(qRound(s.seconds / 60.0), 1);
-        QString played = minutes >= 60 ? QStringLiteral("%1 h %2 min").arg(minutes / 60).arg(minutes % 60)
-                                       : QStringLiteral("%1 min").arg(minutes);
+        QString played =
+            minutes >= 60 ? QStringLiteral("%1 h %2 min").arg(minutes / 60).arg(minutes % 60) : QStringLiteral("%1 min").arg(minutes);
         if (s.running) {
             played += QStringLiteral(" so far");
         }
@@ -535,8 +537,8 @@ void GameSettingsEditor::flush()
     }
     m_unsaved = false;
     QString error;
-    const bool saved = m_global ? m_store->saveGlobal(m_globalSettings, &error)
-                                : m_store->saveProfile(m_appId, m_profile, gameName(), &error);
+    const bool saved =
+        m_global ? m_store->saveGlobal(m_globalSettings, &error) : m_store->saveProfile(m_appId, m_profile, gameName(), &error);
     setProblem(saved ? QString() : QStringLiteral("Could not save the settings: %1").arg(error));
     m_library->settingsChanged();
 }
@@ -581,18 +583,22 @@ void GameSettingsEditor::load()
     m_globalSettings = m_store->loadGlobal(&warnings);
     m_profile = m_appId != 0 ? m_store->loadProfile(m_appId, &warnings) : settings::GameProfile{};
     m_settings = m_global ? m_globalSettings : settings::effectiveSettings(m_globalSettings, m_profile);
-    setProblem(warnings.isEmpty() ? QString()
-                                  : QStringLiteral("Some saved values could not be read and were reset: %1").arg(warnings.join(QStringLiteral("; "))));
+    setProblem(warnings.isEmpty()
+                   ? QString()
+                   : QStringLiteral("Some saved values could not be read and were reset: %1").arg(warnings.join(QStringLiteral("; "))));
     Q_EMIT settingsChanged();
     updateAvailability();
 }
 
 void GameSettingsEditor::updateAvailability()
 {
-    const steam::Game *game = m_library->game(m_appId);
-    m_availability = m_global ? settings::availabilityForAll(m_settings, m_system)
-                   : game     ? settings::availabilityFor(*game, m_settings, m_system)
-                              : settings::Availability{};
+    if (m_global) {
+        m_availability = settings::availabilityForAll(m_settings, m_system);
+    } else if (const steam::Game *game = m_library->game(m_appId)) {
+        m_availability = settings::availabilityFor(*game, m_settings, m_system);
+    } else {
+        m_availability = settings::Availability{};
+    }
     Q_EMIT availabilityChanged();
 }
 

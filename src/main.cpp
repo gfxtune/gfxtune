@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 gfxtune contributors
 
+#include "Commands.h"
 #include "GameLibrary.h"
 #include "GameSettingsEditor.h"
 #include "GpuMonitor.h"
-#include "Commands.h"
 #include "performance/Performance.h"
 
 #include <QApplication>
@@ -36,7 +36,7 @@ bool wantsTextOnly(int argc, char *argv[])
 
 void setUpCommandLine(QCommandLineParser &parser)
 {
-    parser.setApplicationDescription(QStringLiteral("Per-game graphics settings and live GPU readings"));
+    parser.setApplicationDescription(QStringLiteral("Graphics and game tuning for Steam games on CachyOS"));
     parser.addHelpOption();
     parser.addVersionOption();
     parser.addOption({QStringLiteral("list-games"), QStringLiteral("Print the Steam games gfxtune finds, then exit.")});
@@ -88,8 +88,7 @@ int main(int argc, char *argv[])
     gpu.setGameSources(gfxtune::performance::performanceRoot(store.baseDir()));
 
     QQmlApplicationEngine engine;
-    QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
-                     [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
+    QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
     engine.setInitialProperties({
         {QStringLiteral("library"), QVariant::fromValue(&library)},
         {QStringLiteral("editor"), QVariant::fromValue(&editor)},

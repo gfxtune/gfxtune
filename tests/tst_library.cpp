@@ -592,8 +592,9 @@ private Q_SLOTS:
             histogram.add(1'000'000'000 / 144);
         }
         const qint64 now = QDateTime::currentSecsSinceEpoch();
-        QVERIFY(test::writeFile(dir + s("/session-4300"), "start=" + QByteArray::number(now - 1500) + "\nupdated=" + QByteArray::number(now)
-                                                              + "\nhistogram=" + QByteArray::fromStdString(histogram.serialize()) + "\n"));
+        QVERIFY(test::writeFile(dir + s("/session-4300"),
+                                "start=" + QByteArray::number(now - 1500) + "\nupdated=" + QByteArray::number(now)
+                                    + "\nhistogram=" + QByteArray::fromStdString(histogram.serialize()) + "\n"));
         QVERIFY(QDir().mkpath(setup.proc.filePath(s("4300"))));
 
         GameLibrary library(setup.steam.options(), &setup.store, nullptr, setup.proc.path());
@@ -614,7 +615,8 @@ private Q_SLOTS:
 
         const QVariantMap full = rows[1].toMap();
         QVERIFY(!full.value(s("running")).toBool());
-        QCOMPARE(full.value(s("date")).toString(), QLocale().toString(QDateTime::fromSecsSinceEpoch(1789990000).toLocalTime(), QLocale::ShortFormat));
+        QCOMPARE(full.value(s("date")).toString(),
+                 QLocale().toString(QDateTime::fromSecsSinceEpoch(1789990000).toLocalTime(), QLocale::ShortFormat));
         QCOMPARE(full.value(s("played")).toString(), s("1 h 5 min"));
         QCOMPARE(full.value(s("averageFps")).toString(), s("120"));
         QCOMPARE(full.value(s("low1")).toString(), s("95"));
@@ -712,7 +714,8 @@ private Q_SLOTS:
         QVERIFY(launch::writeLastLaunch(setup.store.baseDir(), 1003, plan, started));
         const auto writeReport = [&](qint64 time, const char *state, const char *detail) {
             return test::writeFile(launch::filterReportPath(setup.store.baseDir(), 1003),
-                                   QByteArray("# from the layer\ntime=") + QByteArray::number(time) + "\nstate=" + state + "\ndetail=" + detail + "\n");
+                                   QByteArray("# from the layer\ntime=") + QByteArray::number(time) + "\nstate=" + state
+                                       + "\ndetail=" + detail + "\n");
         };
         const auto reselect = [&] {
             editor.setAppId(1001);

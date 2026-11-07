@@ -335,7 +335,8 @@ void ensureSmaa(DeviceData &d, SwapchainData &swapchain)
     bool ok = smaa && smaa->createFrame(swapchain.extent, swapchain.smaaFrame, &error);
     for (ImageResources &image : swapchain.images) {
         ok = ok && smaa->createSource(swapchain.smaaFrame, image.copy.image, image.smaaSource, &error)
-            && swapchain.pass->addTarget(swapchain.smaaFrame.output.image, image.swapchainImage, swapchain.extent, image.smaaTarget, &error);
+            && swapchain.pass->addTarget(swapchain.smaaFrame.output.image, image.swapchainImage, swapchain.extent, image.smaaTarget,
+                                         &error);
     }
     if (!ok) {
         for (ImageResources &image : swapchain.images) {
@@ -348,8 +349,9 @@ void ensureSmaa(DeviceData &d, SwapchainData &swapchain)
             smaa->destroyFrame(swapchain.smaaFrame);
         }
         swapchain.smaaFailed = true;
-        report(true, std::to_string(swapchain.extent.width) + "×" + std::to_string(swapchain.extent.height) + ", "
-                         + formatName(swapchain.format) + "; anti-aliasing could not start: " + error);
+        report(true,
+               std::to_string(swapchain.extent.width) + "×" + std::to_string(swapchain.extent.height) + ", " + formatName(swapchain.format)
+                   + "; anti-aliasing could not start: " + error);
         return;
     }
     swapchain.smaaReady = true;
@@ -811,9 +813,9 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateSampler(VkDevice device, const VkSamplerCre
 
 PFN_vkVoidFunction deviceHook(const char *name)
 {
-#define GFXTUNE_HOOK(fn)                                                                                               \
-    if (std::strcmp(name, "vk" #fn) == 0) {                                                                           \
-        return reinterpret_cast<PFN_vkVoidFunction>(&fn);                                                             \
+#define GFXTUNE_HOOK(fn)                                                                                                                   \
+    if (std::strcmp(name, "vk" #fn) == 0) {                                                                                                \
+        return reinterpret_cast<PFN_vkVoidFunction>(&fn);                                                                                  \
     }
     GFXTUNE_HOOK(DestroyDevice)
     GFXTUNE_HOOK(GetDeviceQueue)

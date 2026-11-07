@@ -1,6 +1,8 @@
 # gfxtune
 
-Graphics settings for all games and for each game, plus live GPU readings, on Linux. Made with AMD Radeon cards in mind.
+**The graphics and game tuning app for CachyOS.** Steam games for now.
+
+Graphics settings for all games and for each game, in-game filters, performance measuring and live GPU readings, in one window. Made with AMD Radeon cards in mind.
 
 **Status: early development.**
 
@@ -42,7 +44,7 @@ Steam rewrites its settings file from memory when it exits, so gfxtune only edit
 
 Settings you put in a game's launch options yourself always win: if they already set a variable gfxtune would set, or already start gamescope, GameMode or MangoHud, gfxtune leaves that alone and says so on the game's page.
 
-The frame cap uses one limiter, never two at once: gfxtune's layer (below) when it loads, which paces every Vulkan game, DirectX under Proton included, on an exact grid of frame times; otherwise DXVK and VKD3D-Proton for games under Proton, and for other games gamescope, whose cap only holds while the game waits for vertical sync. GameMode starts around everything, and MangoHud right around the game; inside gamescope, MangoHud's own layer is not supported, so gamescope shows it through its `mangoapp` instead.
+The frame cap uses one limiter, never two at once: gfxtune's layer (below) when it loads, which paces every Vulkan game, DirectX under Proton included, on an exact grid of frame times; otherwise DXVK and VKD3D-Proton for games under Proton, and for other games gamescope, whose cap only holds while the game waits for vertical sync. A native game that neither the layer nor gamescope reaches cannot be capped; its page says so. GameMode starts around everything, and MangoHud right around the game; inside gamescope, MangoHud's own layer is not supported, so gamescope shows it through its `mangoapp` instead.
 
 ## In-game filters and measuring
 
@@ -96,9 +98,19 @@ cmake --build build
 ctest --test-dir build
 ```
 
-The tests build made-up Steam folders and programs; they never read a real Steam installation. The filter tests draw on the first Vulkan device they find (Mesa's software renderer works too) and compare every pixel with the same arithmetic done in C++; with Khronos' validation layer installed, it checks every Vulkan call as well.
+`gfxtune --list-games` prints the Steam games gfxtune finds and what it reads about each one (how it runs, which graphics libraries it loads, FSR 3.1, what its Proton does with FSR 4, anti-cheat, whether Steam has saved its cover, current launch options). It only reads, and is meant for checking a system or attaching to a bug report. `man gfxtune` and `man gfxtune-run` describe both programs.
 
-`gfxtune --list-games` prints the Steam games gfxtune finds and what it reads about each one (how it runs, which graphics libraries it loads, FSR 3.1, what its Proton does with FSR 4, anti-cheat, whether Steam has saved its cover, current launch options). It only reads, and is meant for checking a system or attaching to a bug report.
+## Testing
+
+Every change is built and tested on CachyOS, in its official container image, with the scripts in `ci/`; [CONTRIBUTING.md](CONTRIBUTING.md) shows how to run them.
+
+- The unit tests check each part on its own, on made-up Steam folders and programs; they never read a real Steam installation. The filter tests draw on the first Vulkan device they find (Mesa's software renderer works too) and compare every pixel with the same arithmetic done in C++; with Khronos' validation layer installed, it checks every Vulkan call as well.
+- The system tests install the package and start small test games the way Steam does: a native Vulkan game, and DirectX 11 and 12 games under Proton (DXVK and VKD3D-Proton). They check what reaches the screen (filters, anti-aliasing, a slider moved while the game runs), the frame cap, measuring, the anti-cheat lock, GameMode and MangoHud, the launch options the window writes into Steam's file, and the removal hook.
+- The unit tests also run with AddressSanitizer and UndefinedBehaviorSanitizer, and the package the system tests install is built with CachyOS's own compiler flags.
+
+## Contributing
+
+Bug reports, tests on other cards and games, and code are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Security problems: [SECURITY.md](SECURITY.md). Changes between versions: [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

@@ -44,11 +44,7 @@ QVariant GameListModel::data(const QModelIndex &index, int role) const
 QHash<int, QByteArray> GameListModel::roleNames() const
 {
     return {
-        {AppIdRole, "appId"},
-        {NameRole, "name"},
-        {DetailRole, "detail"},
-        {CoverRole, "cover"},
-        {SettingsNoteRole, "settingsNote"},
+        {AppIdRole, "appId"},     {NameRole, "name"}, {DetailRole, "detail"}, {CoverRole, "cover"}, {SettingsNoteRole, "settingsNote"},
         {RunningRole, "running"},
     };
 }

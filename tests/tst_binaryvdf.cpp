@@ -102,7 +102,10 @@ private Q_SLOTS:
         QTest::addColumn<QByteArray>("data");
         QTest::addColumn<bool>("withTable");
         QTest::newRow("unknown type") << QByteArray(char(0x09) + cstr("k")) << false;
-        QTest::newRow("key cut off") << QByteArray("\x01" "abc", 4) << false;
+        QTest::newRow("key cut off") << QByteArray(
+            "\x01"
+            "abc",
+            4) << false;
         QTest::newRow("string cut off") << QByteArray(char(0x01) + cstr("k") + "abc") << false;
         QTest::newRow("int cut off") << QByteArray(char(0x02) + cstr("k") + "ab") << false;
         QTest::newRow("u64 cut off") << QByteArray(char(0x07) + cstr("k") + "abcd") << false;
@@ -140,9 +143,11 @@ private Q_SLOTS:
     {
         Node original;
         original.isSection = true;
-        original.children.push_back(test::section(QStringLiteral("appinfo"), {
-            test::section(QStringLiteral("common"), {test::value(QStringLiteral("name"), QStringLiteral("Ünïcode Game"))}),
-        }));
+        original.children.push_back(test::section(
+            QStringLiteral("appinfo"),
+            {
+                test::section(QStringLiteral("common"), {test::value(QStringLiteral("name"), QStringLiteral("Ünïcode Game"))}),
+            }));
         for (bool withTable : {false, true}) {
             QStringList table;
             const QByteArray data = test::writeBinary(original, withTable ? &table : nullptr);
@@ -157,10 +162,12 @@ private Q_SLOTS:
     {
         Node original;
         original.isSection = true;
-        original.children.push_back(test::section(QStringLiteral("appinfo"), {
-            test::value(QStringLiteral("appid"), QStringLiteral("1001")),
-            test::section(QStringLiteral("config"), {test::value(QStringLiteral("executable"), QStringLiteral("game.exe"))}),
-        }));
+        original.children.push_back(test::section(
+            QStringLiteral("appinfo"),
+            {
+                test::value(QStringLiteral("appid"), QStringLiteral("1001")),
+                test::section(QStringLiteral("config"), {test::value(QStringLiteral("executable"), QStringLiteral("game.exe"))}),
+            }));
         QStringList table;
         const QByteArray plain = test::writeBinary(original);
         const QByteArray indexed = test::writeBinary(original, &table);

@@ -125,8 +125,8 @@ class GameSettingsEditor : public QObject
     Q_PROPERTY(QVariantList sessions READ sessions NOTIFY sessionsChanged)
 
 public:
-    GameSettingsEditor(GameLibrary *library, settings::SettingsStore *store, settings::SystemInfo system,
-                       QObject *parent = nullptr, int saveDelayMs = 400);
+    GameSettingsEditor(GameLibrary *library, settings::SettingsStore *store, settings::SystemInfo system, QObject *parent = nullptr,
+                       int saveDelayMs = 400);
     ~GameSettingsEditor() override;
 
     int appId() const { return int(m_appId); }

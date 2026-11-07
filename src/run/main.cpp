@@ -61,8 +61,7 @@ std::optional<launch::Screen> mainScreen()
         return std::nullopt;
     }
     const qreal ratio = screen->devicePixelRatio();
-    return launch::Screen{qRound(screen->size().width() * ratio), qRound(screen->size().height() * ratio),
-                          qRound(screen->refreshRate())};
+    return launch::Screen{qRound(screen->size().width() * ratio), qRound(screen->size().height() * ratio), qRound(screen->refreshRate())};
 }
 
 } // namespace
@@ -70,8 +69,9 @@ std::optional<launch::Screen> mainScreen()
 int main(int argc, char *argv[])
 {
     if (argc < 2) {
-        std::fprintf(stderr, "Usage: gfxtune-run COMMAND [ARGUMENTS...]\n"
-                             "gfxtune adds this to a game's Steam launch options as: gfxtune-run %%command%%\n");
+        std::fprintf(stderr,
+                     "Usage: gfxtune-run COMMAND [ARGUMENTS...]\n"
+                     "gfxtune adds this to a game's Steam launch options as: gfxtune-run %%command%%\n");
         return 2;
     }
     char *const *command = argv + 1;

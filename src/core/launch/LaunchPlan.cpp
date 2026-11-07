@@ -134,10 +134,8 @@ bool needsScreen(const GameSettings &settings)
 
 bool runsThroughProton(const QStringList &command)
 {
-    static const QStringList verbs{
-        QStringLiteral("waitforexitandrun"), QStringLiteral("run"), QStringLiteral("waitforexit"),
-        QStringLiteral("runinprefix"), QStringLiteral("getcompatpath"), QStringLiteral("getnativepath"),
-    };
+    static const QStringList verbs{QStringLiteral("waitforexitandrun"), QStringLiteral("run"),           QStringLiteral("waitforexit"),
+                                   QStringLiteral("runinprefix"),       QStringLiteral("getcompatpath"), QStringLiteral("getnativepath")};
     for (qsizetype i = 0; i + 1 < command.size(); ++i) {
         const QString &argument = command.at(i);
         const qsizetype slash = argument.lastIndexOf(QLatin1Char('/'));
@@ -231,10 +229,11 @@ LaunchPlan planLaunch(const GameSettings &s, const LaunchContext &context)
     // without it, DXVK and VKD3D-Proton cap Proton games inside the game.
     // gamescope's -r only sets the refresh rate of its own screen, which
     // holds a game back only while it waits for vertical sync: it is the
-    // cap only for native games the layer does not reach.
+    // cap only for native games the layer does not reach. A native game
+    // with neither has nothing to cap it.
     const bool capByLayer = s.frameCapEnabled && layer;
     const bool capWithGamescope = s.frameCapEnabled && !layer && gamescope && !context.proton;
-    const bool capInGame = s.frameCapEnabled && !capByLayer && !capWithGamescope;
+    const bool capInGame = s.frameCapEnabled && !capByLayer && !capWithGamescope && context.proton;
     bool cappedByVkd3d = false;
     if (capByLayer) {
         plan.applied.append(QStringLiteral("Frame rate cap %1").arg(s.frameCap));
@@ -242,6 +241,8 @@ LaunchPlan planLaunch(const GameSettings &s, const LaunchContext &context)
         const QString fps = QString::number(s.frameCap);
         dxvk << QStringLiteral("dxgi.maxFrameRate = ") + fps << QStringLiteral("d3d9.maxFrameRate = ") + fps;
         cappedByVkd3d = p.set(QStringLiteral("VKD3D_FRAME_RATE"), fps);
+    } else if (s.frameCapEnabled && !capWithGamescope) {
+        plan.notApplied.append(QStringLiteral("Frame rate cap: needs gfxtune's layer or gamescope, and neither runs in this game"));
     }
 
     switch (s.fsr4) {
@@ -309,11 +310,10 @@ LaunchPlan planLaunch(const GameSettings &s, const LaunchContext &context)
         // Drawn bigger than the screen: scaled down, where upscalers and
         // their sharpening do not apply.
         const bool supersampling = s.renderScale > 100;
-        plan.wrapper << QStringLiteral("gamescope")
-                     << QStringLiteral("-W") << QString::number(screen.width)
-                     << QStringLiteral("-H") << QString::number(screen.height)
-                     << QStringLiteral("-w") << QString::number(width)
-                     << QStringLiteral("-h") << QString::number(height);
+        // The screen's size, then the size the game draws at.
+        plan.wrapper << QStringLiteral("gamescope");
+        plan.wrapper << QStringLiteral("-W") << QString::number(screen.width) << QStringLiteral("-H") << QString::number(screen.height);
+        plan.wrapper << QStringLiteral("-w") << QString::number(width) << QStringLiteral("-h") << QString::number(height);
         if (capWithGamescope) {
             plan.wrapper << QStringLiteral("-r") << QString::number(s.frameCap);
             plan.applied.append(QStringLiteral("Frame rate cap %1 (gamescope, while vertical sync is on)").arg(s.frameCap));
@@ -329,7 +329,11 @@ LaunchPlan planLaunch(const GameSettings &s, const LaunchContext &context)
         }
         plan.wrapper << QStringLiteral("-f") << QStringLiteral("--");
         if (supersampling) {
-            plan.applied.append(QStringLiteral("gamescope: drawn at %1×%2, scaled down to %3×%4").arg(width).arg(height).arg(screen.width).arg(screen.height));
+            plan.applied.append(QStringLiteral("gamescope: drawn at %1×%2, scaled down to %3×%4")
+                                    .arg(width)
+                                    .arg(height)
+                                    .arg(screen.width)
+                                    .arg(screen.height));
         } else {
             plan.applied.append(QStringLiteral("gamescope: drawn at %1×%2, shown at %3×%4 with %5")
                                     .arg(width)

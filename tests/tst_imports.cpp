@@ -35,7 +35,8 @@ private Q_SLOTS:
         QVERIFY2(binaries::parseImports(program, imports, &error), qPrintable(error));
         QCOMPARE(imports.format, ExecutableFormat::Windows);
         // Lower case, delay-loaded included, duplicates dropped.
-        QCOMPARE(imports.libraries, (QStringList{QStringLiteral("kernel32.dll"), QStringLiteral("d3d11.dll"), QStringLiteral("d3d12.dll")}));
+        QCOMPARE(imports.libraries,
+                 (QStringList{QStringLiteral("kernel32.dll"), QStringLiteral("d3d11.dll"), QStringLiteral("d3d12.dll")}));
     }
 
     void readsOldStyleDelayImports()
@@ -86,7 +87,10 @@ private Q_SLOTS:
         QTest::newRow("text") << QByteArray("#!/bin/sh\necho hi\n");
         QTest::newRow("MZ without PE") << QByteArray("MZ") + QByteArray(100, '\0');
         QTest::newRow("PE header cut off") << test::writePe(true, {QStringLiteral("a.dll")}).left(0x90);
-        QTest::newRow("ELF cut off") << QByteArray("\x7F" "ELF\x02\x01", 6);
+        QTest::newRow("ELF cut off") << QByteArray(
+            "\x7F"
+            "ELF\x02\x01",
+            6);
         QByteArray bigEndian = test::writeElf(true, {QStringLiteral("libGL.so.1")});
         bigEndian[5] = 2;
         QTest::newRow("big-endian ELF") << bigEndian;
@@ -122,14 +126,16 @@ private Q_SLOTS:
         QTest::addColumn<QStringList>("libraries");
         QTest::addColumn<int>("expected");
         QTest::newRow("DirectX 12") << QStringList{QStringLiteral("D3D12.dll")} << int(GraphicsApi::DirectX12);
-        QTest::newRow("DirectX 11 via dxgi") << QStringList{QStringLiteral("dxgi.dll"), QStringLiteral("d3d11.dll")} << int(GraphicsApi::DirectX11);
+        QTest::newRow("DirectX 11 via dxgi") << QStringList{QStringLiteral("dxgi.dll"), QStringLiteral("d3d11.dll")}
+                                             << int(GraphicsApi::DirectX11);
         QTest::newRow("DirectX 10") << QStringList{QStringLiteral("d3d10_1.dll")} << int(GraphicsApi::DirectX10);
         QTest::newRow("DirectX 9 and 8") << QStringList{QStringLiteral("d3d9.dll"), QStringLiteral("d3d8.dll")}
                                          << int(GraphicsApi::DirectX9 | GraphicsApi::DirectX8);
         QTest::newRow("Vulkan on Windows") << QStringList{QStringLiteral("vulkan-1.dll")} << int(GraphicsApi::Vulkan);
         QTest::newRow("OpenGL on Windows") << QStringList{QStringLiteral("OPENGL32.dll")} << int(GraphicsApi::OpenGL);
         QTest::newRow("Vulkan on Linux") << QStringList{QStringLiteral("libvulkan.so.1")} << int(GraphicsApi::Vulkan);
-        QTest::newRow("OpenGL on Linux") << QStringList{QStringLiteral("libGL.so.1"), QStringLiteral("libEGL.so.1")} << int(GraphicsApi::OpenGL);
+        QTest::newRow("OpenGL on Linux") << QStringList{QStringLiteral("libGL.so.1"), QStringLiteral("libEGL.so.1")}
+                                         << int(GraphicsApi::OpenGL);
         QTest::newRow("dxgi alone says nothing") << QStringList{QStringLiteral("dxgi.dll")} << 0;
         QTest::newRow("unrelated") << QStringList{QStringLiteral("kernel32.dll"), QStringLiteral("libc.so.6")} << 0;
     }

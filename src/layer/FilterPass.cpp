@@ -7,7 +7,6 @@
 #include "filters_frag.h"
 #include "fullscreen_vert.h"
 
-
 namespace gfxtune::layer
 {
 
@@ -82,8 +81,8 @@ FilterPass::FilterPass(const DeviceFunctions &vk, VkDevice device, std::unique_p
 {
 }
 
-std::unique_ptr<FilterPass> FilterPass::create(const DeviceFunctions &vk, VkDevice device, VkFormat format,
-                                               VkImageLayout finalLayout, std::string *error)
+std::unique_ptr<FilterPass> FilterPass::create(const DeviceFunctions &vk, VkDevice device, VkFormat format, VkImageLayout finalLayout,
+                                               std::string *error)
 {
     FullscreenPass::Setup setup;
     setup.format = format;
