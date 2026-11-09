@@ -3,6 +3,7 @@
 
 #include "GameListModel.h"
 
+#include <KLocalizedString>
 #include <QUrl>
 
 namespace gfxtune
@@ -53,13 +54,13 @@ QString GameListModel::detailText(const Game &game)
 {
     switch (game.runtime) {
     case Runtime::Native:
-        return QStringLiteral("Native");
+        return i18n("Native");
     case Runtime::Proton:
         return game.tool.displayName.isEmpty() ? QStringLiteral("Proton") : game.tool.displayName;
     case Runtime::Unknown:
         break;
     }
-    return QStringLiteral("Unknown");
+    return i18n("Unknown");
 }
 
 void GameListModel::setGames(QList<Game> games)

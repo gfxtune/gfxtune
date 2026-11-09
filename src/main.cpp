@@ -7,8 +7,11 @@
 #include "GpuMonitor.h"
 #include "performance/Performance.h"
 
+#include <KLocalizedQmlContext>
+#include <KLocalizedString>
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QtQml/QQmlExtensionPlugin>
@@ -36,18 +39,20 @@ bool wantsTextOnly(int argc, char *argv[])
 
 void setUpCommandLine(QCommandLineParser &parser)
 {
-    parser.setApplicationDescription(QStringLiteral("Graphics and game tuning for Steam games on CachyOS"));
+    parser.setApplicationDescription(i18n("Graphics and game tuning for Steam games on CachyOS"));
     parser.addHelpOption();
     parser.addVersionOption();
-    parser.addOption({QStringLiteral("list-games"), QStringLiteral("Print the Steam games gfxtune finds, then exit.")});
+    parser.addOption({QStringLiteral("list-games"), i18n("Print the Steam games gfxtune finds, then exit.")});
     parser.addOption({QStringLiteral("remove-launch-lines"),
-                      QStringLiteral("Take gfxtune-run out of every game's Steam launch options (Steam must be closed), then exit.")});
+                      i18n("Take gfxtune-run out of every game's Steam launch options (Steam must be closed), then exit.")});
 }
 
 } // namespace
 
 int main(int argc, char *argv[])
 {
+    // Before any text is made: the catalog that i18n() reads.
+    KLocalizedString::setApplicationDomain("gfxtune");
     if (wantsTextOnly(argc, argv)) {
         const QCoreApplication app(argc, argv);
         QCoreApplication::setApplicationName(QStringLiteral("gfxtune"));
@@ -67,6 +72,7 @@ int main(int argc, char *argv[])
     QApplication::setApplicationName(QStringLiteral("gfxtune"));
     QApplication::setApplicationVersion(QStringLiteral(PROJECT_VERSION));
     QApplication::setDesktopFileName(QStringLiteral("gfxtune"));
+    QApplication::setWindowIcon(QIcon::fromTheme(QStringLiteral("gfxtune"), QIcon(QStringLiteral(":/gfxtune.svg"))));
     QCommandLineParser parser;
     setUpCommandLine(parser);
     parser.process(app);
@@ -88,6 +94,7 @@ int main(int argc, char *argv[])
     gpu.setGameSources(gfxtune::performance::performanceRoot(store.baseDir()));
 
     QQmlApplicationEngine engine;
+    KLocalization::setupLocalizedContext(&engine);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
     engine.setInitialProperties({
         {QStringLiteral("library"), QVariant::fromValue(&library)},

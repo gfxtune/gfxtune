@@ -3,6 +3,7 @@
 
 #include "LaunchPlan.h"
 
+#include <KLocalizedString>
 #include <QRegularExpression>
 #include <QtMath>
 
@@ -64,11 +65,11 @@ QString filterWords(UpscaleFilter filter)
     case UpscaleFilter::Sgsr:
         return QStringLiteral("Snapdragon GSR");
     case UpscaleFilter::Linear:
-        return QStringLiteral("linear scaling");
+        return i18n("linear scaling");
     case UpscaleFilter::Nearest:
-        return QStringLiteral("nearest-neighbor scaling");
+        return i18n("nearest-neighbor scaling");
     case UpscaleFilter::Pixel:
-        return QStringLiteral("pixel-art scaling");
+        return i18n("pixel-art scaling");
     }
     return {};
 }
@@ -155,9 +156,9 @@ private:
         if (m_context.environment.contains(QStringLiteral("GAMESCOPE_WAYLAND_DISPLAY"))) {
             keep(QStringLiteral("gamescope"));
         } else if (!m_context.gamescopeInstalled) {
-            m_plan.notApplied.append(QStringLiteral("gamescope: not installed"));
+            m_plan.notApplied.append(i18n("gamescope: not installed"));
         } else if (!m_context.screen || m_context.screen->width <= 0 || m_context.screen->height <= 0) {
-            m_plan.notApplied.append(QStringLiteral("gamescope: the screen size could not be read"));
+            m_plan.notApplied.append(i18n("gamescope: the screen size could not be read"));
         } else {
             m_gamescope = true;
             m_screen = *m_context.screen;
@@ -173,6 +174,7 @@ private:
         if (settings::layerWanted(m_s, m_context.facts) && !m_context.filterSettingsPath.isEmpty()
             && set(QStringLiteral("GFXTUNE_FILTERS"), QStringLiteral("1"))) {
             m_layer = true;
+            m_plan.layer = true;
             m_plan.environment.append({QStringLiteral("GFXTUNE_FILTERS_SETTINGS"), m_context.filterSettingsPath});
             if (!m_context.globalSettingsPath.isEmpty()) {
                 m_plan.environment.append({QStringLiteral("GFXTUNE_GLOBAL_SETTINGS"), m_context.globalSettingsPath});
@@ -181,14 +183,15 @@ private:
                 m_plan.environment.append({QStringLiteral("GFXTUNE_FILTERS_REPORT"), m_context.filterReportPath});
             }
             if (m_s.filters.active()) {
-                m_plan.applied.append(QStringLiteral("In-game filters"));
+                m_plan.filters = true;
+                m_plan.applied.append(i18n("In-game filters"));
             }
             if (m_s.measurePerformance && !m_context.performanceDir.isEmpty()) {
                 m_plan.environment.append({QStringLiteral("GFXTUNE_PERF_DIR"), m_context.performanceDir});
-                m_plan.applied.append(QStringLiteral("Performance measuring"));
+                m_plan.applied.append(i18n("Performance measuring"));
             }
         } else if (!settings::layerAllowed(m_s, m_context.facts) && (m_s.filters.active() || m_s.measurePerformance)) {
-            m_plan.notApplied.append(QStringLiteral("In-game filters and measuring: locked until the anti-cheat risk is accepted"));
+            m_plan.notApplied.append(i18n("In-game filters and measuring: locked until the anti-cheat risk is accepted"));
         }
     }
 
@@ -201,7 +204,7 @@ private:
         const bool driver = set(QStringLiteral("RADV_TEX_ANISO"), level);
         m_dxvk << QStringLiteral("d3d11.samplerAnisotropy = ") + level << QStringLiteral("d3d9.samplerAnisotropy = ") + level;
         if (driver) {
-            m_plan.applied.append(QStringLiteral("Anisotropic filtering %1×").arg(level));
+            m_plan.applied.append(i18n("Anisotropic filtering %1×", level));
         }
     }
 
@@ -211,12 +214,12 @@ private:
             return;
         }
         if (m_layer) {
-            m_plan.applied.append(QStringLiteral("Texture detail %1").arg(bias()));
+            m_plan.applied.append(i18n("Texture detail %1", bias()));
         } else if (m_context.proton) {
             m_dxvk << QStringLiteral("d3d11.samplerLodBias = ") + bias() << QStringLiteral("d3d9.samplerLodBias = ") + bias();
             m_lodByDxvk = true;
         } else {
-            m_plan.notApplied.append(QStringLiteral("Texture detail: needs gfxtune's layer, which is off for this game"));
+            m_plan.notApplied.append(i18n("Texture detail: needs gfxtune's layer, which is off for this game"));
         }
     }
 
@@ -232,7 +235,7 @@ private:
             set(QStringLiteral("vblank_mode"), mode == VerticalSync::Off ? QStringLiteral("0") : QStringLiteral("3"));
         }
         if (vulkan) {
-            m_plan.applied.append(QStringLiteral("Vertical sync: %1").arg(verticalSyncWords(mode)));
+            m_plan.applied.append(i18n("Vertical sync: %1", verticalSyncWords(mode)));
         }
     }
 
@@ -249,7 +252,7 @@ private:
             return;
         }
         if (m_layer) {
-            m_plan.applied.append(QStringLiteral("Frame rate cap %1").arg(m_s.frameCap));
+            m_plan.applied.append(i18n("Frame rate cap %1", m_s.frameCap));
         } else if (m_context.proton) {
             const QString fps = QString::number(m_s.frameCap);
             m_dxvk << QStringLiteral("dxgi.maxFrameRate = ") + fps << QStringLiteral("d3d9.maxFrameRate = ") + fps;
@@ -258,7 +261,7 @@ private:
         } else if (m_gamescope) {
             m_capWithGamescope = true; // added with gamescope's other options
         } else {
-            m_plan.notApplied.append(QStringLiteral("Frame rate cap: needs gfxtune's layer or gamescope, and neither runs in this game"));
+            m_plan.notApplied.append(i18n("Frame rate cap: needs gfxtune's layer or gamescope, and neither runs in this game"));
         }
     }
 
@@ -267,7 +270,7 @@ private:
         switch (m_s.fsr4) {
         case Fsr4::On:
             if (set(QStringLiteral("PROTON_FSR4_UPGRADE"), QStringLiteral("1"))) {
-                m_plan.applied.append(QStringLiteral("FSR 4 on"));
+                m_plan.applied.append(i18n("FSR 4 on"));
             }
             break;
         case Fsr4::Off: {
@@ -278,7 +281,7 @@ private:
             const bool variable = set(QStringLiteral("PROTON_FSR4_UPGRADE"), QStringLiteral("0"));
             const bool library = overrideDll(QStringLiteral("amdxcffx64"), QStringLiteral("d"));
             if (variable && library) {
-                m_plan.applied.append(QStringLiteral("FSR 4 off (the game keeps FSR 3.1)"));
+                m_plan.applied.append(i18n("FSR 4 off (the game keeps FSR 3.1)"));
             }
             break;
         }
@@ -293,10 +296,10 @@ private:
     {
         const bool dxvkSet = !m_dxvk.isEmpty() && set(QStringLiteral("DXVK_CONFIG"), m_dxvk.join(QStringLiteral("; ")));
         if (m_capInGame && (dxvkSet || m_cappedByVkd3d)) {
-            m_plan.applied.append(QStringLiteral("Frame rate cap %1").arg(m_s.frameCap));
+            m_plan.applied.append(i18n("Frame rate cap %1", m_s.frameCap));
         }
         if (m_lodByDxvk && dxvkSet) {
-            m_plan.applied.append(QStringLiteral("Texture detail %1 (DirectX 9 to 11)").arg(bias()));
+            m_plan.applied.append(i18n("Texture detail %1 (DirectX 9 to 11)", bias()));
         }
     }
 
@@ -312,7 +315,7 @@ private:
             addGamescope(hud == Hud::Gamescope);
         }
         if (hud == Hud::Gamescope) {
-            m_plan.applied.append(QStringLiteral("MangoHud (gamescope's mangoapp)"));
+            m_plan.applied.append(i18n("MangoHud (gamescope's mangoapp)"));
         } else if (hud == Hud::Wrapper) {
             m_plan.wrapper << QStringLiteral("mangohud");
             m_plan.applied.append(QStringLiteral("MangoHud"));
@@ -327,7 +330,7 @@ private:
         if (m_context.environment.value(QStringLiteral("LD_PRELOAD")).contains(QLatin1String("gamemodeauto"))) {
             keep(QStringLiteral("gamemoderun"));
         } else if (!m_context.gameModeInstalled) {
-            m_plan.notApplied.append(QStringLiteral("GameMode: not installed"));
+            m_plan.notApplied.append(i18n("GameMode: not installed"));
         } else {
             m_plan.wrapper << QStringLiteral("gamemoderun");
             m_plan.applied.append(QStringLiteral("GameMode"));
@@ -342,9 +345,9 @@ private:
         if (m_context.environment.contains(QStringLiteral("MANGOHUD"))) {
             keep(QStringLiteral("MangoHud"));
         } else if (m_gamescope && !m_context.mangoAppInstalled) {
-            m_plan.notApplied.append(QStringLiteral("MangoHud: inside gamescope it needs mangoapp, which is not installed"));
+            m_plan.notApplied.append(i18n("MangoHud: inside gamescope it needs mangoapp, which is not installed"));
         } else if (!m_gamescope && !m_context.mangoHudInstalled) {
-            m_plan.notApplied.append(QStringLiteral("MangoHud: not installed"));
+            m_plan.notApplied.append(i18n("MangoHud: not installed"));
         } else {
             return m_gamescope ? Hud::Gamescope : Hud::Wrapper;
         }
@@ -367,7 +370,7 @@ private:
         w << QStringLiteral("-w") << QString::number(width) << QStringLiteral("-h") << QString::number(height);
         if (m_capWithGamescope) {
             w << QStringLiteral("-r") << QString::number(m_s.frameCap);
-            m_plan.applied.append(QStringLiteral("Frame rate cap %1 (gamescope, while vertical sync is on)").arg(m_s.frameCap));
+            m_plan.applied.append(i18n("Frame rate cap %1 (gamescope, while vertical sync is on)", m_s.frameCap));
         }
         w << QStringLiteral("-F") << (supersampling ? QStringLiteral("linear") : settings::toKey(m_s.upscaleFilter));
         w << QStringLiteral("-S") << settings::toKey(m_s.scalingMode);
@@ -379,13 +382,14 @@ private:
             w << QStringLiteral("--mangoapp");
         }
         w << QStringLiteral("-f") << QStringLiteral("--");
-        const QString drawn = QStringLiteral("gamescope: drawn at %1×%2").arg(width).arg(height);
+        // Sizes as plain digits: no thousands separators in 2560×1440.
+        const auto n = [](int value) { return QString::number(value); };
         if (supersampling) {
-            m_plan.applied.append(drawn + QStringLiteral(", scaled down to %1×%2").arg(screen.width).arg(screen.height));
-        } else {
             m_plan.applied.append(
-                drawn
-                + QStringLiteral(", shown at %1×%2 with %3").arg(screen.width).arg(screen.height).arg(filterWords(m_s.upscaleFilter)));
+                i18n("gamescope: drawn at %1×%2, scaled down to %3×%4", n(width), n(height), n(screen.width), n(screen.height)));
+        } else {
+            m_plan.applied.append(i18n("gamescope: drawn at %1×%2, shown at %3×%4 with %5", n(width), n(height), n(screen.width),
+                                       n(screen.height), filterWords(m_s.upscaleFilter)));
         }
     }
 

@@ -12,6 +12,7 @@
 #include "support/FakeSysfs.h"
 #include "support/Fixtures.h"
 
+#include <KLocalizedQmlContext>
 #include <QApplication>
 #include <QDir>
 #include <QFileInfo>
@@ -100,6 +101,7 @@ private:
 
         Window(GameLibrary &library, GameSettingsEditor &editor, GpuMonitor &gpu)
         {
+            KLocalization::setupLocalizedContext(&engine);
             QObject::connect(&engine, &QQmlEngine::warnings, &engine, [this](const QList<QQmlError> &list) { warnings += list; });
             engine.setInitialProperties({
                 {QStringLiteral("library"), QVariant::fromValue(&library)},

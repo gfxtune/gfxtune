@@ -59,6 +59,9 @@ public:
 
     // Call after gfxtune's own settings files change.
     void settingsChanged();
+    // Forgets that the game was seen drawing with OpenGL, so its next start
+    // through gfxtune decides again.
+    void checkGraphicsAgain(quint32 appId);
     int gamesUsingGlobal() const { return m_gamesUsingGlobal; }
     // Whether the game needs gfxtune-run in its launch options: the global
     // settings with its own changes have something to do in it, and gfxtune
@@ -106,6 +109,7 @@ private:
     void saveFacts();
     void reloadProfiles();
     void syncLaunchLines();
+    void learnGraphics(const QHash<quint32, qint64> &reapers);
 
     steam::ScanOptions m_options;
     const settings::SettingsStore *m_store;
@@ -134,6 +138,7 @@ private:
     };
     std::optional<Synced> m_synced;
     QSet<QString> m_reportedWarnings; // Steam file problems already logged
+    QHash<quint32, QDateTime> m_judged; // the start of each game already judged
     bool m_loaded = false;
     bool m_scanning = false;
     bool m_inspecting = false;

@@ -95,7 +95,7 @@ public:
     QString fan() const;
     QString voltage() const;
     QString heldBackBy() const;
-    QString cpuLoad() const { return m_cpuLoad ? QStringLiteral("%1 %").arg(*m_cpuLoad) : QStringLiteral("—"); }
+    QString cpuLoad() const;
     QString cpuTemperature() const;
     QString cpuClock() const;
 

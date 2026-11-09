@@ -1,0 +1,1745 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR gfxtune contributors
+# This file is distributed under the same license as the gfxtune package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: gfxtune\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-09 20:04+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: src/Commands.cpp
+#, kde-format
+msgid "No Steam account found; nothing to remove."
+msgstr ""
+
+#: src/Commands.cpp
+#, kde-format
+msgid ""
+"Steam is running. Close Steam, then run this again: Steam rewrites its "
+"settings when it exits."
+msgstr ""
+
+#: src/Commands.cpp
+#, kde-format
+msgid "Could not update Steam's launch options: %1"
+msgstr ""
+
+#: src/Commands.cpp
+#, kde-format
+msgid "Removed gfxtune-run from 1 game."
+msgid_plural "Removed gfxtune-run from %1 games."
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/app/GameLibrary.cpp
+#, kde-format
+msgid "Game %1"
+msgstr ""
+
+#: src/app/GameLibrary.cpp
+#, kde-format
+msgid "own settings only"
+msgstr ""
+
+#: src/app/GameLibrary.cpp
+#, kde-format
+msgid "1 change"
+msgid_plural "%1 changes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/app/GameListModel.cpp
+#, kde-format
+msgid "Native"
+msgstr ""
+
+#: src/app/GameListModel.cpp
+#, kde-format
+msgid "Unknown"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "Drawn in the game (%1)"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "Not drawn: %1"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "Waiting for the game's first frame"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid ""
+"Not drawn: the game never showed a Vulkan picture (it may draw with OpenGL)"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "Runs natively"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "Runs through Proton (Steam's default version)"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "Runs through %1"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "Steam has not said how this game runs yet"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "Draws with OpenGL (seen when it last ran)"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "Graphics system not detected"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "Global"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "Without gfxtune"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "Proton decides (on)"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "Proton decides (off)"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "Proton decides"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp src/app/GpuMonitor.cpp src/qml/GpuPanel.qml
+#, kde-format
+msgctxt "a reading and its unit"
+msgid "%1 %2"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp src/app/GpuMonitor.cpp
+#, kde-format
+msgctxt "unit"
+msgid "°C"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "%1 h %2 min"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "%1 min"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgctxt "%1 is how long the session has lasted"
+msgid "%1 so far"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgctxt "average hotspot temperature, then its highest"
+msgid "%1 (%2)"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgctxt "unit"
+msgid "W"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "Could not save the settings: %1"
+msgstr ""
+
+#: src/app/GameSettingsEditor.cpp
+#, kde-format
+msgid "Some saved values could not be read and were reset: %1"
+msgstr ""
+
+#: src/app/GpuMonitor.cpp src/qml/LastLaunch.qml
+#, kde-format
+msgid "Nothing"
+msgstr ""
+
+#: src/app/GpuMonitor.cpp
+#, kde-format
+msgid "%1 °C"
+msgstr ""
+
+#: src/app/GpuMonitor.cpp
+#, kde-format
+msgid "%1 GHz"
+msgstr ""
+
+#: src/app/GpuMonitor.cpp src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "%1 FPS"
+msgstr ""
+
+#: src/app/GpuMonitor.cpp
+#, kde-format
+msgid "%1 ms · slowest %2 ms"
+msgstr ""
+
+#: src/app/GpuMonitor.cpp
+#, kde-format
+msgid "%1 GB"
+msgstr ""
+
+#: src/app/GpuMonitor.cpp
+#, kde-format
+msgctxt "unit"
+msgid "%"
+msgstr ""
+
+#: src/app/GpuMonitor.cpp
+#, kde-format
+msgctxt "unit"
+msgid "MHz"
+msgstr ""
+
+#: src/app/GpuMonitor.cpp
+#, kde-format
+msgctxt "unit"
+msgid "mV"
+msgstr ""
+
+#: src/app/GpuMonitor.cpp
+#, kde-format
+msgctxt "processor load in percent"
+msgid "%1 %"
+msgstr ""
+
+#: src/app/GpuMonitor.cpp
+#, kde-format
+msgid "%1 / %2 W"
+msgstr ""
+
+#: src/app/GpuMonitor.cpp
+#, kde-format
+msgid "%1 W"
+msgstr ""
+
+#: src/app/GpuMonitor.cpp
+#, kde-format
+msgid "%1 / %2 GB"
+msgstr ""
+
+#: src/app/GpuMonitor.cpp
+#, kde-format
+msgid "%1 RPM · %2%"
+msgstr ""
+
+#: src/app/GpuMonitor.cpp
+#, kde-format
+msgid "%1 RPM"
+msgstr ""
+
+#: src/app/GpuMonitor.cpp
+#, kde-format
+msgctxt "fan speed in percent"
+msgid "%1%"
+msgstr ""
+
+#: src/core/gpu/AmdGpu.cpp
+#, kde-format
+msgid "AMD graphics card %1:%2"
+msgstr ""
+
+#: src/core/gpu/AmdGpu.cpp
+#, kde-format
+msgid "power limit"
+msgstr ""
+
+#: src/core/gpu/AmdGpu.cpp
+#, kde-format
+msgid "current limit"
+msgstr ""
+
+#: src/core/gpu/AmdGpu.cpp
+#, kde-format
+msgid "GPU temperature"
+msgstr ""
+
+#: src/core/gpu/AmdGpu.cpp
+#, kde-format
+msgid "hotspot temperature"
+msgstr ""
+
+#: src/core/gpu/AmdGpu.cpp
+#, kde-format
+msgid "memory temperature"
+msgstr ""
+
+#: src/core/gpu/AmdGpu.cpp
+#, kde-format
+msgid "board temperature"
+msgstr ""
+
+#: src/core/gpu/AmdGpu.cpp
+#, kde-format
+msgid "reliability limit"
+msgstr ""
+
+#: src/core/launch/LaunchLines.cpp
+#, kde-format
+msgid "Steam has not created %1 yet"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "linear scaling"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "nearest-neighbor scaling"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "pixel-art scaling"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "gamescope: not installed"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "gamescope: the screen size could not be read"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "In-game filters"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "Performance measuring"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid ""
+"In-game filters and measuring: locked until the anti-cheat risk is accepted"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "Anisotropic filtering %1×"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "Texture detail %1"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "Texture detail: needs gfxtune's layer, which is off for this game"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "Vertical sync: %1"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "Frame rate cap %1"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid ""
+"Frame rate cap: needs gfxtune's layer or gamescope, and neither runs in this "
+"game"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "FSR 4 on"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "FSR 4 off (the game keeps FSR 3.1)"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "Texture detail %1 (DirectX 9 to 11)"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "MangoHud (gamescope's mangoapp)"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "GameMode: not installed"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "MangoHud: inside gamescope it needs mangoapp, which is not installed"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "MangoHud: not installed"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "Frame rate cap %1 (gamescope, while vertical sync is on)"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "gamescope: drawn at %1×%2, scaled down to %3×%4"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "gamescope: drawn at %1×%2, shown at %3×%4 with %5"
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "This game draws with OpenGL, which this setting does not reach."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"Set by %1 in this game's Steam launch options, which gfxtune leaves alone."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "gfxtune's layer, locked until you accept the risk under In-game filters"
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "If this game draws with OpenGL, this setting does not reach it."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "OpenGL games know only Off and On."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "a frame rate variable"
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "Only takes effect if the game draws with Vulkan or DirectX."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "Only takes effect if the game uses DirectX 9 to 12."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "This game draws with Vulkan itself: the cap needs %1."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"This game draws with Vulkan itself: the cap needs performance measuring or a "
+"filter on."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"gamescope holds the cap only while vertical sync is on, in the game or with "
+"Vertical sync set to On here."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "Turn on gamescope to cap this game's frame rate."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"Turn on gamescope to cap this game's frame rate, or accept the risk under In-"
+"game filters."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"Turn on performance measuring or gamescope to cap this game's frame rate."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"This game's Steam launch options start gamescope; set the frame rate there."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "Capping this game's frame rate needs gamescope, which is not installed."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"DirectX 9 to 11 games: this game's Steam launch options set DXVK_CONFIG, so "
+"the cap only reaches DirectX 12."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"FSR 4 looks better than FSR 3.1 but costs some performance on RDNA 3 cards."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "Only for games that run through Proton."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "a WINEDLLOVERRIDES entry for FSR 4"
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "This game does not ship FSR 3.1, which FSR 4 replaces."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgctxt "%1 is what FSR 4 costs"
+msgid "This game's Proton turns FSR 4 on by itself. %1"
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgctxt "%1 is what FSR 4 costs"
+msgid "This game's Proton keeps FSR 3.1 unless FSR 4 is set to On. %1"
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"This game's Proton cannot use FSR 4. Proton Experimental, proton-cachyos and "
+"GE-Proton can."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgctxt "%1 is what FSR 4 costs"
+msgid ""
+"gfxtune cannot tell whether Steam's default Proton turns FSR 4 on by itself. "
+"%1"
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "gfxtune could not tell how this game runs."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "This game draws with OpenGL, which the filters cannot reach."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"Only shows if the game draws with Vulkan or DirectX. Not while the game "
+"shows HDR."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "Not while the game shows HDR."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"%1 ships %2. The filters and performance measuring run inside the game, like "
+"MangoHud does. No bans are known for this kind of tool, but nobody can "
+"promise there will never be one. Using them on this game is your "
+"responsibility."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "This game's Steam launch options already start gamescope."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "gamescope is not installed."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"Supersampling: the game draws bigger than the screen and is scaled down "
+"smoothly; the upscaler and its sharpness are not used."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"Takes effect the next time the game starts. Sharper textures can shimmer."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"Reaches DirectX 9 to 11 only while performance measuring and the filters are "
+"off."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "Needs %1."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "Needs performance measuring or a filter on for this game."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "This game draws with OpenGL, which gfxtune cannot measure."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"Frame rate, frame times and the card's readings while you play, kept for "
+"each session. It reads the clock once per frame and nothing more."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "Locked until you accept the risk under In-game filters."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "This game's Steam launch options already start gamemoderun."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "GameMode is not installed."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"Asks the system for the processor's full speed and the right priorities "
+"while the game runs."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "This game's Steam launch options already start MangoHud."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"This game's Steam launch options start gamescope; add --mangoapp to its "
+"options there for MangoHud."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"Inside gamescope, gamescope shows it through mangoapp. MangoHud's own "
+"settings decide what it shows."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "Inside gamescope MangoHud needs mangoapp, which is not installed."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "MangoHud is not installed."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"MangoHud's own settings decide what it shows; Right Shift+F12 shows or hides "
+"it."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"Reaches every game gfxtune measures or filters, OpenGL ones aside; otherwise "
+"only DirectX 9 to 11 games under Proton."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"Exact in every game gfxtune measures; otherwise through DXVK and VKD3D-"
+"Proton, or gamescope."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "Reaches games that run through Proton and ship FSR 3.1."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"While on, gfxtune keeps out of games with anti-cheat until you accept the "
+"risk or change a setting on their page."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgctxt "%1 is the note about anti-cheat"
+msgid ""
+"Reach games that draw with Vulkan or DirectX, not while a game shows HDR. %1"
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgctxt "%1 is the note about anti-cheat"
+msgid ""
+"Frame rate, frame times and the card's readings while you play, kept for "
+"each session. %1"
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"Supersampling: games draw bigger than the screen and are scaled down "
+"smoothly; the upscaler and its sharpness are not used."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "Inside gamescope, gamescope shows it through mangoapp."
+msgstr ""
+
+#: src/core/settings/SettingsStore.cpp
+#, kde-format
+msgid "%1 could not be read"
+msgstr ""
+
+#: src/core/settings/SettingsStore.cpp
+#, kde-format
+msgid "%1: \"%2\" is not true or false"
+msgstr ""
+
+#: src/core/settings/SettingsStore.cpp
+#, kde-format
+msgid "%1: expected a whole number from %2 to %3"
+msgstr ""
+
+#: src/core/settings/SettingsStore.cpp
+#, kde-format
+msgid "%1: not one of the offered values"
+msgstr ""
+
+#: src/core/settings/SettingsStore.cpp
+#, kde-format
+msgid "%1: unknown value"
+msgstr ""
+
+#: src/core/settings/SettingsStore.cpp
+#, kde-format
+msgid "could not create %1"
+msgstr ""
+
+#: src/core/settings/SettingsStore.cpp
+#, kde-format
+msgid "could not write %1"
+msgstr ""
+
+#: src/core/settings/SettingsStore.cpp
+#, kde-format
+msgid "refusing to delete %1: not a gfxtune folder"
+msgstr ""
+
+#: src/core/settings/SettingsStore.cpp
+#, kde-format
+msgid "could not delete everything in %1"
+msgstr ""
+
+#: src/core/vdf/TextVdf.cpp
+#, kde-format
+msgid "file ends inside a section (missing })"
+msgstr ""
+
+#: src/core/vdf/TextVdf.cpp src/core/vdf/TextVdfEdit.cpp
+#, kde-format
+msgid "unexpected } on line %1"
+msgstr ""
+
+#: src/core/vdf/TextVdf.cpp src/core/vdf/TextVdfEdit.cpp
+#, kde-format
+msgid "{ without a name on line %1"
+msgstr ""
+
+#: src/core/vdf/TextVdf.cpp
+#, kde-format
+msgid "sections nested too deeply on line %1"
+msgstr ""
+
+#: src/core/vdf/TextVdf.cpp src/core/vdf/TextVdfEdit.cpp
+#, kde-format
+msgid "\"%1\" has no value (line %2)"
+msgstr ""
+
+#: src/core/vdf/TextVdf.cpp
+#, kde-format
+msgid "file is larger than %1 MB"
+msgstr ""
+
+#: src/core/vdf/TextVdfEdit.cpp
+#, kde-format
+msgid "file ends inside a section"
+msgstr ""
+
+#: src/core/vdf/TextVdfEdit.cpp
+#, kde-format
+msgid "file is unexpectedly large"
+msgstr ""
+
+#: src/core/vdf/TextVdfEdit.cpp
+#, kde-format
+msgid "the edited file did not read back as expected; nothing was written"
+msgstr ""
+
+#: src/core/vdf/TextVdfTokenizer.h
+#, kde-format
+msgid "text in quotes that starts on line %1 never ends"
+msgstr ""
+
+#: src/core/vdf/TextVdfTokenizer.h
+#, kde-format
+msgid "unclosed [ on line %1"
+msgstr ""
+
+#: src/main.cpp
+#, kde-format
+msgid "Graphics and game tuning for Steam games on CachyOS"
+msgstr ""
+
+#: src/main.cpp
+#, kde-format
+msgid "Print the Steam games gfxtune finds, then exit."
+msgstr ""
+
+#: src/main.cpp
+#, kde-format
+msgid ""
+"Take gfxtune-run out of every game's Steam launch options (Steam must be "
+"closed), then exit."
+msgstr ""
+
+#: src/qml/BackToBase.qml
+#, kde-format
+msgid "Use the global setting for this game"
+msgstr ""
+
+#: src/qml/BackToBase.qml
+#, kde-format
+msgid "Leave this setting to the game"
+msgstr ""
+
+#: src/qml/GameListPane.qml
+#, kde-format
+msgid "Search games…"
+msgstr ""
+
+#: src/qml/GameListPane.qml src/qml/Main.qml src/qml/PageHeader.qml
+#, kde-format
+msgid "All Games"
+msgstr ""
+
+#: src/qml/GameListPane.qml
+#, kde-format
+msgid "Global settings · %2 of %1 game uses them"
+msgid_plural "Global settings · %2 of %1 games use them"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/qml/GameListPane.qml
+#, kde-format
+msgid "Running"
+msgstr ""
+
+#: src/qml/GameListPane.qml
+#, kde-format
+msgid "No game matches"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Image"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Anisotropic filtering:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Game decides"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "2×"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "4×"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "8×"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "16×"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Texture detail:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Sharper (−0.25)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Sharper (−0.5)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Sharper (−0.75)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Sharper (−1)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Sharper (−1.5)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Sharpest (−2)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Softer (+0.5)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Softer (+1)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Frame pacing"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Frame rate cap:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml src/qml/SwitchSetting.qml
+#, kde-format
+msgid "Off"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Vertical sync:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Off (may tear)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml src/qml/SwitchSetting.qml
+#, kde-format
+msgid "On"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Fast (no tearing)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Adaptive"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Upscaling"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "FSR 4:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Off (keep FSR 3.1)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "I Accept the Risk"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Filters:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid ""
+"Changes show in the game within a second while it runs. Switch off to "
+"compare with the original picture."
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Anti-aliasing:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid ""
+"Smooths jagged edges in the finished picture. Costs a little performance and "
+"can soften small text."
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Sharpening:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgctxt "percent"
+msgid "%1 %"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Brightness:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Contrast:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Gamma:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Saturation:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Vibrance:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Colour temperature:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Neutral"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Warmer %1"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Cooler %1"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Reset Colours"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Run in gamescope:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid ""
+"gamescope can lower performance and add input latency. Turn it off if the "
+"game feels slower."
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Render resolution:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Supersampling (200%)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Supersampling (150%)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Supersampling (125%)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Native (100%)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Ultra quality (77%)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Quality (67%)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Balanced (59%)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Performance (50%)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Ultra performance (33%)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Upscaler:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Linear"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Nearest neighbor"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Pixel art"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Upscaler sharpness:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "%1 / 20"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Scaling:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Automatic"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Whole multiples (sharp pixels)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Fit, keep shape"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Fill, crop edges"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Stretch"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Launch"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "GameMode:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "MangoHud:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Performance"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Measure performance:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Reset Global Settings to Defaults"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Use Global Settings for Everything"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Clear This Game's Changes"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "Frame rate"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "Frame time"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "Video memory"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "Frame rate, last minute"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "Only AMD cards are supported"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "No graphics card found"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid ""
+"gfxtune reads the sensors of AMD Radeon cards through the amdgpu driver."
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "The card is asleep. gfxtune does not wake it just to read it."
+msgstr ""
+
+#: src/qml/GpuPanel.qml src/qml/PerformanceHistory.qml
+#, kde-format
+msgid "Temperature"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "Hotspot"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "Memory temperature"
+msgstr ""
+
+#: src/qml/GpuPanel.qml src/qml/PerformanceHistory.qml
+#, kde-format
+msgid "Power"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "GPU load"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "Memory load"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "Core clock"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "Memory clock"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "Fan"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "Voltage"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "Held back by"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "Temperature, last minute"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "Power, last minute"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "Load"
+msgstr ""
+
+#: src/qml/GpuPanel.qml
+#, kde-format
+msgid "Clock"
+msgstr ""
+
+#: src/qml/LastLaunch.qml
+#, kde-format
+msgid "Last launch"
+msgstr ""
+
+#: src/qml/LastLaunch.qml
+#, kde-format
+msgid "Not started through gfxtune yet."
+msgstr ""
+
+#: src/qml/LastLaunch.qml
+#, kde-format
+msgid "Started:"
+msgstr ""
+
+#: src/qml/LastLaunch.qml
+#, kde-format
+msgid "Applied:"
+msgstr ""
+
+#: src/qml/LastLaunch.qml
+#, kde-format
+msgid "Left to Steam's options:"
+msgstr ""
+
+#: src/qml/LastLaunch.qml
+#, kde-format
+msgid "Not applied:"
+msgstr ""
+
+#: src/qml/LastLaunch.qml
+#, kde-format
+msgid "In-game filters:"
+msgstr ""
+
+#: src/qml/LaunchStatus.qml
+#, kde-format
+msgid ""
+"gfxtune is in this game's Steam launch options. Changes apply the next time "
+"the game starts."
+msgstr ""
+
+#: src/qml/LaunchStatus.qml
+#, kde-format
+msgid ""
+"Steam is open, so gfxtune adds itself to this game's launch options once "
+"Steam closes. To use these settings sooner, paste this line into the game's "
+"launch options in Steam:"
+msgstr ""
+
+#: src/qml/LaunchStatus.qml
+#, kde-format
+msgid "Adding gfxtune to this game's Steam launch options…"
+msgstr ""
+
+#: src/qml/LaunchStatus.qml
+#, kde-format
+msgid ""
+"gfxtune takes itself out of this game's launch options once Steam closes. "
+"Until then the game starts with its own settings."
+msgstr ""
+
+#: src/qml/LaunchStatus.qml
+#, kde-format
+msgid "Taking gfxtune out of this game's Steam launch options…"
+msgstr ""
+
+#: src/qml/LaunchStatus.qml
+#, kde-format
+msgid "Steam's launch options could not be updated: %1"
+msgstr ""
+
+#: src/qml/LaunchStatus.qml
+#, kde-format
+msgid ""
+"gfxtune stays out of this game by itself: it ships anti-cheat, and All Games "
+"has in-game filters or measuring on, which run inside games. To add gfxtune, "
+"accept the risk below or change a setting for this game, or switch those off "
+"on All Games."
+msgstr ""
+
+#: src/qml/LaunchStatus.qml
+#, kde-format
+msgid ""
+"gfxtune has nothing to do in this game, so Steam starts it as usual. Change "
+"something below and gfxtune adds itself to the game's Steam launch options."
+msgstr ""
+
+#: src/qml/LaunchStatus.qml
+#, kde-format
+msgid "Copy Line"
+msgstr ""
+
+#: src/qml/Main.qml
+#, kde-format
+msgid "All Games — gfxtune"
+msgstr ""
+
+#: src/qml/Main.qml
+#, kde-format
+msgctxt "window title"
+msgid "%1 — gfxtune"
+msgstr ""
+
+#: src/qml/Main.qml
+#, kde-format
+msgid "Refresh"
+msgstr ""
+
+#: src/qml/Main.qml
+#, kde-format
+msgid "Read the Steam library again"
+msgstr ""
+
+#: src/qml/Main.qml
+#, kde-format
+msgid "Remove All gfxtune Settings…"
+msgstr ""
+
+#: src/qml/Main.qml
+#, kde-format
+msgid "About gfxtune"
+msgstr ""
+
+#: src/qml/Main.qml
+#, kde-format
+msgid "Reading your Steam library…"
+msgstr ""
+
+#: src/qml/Main.qml
+#, kde-format
+msgid "Steam was not found"
+msgstr ""
+
+#: src/qml/Main.qml
+#, kde-format
+msgid ""
+"gfxtune reads the games of the Steam client installed from your system's "
+"packages. Steam from Flathub is not supported yet."
+msgstr ""
+
+#: src/qml/Main.qml
+#, kde-format
+msgid "Choose a game"
+msgstr ""
+
+#: src/qml/Main.qml
+#, kde-format
+msgid "No installed games found"
+msgstr ""
+
+#: src/qml/Main.qml
+#, kde-format
+msgid "Games installed with Steam appear here on their own."
+msgstr ""
+
+#: src/qml/Main.qml
+#, kde-format
+msgid "Remove all gfxtune settings?"
+msgstr ""
+
+#: src/qml/Main.qml
+#, kde-format
+msgid ""
+"The global settings and every game's own go back to gfxtune's defaults, "
+"which measure performance in every game. Your games and other Steam settings "
+"are not changed."
+msgstr ""
+
+#: src/qml/Main.qml
+#, kde-format
+msgid ""
+"Graphics and game tuning for Steam games on CachyOS.\n"
+"Licensed under the GNU GPL, version 3 or later."
+msgstr ""
+
+#: src/qml/PageHeader.qml
+#, kde-format
+msgid ""
+"These settings apply to every game. What you change on a game's own page "
+"wins over them for that game, and a game can stop using them there."
+msgstr ""
+
+#: src/qml/PageHeader.qml
+#, kde-format
+msgid "Check Again"
+msgstr ""
+
+#: src/qml/PageHeader.qml
+#, kde-format
+msgid ""
+"If the game only showed a launcher, gfxtune looks again the next time it "
+"starts."
+msgstr ""
+
+#: src/qml/PageHeader.qml
+#, kde-format
+msgid "Use the global settings"
+msgstr ""
+
+#: src/qml/PageHeader.qml
+#, kde-format
+msgid ""
+"This game ignores the settings for All Games: gfxtune leaves it alone apart "
+"from its own changes."
+msgstr ""
+
+#: src/qml/PageHeader.qml
+#, kde-format
+msgid "Every setting comes from All Games."
+msgstr ""
+
+#: src/qml/PageHeader.qml
+#, kde-format
+msgid "1 setting is changed for this game; the rest come from All Games."
+msgid_plural ""
+"%1 settings are changed for this game; the rest come from All Games."
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/qml/PerformanceHistory.qml
+#, kde-format
+msgid "Date"
+msgstr ""
+
+#: src/qml/PerformanceHistory.qml
+#, kde-format
+msgid "Played"
+msgstr ""
+
+#: src/qml/PerformanceHistory.qml
+#, kde-format
+msgid "Average FPS"
+msgstr ""
+
+#: src/qml/PerformanceHistory.qml
+#, kde-format
+msgid "1% low"
+msgstr ""
+
+#: src/qml/PerformanceHistory.qml
+#, kde-format
+msgid "0.1% low"
+msgstr ""
+
+#: src/qml/PerformanceHistory.qml
+#, kde-format
+msgid "Hotspot (max)"
+msgstr ""
+
+#: src/qml/PerformanceHistory.qml
+#, kde-format
+msgid ""
+"No sessions yet. Each time the game runs for 20 seconds or more with "
+"performance measuring on, it appears here."
+msgstr ""
+
+#: src/qml/PerformanceHistory.qml
+#, kde-format
+msgid "%1 FPS average · 1% low %2 · 0.1% low %3"
+msgstr ""
+
+#: src/qml/PerformanceHistory.qml
+#, kde-format
+msgid "hotspot %1"
+msgstr ""
+
+#: src/qml/PerformanceHistory.qml
+#, kde-format
+msgid "Show Fewer"
+msgstr ""
+
+#: src/qml/PerformanceHistory.qml
+#, kde-format
+msgid "Show All %1"
+msgstr ""
+
+#: src/qml/PerformanceHistory.qml
+#, kde-format
+msgid "Clear History"
+msgstr ""
+
+#: src/qml/PerformanceHistory.qml
+#, kde-format
+msgid "Clear this game's performance history?"
+msgstr ""
+
+#: src/qml/PerformanceHistory.qml
+#, kde-format
+msgid ""
+"The sessions listed here are removed. A session still running stays, and new "
+"ones are measured as before."
+msgstr ""
+
+#: src/run/main.cpp
+#, kde-format
+msgid ""
+"Usage: gfxtune-run COMMAND [ARGUMENTS...]\n"
+"gfxtune adds this to a game's Steam launch options as: gfxtune-run %command%"
+msgstr ""

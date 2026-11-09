@@ -11,6 +11,7 @@
 #include "performance/Performance.h"
 #include "settings/SettingsStore.h"
 
+#include <KLocalizedString>
 #include <QDateTime>
 #include <QDir>
 #include <QGuiApplication>
@@ -71,10 +72,12 @@ std::optional<launch::Screen> mainScreen()
 
 int main(int argc, char *argv[])
 {
+    KLocalizedString::setApplicationDomain("gfxtune");
     if (argc < 2) {
-        std::fprintf(stderr,
-                     "Usage: gfxtune-run COMMAND [ARGUMENTS...]\n"
-                     "gfxtune adds this to a game's Steam launch options as: gfxtune-run %%command%%\n");
+        const QString usage = i18n(
+            "Usage: gfxtune-run COMMAND [ARGUMENTS...]\n"
+            "gfxtune adds this to a game's Steam launch options as: gfxtune-run %command%");
+        std::fprintf(stderr, "%s\n", qPrintable(usage));
         return 2;
     }
     char *const *command = argv + 1;

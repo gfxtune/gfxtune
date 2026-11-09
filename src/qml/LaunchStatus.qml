@@ -6,6 +6,7 @@ import QtQuick.Layouts
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
 import Gfxtune.Backend
+import org.kde.ki18n
 
 // Where the game stands with gfxtune-run in its Steam launch options, and
 // the line to paste while Steam is open.
@@ -27,21 +28,21 @@ ColumnLayout {
         text: {
             switch (status.launch) {
             case 1:
-                return "gfxtune is in this game's Steam launch options. Changes apply the next time the game starts.";
+                return KI18n.i18n("gfxtune is in this game's Steam launch options. Changes apply the next time the game starts.");
             case 2:
                 return status.editor.steamRunning
-                    ? "Steam is open, so gfxtune adds itself to this game's launch options once Steam closes. To use these settings sooner, paste this line into the game's launch options in Steam:"
-                    : "Adding gfxtune to this game's Steam launch options…";
+                    ? KI18n.i18n("Steam is open, so gfxtune adds itself to this game's launch options once Steam closes. To use these settings sooner, paste this line into the game's launch options in Steam:")
+                    : KI18n.i18n("Adding gfxtune to this game's Steam launch options…");
             case 3:
                 return status.editor.steamRunning
-                    ? "gfxtune takes itself out of this game's launch options once Steam closes. Until then the game starts with its own settings."
-                    : "Taking gfxtune out of this game's Steam launch options…";
+                    ? KI18n.i18n("gfxtune takes itself out of this game's launch options once Steam closes. Until then the game starts with its own settings.")
+                    : KI18n.i18n("Taking gfxtune out of this game's Steam launch options…");
             case 4:
-                return "Steam's launch options could not be updated: " + status.editor.launchProblem;
+                return KI18n.i18n("Steam's launch options could not be updated: %1", status.editor.launchProblem);
             case 5:
-                return "gfxtune stays out of this game by itself: it ships anti-cheat, and All Games has in-game filters or measuring on, which run inside games. To add gfxtune, accept the risk below or change a setting for this game, or switch those off on All Games.";
+                return KI18n.i18n("gfxtune stays out of this game by itself: it ships anti-cheat, and All Games has in-game filters or measuring on, which run inside games. To add gfxtune, accept the risk below or change a setting for this game, or switch those off on All Games.");
             default:
-                return "gfxtune has nothing to do in this game, so Steam starts it as usual. Change something below and gfxtune adds itself to the game's Steam launch options.";
+                return KI18n.i18n("gfxtune has nothing to do in this game, so Steam starts it as usual. Change something below and gfxtune adds itself to the game's Steam launch options.");
             }
         }
         // Only when it shows: Kirigami counts a hidden action too, and then
@@ -50,7 +51,7 @@ ColumnLayout {
 
         Kirigami.Action {
             id: copyLineAction
-            text: "Copy Line"
+            text: KI18n.i18n("Copy Line")
             icon.name: "edit-copy"
             onTriggered: status.editor.copyLaunchLine()
         }

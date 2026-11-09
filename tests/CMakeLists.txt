@@ -60,5 +60,22 @@ add_test(NAME layer COMMAND tst_layer)
 
 # The window itself, drawn off screen.
 qt_add_executable(tst_window tst_window.cpp)
-target_link_libraries(tst_window PRIVATE gfxtune_test_support gfxtune_ui gfxtune_uiplugin Qt6::Widgets)
+target_link_libraries(tst_window PRIVATE gfxtune_test_support gfxtune_ui gfxtune_uiplugin Qt6::Widgets KF6::I18nQml)
 add_test(NAME window COMMAND tst_window)
+
+# Translations, with a small French catalog built here.
+find_program(MSGFMT_EXECUTABLE msgfmt REQUIRED)
+set(test_catalog ${CMAKE_CURRENT_BINARY_DIR}/locale/fr/LC_MESSAGES/gfxtune.mo)
+add_custom_command(
+    OUTPUT ${test_catalog}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/locale/fr/LC_MESSAGES
+    COMMAND ${MSGFMT_EXECUTABLE} --check -o ${test_catalog} ${CMAKE_CURRENT_SOURCE_DIR}/data/translations/fr.po
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/data/translations/fr.po
+    COMMENT "Building the test catalog"
+    VERBATIM)
+add_custom_target(test_catalog DEPENDS ${test_catalog})
+qt_add_executable(tst_translations tst_translations.cpp)
+target_link_libraries(tst_translations PRIVATE gfxtune_test_support KF6::I18nQml Qt6::Qml)
+target_compile_definitions(tst_translations PRIVATE TEST_LOCALE_DIR="${CMAKE_CURRENT_BINARY_DIR}/locale")
+add_dependencies(tst_translations test_catalog)
+add_test(NAME translations COMMAND tst_translations)

@@ -54,6 +54,8 @@ For measuring, the layer reads the clock once per frame and counts the frame tim
 
 Vulkan games are reached directly, and DirectX games under Proton through DXVK and VKD3D-Proton, which draw with Vulkan. Games that draw with OpenGL are not, and neither is a game while it shows HDR; the game's page says so, and after a launch it shows whether the filters were drawn.
 
+Some native games load their graphics library only while they run, so their files do not say what they draw with. When such a game runs for a minute with the layer in it and never shows a Vulkan picture, gfxtune notes that it draws with OpenGL (gfxtune has to be open while it runs to see this). From then on its filters and measuring show as unavailable, and it gets no launch option for measuring alone. If all the game showed in that minute was a launcher, "Check Again" next to its graphics on its page lets the next start decide again.
+
 The layer runs inside the game, as MangoHud or vkBasalt do. No bans are known for this kind of layer, but nobody can promise there will never be one. In a game that ships anti-cheat (gfxtune looks for Easy Anti-Cheat, BattlEye and others in its folder, and for Valve Anti-Cheat in Steam's data) the filters and measuring stay locked until you accept that risk for that game. If an update adds anti-cheat to a game that already had filters, they stay locked, with their values kept, until you accept the risk for it. Setting `DISABLE_GFXTUNE_FILTERS=1` in a game's launch options keeps the layer out of it whatever its settings say.
 
 ## Removing gfxtune-run from Steam
@@ -90,7 +92,7 @@ To remove it, close Steam and run `sudo pacman -R gfxtune`. Before anything is r
 
 ## Building
 
-Requirements: CMake 3.24 or newer, a C++20 compiler, Qt 6.8 or newer (Quick, Quick Controls 2, Widgets), KDE Kirigami and KDE's KQuickCharts, which draws the graphs and comes with every Plasma desktop. The filter layer needs the Vulkan headers and `glslangValidator` to build, and the Vulkan loader for its tests. The card names come from libdrm's `amdgpu.ids`.
+Requirements: CMake 3.24 or newer, a C++20 compiler, Qt 6.8 or newer (Quick, Quick Controls 2, Widgets), KDE Kirigami, KDE's KI18n 6.21 or newer for translations, and KDE's KQuickCharts, which draws the graphs; all come with every Plasma desktop. The filter layer needs the Vulkan headers and `glslangValidator` to build, and the Vulkan loader for its tests. The card names come from libdrm's `amdgpu.ids`.
 
 ```
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -112,7 +114,7 @@ Every change is built and tested on CachyOS, in its official container image, wi
 
 ## Contributing
 
-Bug reports, tests on other cards and games, and code are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Security problems: [SECURITY.md](SECURITY.md). Changes between versions: [CHANGELOG.md](CHANGELOG.md).
+Bug reports, tests on other cards and games, translations and code are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Security problems: [SECURITY.md](SECURITY.md). Changes between versions: [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

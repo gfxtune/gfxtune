@@ -6,6 +6,7 @@
 #include "Errors.h"
 #include "Profile.h"
 
+#include <KLocalizedString>
 #include <QDir>
 #include <QFileInfo>
 #include <QSettings>
@@ -29,7 +30,7 @@ public:
         , m_warnings(warnings)
     {
         if (m_file.status() != QSettings::NoError) {
-            warn(QStringLiteral("%1 could not be read").arg(path));
+            warn(i18n("%1 could not be read", path));
         }
     }
 
@@ -49,7 +50,7 @@ public:
         if (text == QLatin1String("false")) {
             return false;
         }
-        reject(key, QStringLiteral("%1: \"%2\" is not true or false").arg(key, text));
+        reject(key, i18n("%1: \"%2\" is not true or false", key, text));
         return fallback;
     }
 
@@ -61,7 +62,7 @@ public:
         bool ok = false;
         const int value = m_file.value(key).toString().trimmed().toInt(&ok);
         if (!ok || value < min || value > max) {
-            reject(key, QStringLiteral("%1: expected a whole number from %2 to %3").arg(key).arg(min).arg(max));
+            reject(key, i18n("%1: expected a whole number from %2 to %3", key, min, max));
             return fallback;
         }
         return value;
@@ -75,7 +76,7 @@ public:
         bool ok = false;
         const int value = m_file.value(key).toString().trimmed().toInt(&ok);
         if (!ok || !offered(allowed, value)) {
-            reject(key, QStringLiteral("%1: not one of the offered values").arg(key));
+            reject(key, i18n("%1: not one of the offered values", key));
             return fallback;
         }
         return value;
@@ -94,7 +95,7 @@ public:
                 return int(i);
             }
         }
-        reject(key, QStringLiteral("%1: unknown value").arg(key));
+        reject(key, i18n("%1: unknown value", key));
         return fallback;
     }
 
@@ -106,7 +107,7 @@ public:
         }
         Enum value = fallback;
         if (!fromKey(m_file.value(key).toString(), value)) {
-            reject(key, QStringLiteral("%1: unknown value").arg(key));
+            reject(key, i18n("%1: unknown value", key));
             return fallback;
         }
         return value;
@@ -246,7 +247,7 @@ bool SettingsStore::saveGlobal(const GameSettings &settings, QString *error) con
         return !file.exists() || file.remove() || fail(error, file.errorString());
     }
     if (!QDir().mkpath(m_baseDir)) {
-        return fail(error, QStringLiteral("could not create %1").arg(m_baseDir));
+        return fail(error, i18n("could not create %1", m_baseDir));
     }
     QSettings out(path, QSettings::IniFormat);
     out.clear();
@@ -254,7 +255,7 @@ bool SettingsStore::saveGlobal(const GameSettings &settings, QString *error) con
         out.setValue(key, value);
     }
     out.sync(); // QSettings writes through a temporary file and renames it
-    return out.status() == QSettings::NoError || fail(error, QStringLiteral("could not write %1").arg(path));
+    return out.status() == QSettings::NoError || fail(error, i18n("could not write %1", path));
 }
 
 GameProfile SettingsStore::loadProfile(quint32 appId, QStringList *warnings) const
@@ -300,7 +301,7 @@ bool SettingsStore::write(quint32 appId, const GameProfile &profile, const GameF
     }
     const QString path = pathFor(appId);
     if (!QDir().mkpath(QFileInfo(path).path())) {
-        return fail(error, QStringLiteral("could not create %1").arg(QFileInfo(path).path()));
+        return fail(error, i18n("could not create %1", QFileInfo(path).path()));
     }
 
     QSettings out(path, QSettings::IniFormat);
@@ -320,6 +321,9 @@ bool SettingsStore::write(quint32 appId, const GameProfile &profile, const GameF
     if (facts.openGlOnly) {
         out.setValue(QStringLiteral("game/opengl_only"), true);
     }
+    if (facts.openGlSeen) {
+        out.setValue(QStringLiteral("game/opengl_seen"), true);
+    }
     QSet<QString> keys;
     for (const SettingKind &kind : settingKinds()) {
         if (profile.changed.contains(kind.id)) {
@@ -336,7 +340,7 @@ bool SettingsStore::write(quint32 appId, const GameProfile &profile, const GameF
     }
     out.sync(); // QSettings writes through a temporary file and renames it
     if (out.status() != QSettings::NoError) {
-        return fail(error, QStringLiteral("could not write %1").arg(path));
+        return fail(error, i18n("could not write %1", path));
     }
     return true;
 }
@@ -354,7 +358,9 @@ GameFacts SettingsStore::loadFacts(quint32 appId) const
             facts.antiCheat.append(name.trimmed());
         }
     }
-    facts.openGlOnly = in.value(QStringLiteral("game/opengl_only")).toString().trimmed().toLower() == QLatin1String("true");
+    const auto flag = [&in](const QString &key) { return in.value(key).toString().trimmed().toLower() == QLatin1String("true"); };
+    facts.openGlOnly = flag(QStringLiteral("game/opengl_only"));
+    facts.openGlSeen = flag(QStringLiteral("game/opengl_seen"));
     return facts;
 }
 
@@ -379,14 +385,14 @@ bool SettingsStore::removeAll(QString *error) const
 {
     // Guard against ever deleting anything but our own folder.
     if (QFileInfo(m_baseDir).fileName() != QLatin1String("gfxtune")) {
-        return fail(error, QStringLiteral("refusing to delete %1: not a gfxtune folder").arg(m_baseDir));
+        return fail(error, i18n("refusing to delete %1: not a gfxtune folder", m_baseDir));
     }
     QDir dir(m_baseDir);
     if (!dir.exists()) {
         return true;
     }
     if (!dir.removeRecursively()) {
-        return fail(error, QStringLiteral("could not delete everything in %1").arg(m_baseDir));
+        return fail(error, i18n("could not delete everything in %1", m_baseDir));
     }
     return true;
 }

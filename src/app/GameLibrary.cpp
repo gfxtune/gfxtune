@@ -6,11 +6,13 @@
 #include "Logging.h"
 #include "settings/Availability.h"
 
+#include "launch/LastLaunch.h"
 #include "launch/LaunchLine.h"
 #include "launch/LaunchLines.h"
 #include "steam/RunningGames.h"
 #include "steam/SteamProcess.h"
 
+#include <KLocalizedString>
 #include <QFileInfo>
 #include <QHash>
 #include <QMutex>
@@ -112,6 +114,10 @@ void GameLibrary::runScan(bool inspect)
 void GameLibrary::scanFinished()
 {
     m_scan = m_future.result();
+    // gfxtune's own record of games seen drawing with OpenGL.
+    for (steam::Game &game : m_scan.games) {
+        game.openGlSeen = m_store->loadFacts(game.appId).openGlSeen;
+    }
     // Each problem once, not again with every scan.
     for (const QString &warning : std::as_const(m_scan.warnings)) {
         if (!m_reportedWarnings.contains(warning)) {
@@ -149,7 +155,7 @@ settings::GameFacts GameLibrary::factsFor(quint32 appId) const
 QString GameLibrary::gameName(int appId) const
 {
     const steam::Game *found = appId > 0 ? game(quint32(appId)) : nullptr;
-    return found ? found->name : QStringLiteral("Game %1").arg(appId);
+    return found ? found->name : i18n("Game %1", QString::number(appId));
 }
 
 // gfxtune-run reads what the scan found from each game's settings file:
@@ -179,9 +185,9 @@ void GameLibrary::reloadProfiles()
         }
         const qsizetype changes = profile.changed.size();
         if (!profile.usesGlobal) {
-            notes.insert(game.appId, QStringLiteral("own settings only"));
+            notes.insert(game.appId, i18n("own settings only"));
         } else if (changes > 0) {
-            notes.insert(game.appId, changes == 1 ? QStringLiteral("1 change") : QStringLiteral("%1 changes").arg(changes));
+            notes.insert(game.appId, i18np("1 change", "%1 changes", changes));
         }
         usingGlobal += profile.usesGlobal ? 1 : 0;
     }
@@ -204,12 +210,17 @@ bool GameLibrary::holdsBackForAntiCheat(quint32 appId) const
 
 void GameLibrary::pollRunning()
 {
-    const QSet<quint32> running = steam::runningSteamApps(m_procRoot);
+    const QHash<quint32, qint64> reapers = steam::steamGameReapers(m_procRoot);
+    QSet<quint32> running;
+    for (auto it = reapers.cbegin(); it != reapers.cend(); ++it) {
+        running.insert(it.key());
+    }
     if (running != m_running) {
         m_running = running;
         m_model.setRunning(running);
         Q_EMIT runningChanged();
     }
+    learnGraphics(reapers);
     const bool steam = steam::isSteamRunning(m_procRoot);
     if (steam != m_steamRunning) {
         m_steamRunning = steam;
@@ -218,6 +229,62 @@ void GameLibrary::pollRunning()
             syncLaunchLines(); // Steam just closed: catch up on waiting changes
         }
     }
+}
+
+// A native game that runs for a minute with gfxtune's layer in it and shows
+// no Vulkan picture draws with OpenGL. From then on its page says so and the
+// layer, which cannot reach it, stays out (settings::GameFacts::openGlSeen).
+void GameLibrary::learnGraphics(const QHash<quint32, qint64> &reapers)
+{
+    bool learned = false;
+    const QDateTime now = QDateTime::currentDateTime();
+    for (auto it = reapers.cbegin(); it != reapers.cend(); ++it) {
+        const quint32 appId = it.key();
+        const steam::Game *found = game(appId);
+        if (!found || found->runtime != steam::Runtime::Native || found->openGlSeen) {
+            continue;
+        }
+        const std::optional<QDateTime> started = steam::processStartTime(it.value(), m_procRoot);
+        // Each start is judged once, after its first minute.
+        if (!started || started->secsTo(now) < launch::LearningSeconds || m_judged.value(appId) == *started) {
+            continue;
+        }
+        m_judged.insert(appId, *started);
+        const std::optional<launch::LastLaunch> launch = launch::readLastLaunch(m_store->baseDir(), appId);
+        if (!launch
+            || !launch::showedNoVulkanPicture(*launch, *started, now, launch::sawVulkanPicture(m_store->baseDir(), appId, launch->time))) {
+            continue;
+        }
+        settings::GameFacts facts = settings::factsOf(*found);
+        facts.openGlSeen = true;
+        QString error;
+        if (!m_store->saveFacts(appId, facts, found->name, &error)) {
+            qCWarning(lcSettings).noquote() << "Could not save what was found in" << found->name << "(" << error << ")";
+            continue;
+        }
+        qCDebug(lcLaunch).noquote() << found->name << "showed no Vulkan picture in its first minute: it draws with OpenGL";
+        learned = true;
+    }
+    if (learned) {
+        refresh(); // its page and its launch line follow
+    }
+}
+
+void GameLibrary::checkGraphicsAgain(quint32 appId)
+{
+    const steam::Game *found = game(appId);
+    if (!found || !found->openGlSeen) {
+        return;
+    }
+    settings::GameFacts facts = settings::factsOf(*found);
+    facts.openGlSeen = false;
+    QString error;
+    if (!m_store->saveFacts(appId, facts, found->name, &error)) {
+        qCWarning(lcSettings).noquote() << "Could not save what was found in" << found->name << "(" << error << ")";
+        return;
+    }
+    // The run going on now was judged already: the next start decides.
+    refresh();
 }
 
 void GameLibrary::settingsChanged()

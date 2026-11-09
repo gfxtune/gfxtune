@@ -55,6 +55,8 @@ struct LaunchPlan {
     QStringList applied;
     QStringList keptFromSteam; // left alone because the launch options set it
     QStringList notApplied;    // with the reason
+    bool filters = false;      // the in-game filters will be drawn
+    bool layer = false;        // gfxtune's Vulkan layer was asked for
 };
 
 bool needsScreen(const settings::GameSettings &settings);

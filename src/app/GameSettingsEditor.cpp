@@ -9,6 +9,7 @@
 #include "launch/LaunchLine.h"
 #include "settings/Profile.h"
 
+#include <KLocalizedString>
 #include <QClipboard>
 #include <QFileInfo>
 #include <QGuiApplication>
@@ -140,18 +141,18 @@ void GameSettingsEditor::reloadLastLaunch()
 
 QString GameSettingsEditor::lastLaunchFilters() const
 {
-    if (!m_lastLaunch || !m_lastLaunch->applied.contains(QStringLiteral("In-game filters"))) {
+    if (!m_lastLaunch || !m_lastLaunch->filters) {
         return {};
     }
     // A report from before this launch is about an earlier one.
     if (m_filterReport && m_filterReport->time >= m_lastLaunch->time.addSecs(-1)) {
-        return m_filterReport->running ? QStringLiteral("Drawn in the game (%1)").arg(m_filterReport->detail)
-                                       : QStringLiteral("Not drawn: %1").arg(m_filterReport->detail);
+        return m_filterReport->running ? i18n("Drawn in the game (%1)", m_filterReport->detail)
+                                       : i18n("Not drawn: %1", m_filterReport->detail);
     }
     if (m_library->isRunning(m_appId)) {
-        return QStringLiteral("Waiting for the game's first frame");
+        return i18n("Waiting for the game's first frame");
     }
-    return QStringLiteral("Not drawn: the game never showed a Vulkan picture (it may draw with OpenGL)");
+    return i18n("Not drawn: the game never showed a Vulkan picture (it may draw with OpenGL)");
 }
 
 bool GameSettingsEditor::hasGame() const
@@ -173,14 +174,14 @@ QString GameSettingsEditor::runsAs() const
     }
     switch (game->runtime) {
     case steam::Runtime::Native:
-        return QStringLiteral("Runs natively");
+        return i18n("Runs natively");
     case steam::Runtime::Proton:
-        return game->tool.displayName.isEmpty() ? QStringLiteral("Runs through Proton (Steam's default version)")
-                                                : QStringLiteral("Runs through %1").arg(game->tool.displayName);
+        return game->tool.displayName.isEmpty() ? i18n("Runs through Proton (Steam's default version)")
+                                                : i18n("Runs through %1", game->tool.displayName);
     case steam::Runtime::Unknown:
         break;
     }
-    return QStringLiteral("Steam has not said how this game runs yet");
+    return i18n("Steam has not said how this game runs yet");
 }
 
 QString GameSettingsEditor::graphics() const
@@ -189,8 +190,27 @@ QString GameSettingsEditor::graphics() const
     if (!game) {
         return {};
     }
+    if (game->runtime == steam::Runtime::Native && game->openGlSeen) {
+        return i18n("Draws with OpenGL (seen when it last ran)");
+    }
     const QString apis = steam::apiNames(game->apis);
-    return apis.isEmpty() ? QStringLiteral("Graphics system not detected") : apis;
+    return apis.isEmpty() ? i18n("Graphics system not detected") : apis;
+}
+
+bool GameSettingsEditor::graphicsSeen() const
+{
+    const steam::Game *game = m_library->game(m_appId);
+    return !m_global && game && game->runtime == steam::Runtime::Native && game->openGlSeen;
+}
+
+void GameSettingsEditor::checkGraphicsAgain()
+{
+    m_library->checkGraphicsAgain(m_appId);
+}
+
+QString GameSettingsEditor::baseName() const
+{
+    return m_profile.usesGlobal ? i18n("Global") : i18n("Without gfxtune");
 }
 
 QUrl GameSettingsEditor::cover() const
@@ -236,14 +256,14 @@ QString GameSettingsEditor::fsr4ProtonChoice() const
     const steam::Game *game = m_library->game(m_appId);
     switch (game ? game->tool.fsr4 : steam::Fsr4Support::Unknown) {
     case steam::Fsr4Support::BuiltIn:
-        return QStringLiteral("Proton decides (on)");
+        return i18n("Proton decides (on)");
     case steam::Fsr4Support::OnRequest:
     case steam::Fsr4Support::None:
-        return QStringLiteral("Proton decides (off)");
+        return i18n("Proton decides (off)");
     case steam::Fsr4Support::Unknown:
         break;
     }
-    return QStringLiteral("Proton decides");
+    return i18n("Proton decides");
 }
 
 void GameSettingsEditor::setGamescope(bool on)
@@ -315,20 +335,19 @@ QVariantList GameSettingsEditor::sessions() const
 {
     // Readings of 0 could not be taken.
     const auto reading = [](double value, const QString &unit) {
-        return value > 0 ? QStringLiteral("%1 %2").arg(qRound(value)).arg(unit) : QStringLiteral("—");
+        return value > 0 ? i18nc("a reading and its unit", "%1 %2", qRound(value), unit) : QStringLiteral("—");
     };
-    const QString degrees = QStringLiteral("°C");
+    const QString degrees = i18nc("unit", "°C");
     QVariantList list;
     for (const performance::Session &s : m_sessions) {
         const int minutes = std::max(qRound(s.seconds / 60.0), 1);
-        QString played =
-            minutes >= 60 ? QStringLiteral("%1 h %2 min").arg(minutes / 60).arg(minutes % 60) : QStringLiteral("%1 min").arg(minutes);
+        QString played = minutes >= 60 ? i18n("%1 h %2 min", minutes / 60, minutes % 60) : i18n("%1 min", minutes);
         if (s.running) {
-            played += QStringLiteral(" so far");
+            played = i18nc("%1 is how long the session has lasted", "%1 so far", played);
         }
         QString hotspot = reading(s.hotspot, degrees);
         if (s.hotspot > 0 && s.hotspotMax > 0) {
-            hotspot += QStringLiteral(" (%1)").arg(qRound(s.hotspotMax));
+            hotspot = i18nc("average hotspot temperature, then its highest", "%1 (%2)", hotspot, qRound(s.hotspotMax));
         }
         QVariantMap row;
         row.insert(QStringLiteral("date"), QLocale().toString(s.start.toLocalTime(), QLocale::ShortFormat));
@@ -338,7 +357,7 @@ QVariantList GameSettingsEditor::sessions() const
         row.insert(QStringLiteral("low01"), QString::number(qRound(s.low01Fps)));
         row.insert(QStringLiteral("temperature"), reading(s.edge, degrees));
         row.insert(QStringLiteral("hotspot"), hotspot);
-        row.insert(QStringLiteral("power"), reading(s.power, QStringLiteral("W")));
+        row.insert(QStringLiteral("power"), reading(s.power, i18nc("unit", "W")));
         row.insert(QStringLiteral("running"), s.running);
         list.append(row);
     }
@@ -545,7 +564,7 @@ void GameSettingsEditor::flush()
     if (!saved) {
         qCWarning(lcSettings).noquote() << "Could not save the settings:" << error;
     }
-    setProblem(saved ? QString() : QStringLiteral("Could not save the settings: %1").arg(error));
+    setProblem(saved ? QString() : i18n("Could not save the settings: %1", error));
     m_library->settingsChanged();
 }
 
@@ -592,9 +611,8 @@ void GameSettingsEditor::load()
     for (const QString &warning : std::as_const(warnings)) {
         qCWarning(lcSettings).noquote() << warning;
     }
-    setProblem(warnings.isEmpty()
-                   ? QString()
-                   : QStringLiteral("Some saved values could not be read and were reset: %1").arg(warnings.join(QStringLiteral("; "))));
+    setProblem(warnings.isEmpty() ? QString()
+                                  : i18n("Some saved values could not be read and were reset: %1", warnings.join(QStringLiteral("; "))));
     Q_EMIT settingsChanged();
     updateAvailability();
 }

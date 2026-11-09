@@ -3,10 +3,14 @@
 
 #include "LastLaunch.h"
 
+#include "performance/Performance.h"
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QSettings>
+
+#include <cstdlib>
 
 namespace gfxtune::launch
 {
@@ -69,6 +73,8 @@ bool writeLastLaunch(const QString &baseDir, quint32 appId, const LaunchPlan &pl
     out.setValue(QStringLiteral("launch/applied"), plan.applied);
     out.setValue(QStringLiteral("launch/kept_from_steam"), plan.keptFromSteam);
     out.setValue(QStringLiteral("launch/not_applied"), plan.notApplied);
+    out.setValue(QStringLiteral("launch/filters"), plan.filters);
+    out.setValue(QStringLiteral("launch/layer"), plan.layer);
     out.sync();
     return out.status() == QSettings::NoError;
 }
@@ -88,7 +94,29 @@ std::optional<LastLaunch> readLastLaunch(const QString &baseDir, quint32 appId)
     last.applied = in.value(QStringLiteral("launch/applied")).toStringList();
     last.keptFromSteam = in.value(QStringLiteral("launch/kept_from_steam")).toStringList();
     last.notApplied = in.value(QStringLiteral("launch/not_applied")).toStringList();
+    // gfxtune 0.4.2 and older wrote only the words, in English.
+    last.filters = in.contains(QStringLiteral("launch/filters")) ? in.value(QStringLiteral("launch/filters")).toBool()
+                                                                 : last.applied.contains(QStringLiteral("In-game filters"));
+    last.layer = in.value(QStringLiteral("launch/layer")).toBool();
     return last;
+}
+
+bool sawVulkanPicture(const QString &baseDir, quint32 appId, const QDateTime &since)
+{
+    if (const auto report = readFilterReport(baseDir, appId); report && report->time >= since.addSecs(-1)) {
+        return true;
+    }
+    // Written every second once the game shows frames, when measuring.
+    const QFileInfo live(performance::performanceDir(baseDir, appId) + QStringLiteral("/live"));
+    return live.exists() && live.lastModified() >= since.addSecs(-1);
+}
+
+bool showedNoVulkanPicture(const LastLaunch &launch, const QDateTime &gameStarted, const QDateTime &now, bool sawVulkan)
+{
+    // gfxtune-run writes the record as the game starts: one from another
+    // start says nothing about this one.
+    const bool thisStart = std::abs(gameStarted.secsTo(launch.time)) <= LearningSeconds;
+    return launch.layer && thisStart && gameStarted.secsTo(now) >= LearningSeconds && !sawVulkan;
 }
 
 } // namespace gfxtune::launch

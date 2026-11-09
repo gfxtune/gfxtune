@@ -5,6 +5,7 @@ import QtQuick
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import Gfxtune.Backend
+import org.kde.ki18n
 
 Kirigami.ApplicationWindow {
     id: root
@@ -17,7 +18,7 @@ Kirigami.ApplicationWindow {
     height: Kirigami.Units.gridUnit * 42
     minimumWidth: Kirigami.Units.gridUnit * 56
     minimumHeight: Kirigami.Units.gridUnit * 25
-    title: editor.global ? "All Games — gfxtune" : editor.hasGame ? editor.gameName + " — gfxtune" : "gfxtune"
+    title: editor.global ? KI18n.i18n("All Games — gfxtune") : editor.hasGame ? KI18n.i18nc("window title", "%1 — gfxtune", editor.gameName) : "gfxtune"
 
     // Read the card only while the window can be seen, also when it sits on
     // a second monitor during a game; not while it is minimised.
@@ -39,24 +40,24 @@ Kirigami.ApplicationWindow {
 
     pageStack.initialPage: Kirigami.Page {
         padding: 0
-        title: root.editor.global ? "All Games" : root.editor.hasGame ? root.editor.gameName : "gfxtune"
+        title: root.editor.global ? KI18n.i18n("All Games") : root.editor.hasGame ? root.editor.gameName : "gfxtune"
 
         actions: [
             Kirigami.Action {
-                text: "Refresh"
+                text: KI18n.i18n("Refresh")
                 icon.name: "view-refresh"
-                tooltip: "Read the Steam library again"
+                tooltip: KI18n.i18n("Read the Steam library again")
                 enabled: !root.library.scanning
                 onTriggered: root.library.refresh()
             },
             Kirigami.Action {
-                text: "Remove All gfxtune Settings…"
+                text: KI18n.i18n("Remove All gfxtune Settings…")
                 icon.name: "edit-clear-all"
                 displayHint: Kirigami.DisplayHint.AlwaysHide
                 onTriggered: removeAllDialog.open()
             },
             Kirigami.Action {
-                text: "About gfxtune"
+                text: KI18n.i18n("About gfxtune")
                 icon.name: "help-about"
                 displayHint: Kirigami.DisplayHint.AlwaysHide
                 onTriggered: aboutDialog.open()
@@ -75,7 +76,7 @@ Kirigami.ApplicationWindow {
                 Kirigami.LoadingPlaceholder {
                     anchors.centerIn: parent
                     visible: !root.library.loaded
-                    text: "Reading your Steam library…"
+                    text: KI18n.i18n("Reading your Steam library…")
                 }
 
                 Kirigami.PlaceholderMessage {
@@ -83,8 +84,8 @@ Kirigami.ApplicationWindow {
                     width: parent.width - Kirigami.Units.gridUnit * 4
                     visible: root.library.loaded && !root.library.steamFound
                     icon.name: "dialog-information"
-                    text: "Steam was not found"
-                    explanation: "gfxtune reads the games of the Steam client installed from your system's packages. Steam from Flathub is not supported yet."
+                    text: KI18n.i18n("Steam was not found")
+                    explanation: KI18n.i18n("gfxtune reads the games of the Steam client installed from your system's packages. Steam from Flathub is not supported yet.")
                 }
 
                 RowLayout {
@@ -116,8 +117,8 @@ Kirigami.ApplicationWindow {
                         Layout.alignment: Qt.AlignCenter
                         Layout.margins: Kirigami.Units.gridUnit * 4
                         visible: !root.editor.hasGame && !root.editor.global
-                        text: root.library.gameCount > 0 ? "Choose a game" : "No installed games found"
-                        explanation: root.library.gameCount > 0 ? "" : "Games installed with Steam appear here on their own."
+                        text: root.library.gameCount > 0 ? KI18n.i18n("Choose a game") : KI18n.i18n("No installed games found")
+                        explanation: root.library.gameCount > 0 ? "" : KI18n.i18n("Games installed with Steam appear here on their own.")
                     }
                 }
             }
@@ -139,16 +140,17 @@ Kirigami.ApplicationWindow {
 
     Kirigami.PromptDialog {
         id: removeAllDialog
-        title: "Remove all gfxtune settings?"
-        subtitle: "The global settings and every game's own go back to gfxtune's defaults, which measure performance in every game. Your games and other Steam settings are not changed."
+        title: KI18n.i18n("Remove all gfxtune settings?")
+        subtitle: KI18n.i18n("The global settings and every game's own go back to gfxtune's defaults, which measure performance in every game. Your games and other Steam settings are not changed.")
         standardButtons: Kirigami.Dialog.Ok | Kirigami.Dialog.Cancel
         onAccepted: root.editor.removeAllSettings()
     }
 
     Kirigami.PromptDialog {
         id: aboutDialog
+        iconName: "gfxtune"
         title: "gfxtune " + Qt.application.version
-        subtitle: "Graphics and game tuning for Steam games on CachyOS.\nLicensed under the GNU GPL, version 3 or later."
+        subtitle: KI18n.i18n("Graphics and game tuning for Steam games on CachyOS.\nLicensed under the GNU GPL, version 3 or later.")
         standardButtons: Kirigami.Dialog.Close
     }
 }

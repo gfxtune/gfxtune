@@ -11,6 +11,8 @@
 
 #include <algorithm>
 
+#include <unistd.h>
+
 using namespace gfxtune;
 
 namespace
@@ -85,6 +87,23 @@ private Q_SLOTS:
         QCOMPARE(steam::processTree(106, proc), QList<qint64>{106});
         QCOMPARE(steam::processTree(999, proc), QList<qint64>{999}); // ended
         QCOMPARE(steam::processTree(100, QStringLiteral("/does/not/exist")), QList<qint64>{100});
+    }
+
+    void readsWhenAProcessStarted()
+    {
+        QTemporaryDir dir;
+        const QString proc = dir.path();
+        QVERIFY(test::writeFile(proc + QStringLiteral("/stat"), "cpu  1 2 3 4\nbtime 1700000000\nprocesses 5\n"));
+        const qint64 ticks = sysconf(_SC_CLK_TCK);
+        // A name may hold spaces and brackets: fields count from the last ')'.
+        QVERIFY(test::writeFile(proc + QStringLiteral("/42/stat"),
+                                "42 (my game) x) S 1 42 42 0 -1 4194304 0 0 0 0 0 0 0 0 20 0 1 0 " + QByteArray::number(ticks * 90)
+                                    + " 1000 10\n"));
+        QCOMPARE(steam::processStartTime(42, proc), QDateTime::fromSecsSinceEpoch(1700000090));
+        QVERIFY(!steam::processStartTime(43, proc)); // gone
+        QVERIFY(test::writeFile(proc + QStringLiteral("/44/stat"), "44 (short) S 1\n"));
+        QVERIFY(!steam::processStartTime(44, proc)); // cut off
+        QVERIFY(!steam::processStartTime(42, QStringLiteral("/does/not/exist")));
     }
 
     void handlesAMissingProcFolder() { QCOMPARE(steam::runningSteamApps(QStringLiteral("/does/not/exist")), QSet<quint32>()); }

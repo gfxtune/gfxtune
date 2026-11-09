@@ -31,7 +31,7 @@ add_library(gfxtune_core STATIC
 )
 # core/ for the core's own headers, src/ for filters/, shared with the layer.
 target_include_directories(gfxtune_core PUBLIC core ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(gfxtune_core PUBLIC Qt6::Core)
+target_link_libraries(gfxtune_core PUBLIC Qt6::Core KF6::I18n)
 
 # The objects the window talks to, as the QML module Gfxtune.Backend.
 qt_add_library(gfxtune_app STATIC)
@@ -78,7 +78,9 @@ qt_add_executable(gfxtune
     Commands.cpp
 )
 target_compile_definitions(gfxtune PRIVATE PROJECT_VERSION="${PROJECT_VERSION}")
-target_link_libraries(gfxtune PRIVATE gfxtune_ui gfxtune_uiplugin Qt6::Widgets)
+# The icon inside the program too, for running it before it is installed.
+qt_add_resources(gfxtune icon PREFIX / BASE ${PROJECT_SOURCE_DIR}/data/icons FILES ${PROJECT_SOURCE_DIR}/data/icons/gfxtune.svg)
+target_link_libraries(gfxtune PRIVATE gfxtune_ui gfxtune_uiplugin Qt6::Widgets KF6::I18nQml)
 # Our own QML modules are linked in above; Kirigami's and Qt's are loaded
 # from the system at run time. The scan for plugins to link in statically
 # only applies to a static Qt.
@@ -92,3 +94,7 @@ install(TARGETS gfxtune gfxtune-run RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 add_subdirectory(layer)
 install(FILES ${PROJECT_SOURCE_DIR}/data/gfxtune.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+# The icon, drawn on KDE's 48 px grid, and redrawn for 16 px where the gauge's
+# segments would blur together.
+install(FILES ${PROJECT_SOURCE_DIR}/data/icons/gfxtune.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)
+install(FILES ${PROJECT_SOURCE_DIR}/data/icons/16/gfxtune.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/16x16/apps)

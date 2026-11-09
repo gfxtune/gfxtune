@@ -6,6 +6,7 @@ import QtQuick.Layouts
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
 import Gfxtune.Backend
+import org.kde.ki18n
 
 ColumnLayout {
     id: pane
@@ -36,7 +37,7 @@ ColumnLayout {
     Kirigami.SearchField {
         Layout.fillWidth: true
         Layout.margins: Kirigami.Units.smallSpacing
-        placeholderText: "Search games…"
+        placeholderText: KI18n.i18n("Search games…")
         onTextChanged: pane.library.games.filterText = text
     }
 
@@ -71,12 +72,13 @@ ColumnLayout {
 
                 QQC2.Label {
                     Layout.fillWidth: true
-                    text: "All Games"
+                    text: KI18n.i18n("All Games")
                     elide: Text.ElideRight
                 }
                 QQC2.Label {
                     Layout.fillWidth: true
-                    text: "Global settings · " + pane.library.gamesUsingGlobal + " of " + pane.library.gameCount + " games use them"
+                    text: KI18n.i18np("Global settings · %2 of %1 game uses them", "Global settings · %2 of %1 games use them",
+                                      pane.library.gameCount, pane.library.gamesUsingGlobal)
                     font: Kirigami.Theme.smallFont
                     opacity: 0.7
                     elide: Text.ElideRight
@@ -154,7 +156,7 @@ ColumnLayout {
 
                     QQC2.Label {
                         visible: row.running
-                        text: "Running"
+                        text: KI18n.i18n("Running")
                         font: Kirigami.Theme.smallFont
                         // Readable on the selection highlight too.
                         color: row.highlighted ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.positiveTextColor
@@ -166,7 +168,7 @@ ColumnLayout {
                 anchors.centerIn: parent
                 width: parent.width - Kirigami.Units.gridUnit * 2
                 visible: list.count === 0 && pane.library.games.filterText.length > 0
-                text: "No game matches"
+                text: KI18n.i18n("No game matches")
             }
         }
     }

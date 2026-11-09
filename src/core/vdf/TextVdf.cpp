@@ -7,6 +7,7 @@
 #include "TextVdfTokenizer.h"
 #include "shared/Sizes.h"
 
+#include <KLocalizedString>
 #include <QFile>
 
 namespace gfxtune::vdf
@@ -47,17 +48,17 @@ bool parseText(QByteArrayView data, Node &root, QString *error)
             return fail(error, tokens.problem());
         case TokenType::End:
             if (open.size() > 1) {
-                return fail(error, QStringLiteral("file ends inside a section (missing })"));
+                return fail(error, i18n("file ends inside a section (missing })"));
             }
             return true;
         case TokenType::Close:
             if (open.size() == 1) {
-                return fail(error, QStringLiteral("unexpected } on line %1").arg(tokens.line()));
+                return fail(error, i18n("unexpected } on line %1", tokens.line()));
             }
             open.pop_back();
             continue;
         case TokenType::Open:
-            return fail(error, QStringLiteral("{ without a name on line %1").arg(tokens.line()));
+            return fail(error, i18n("{ without a name on line %1", tokens.line()));
         case TokenType::Conditional:
         case TokenType::String:
             break;
@@ -74,7 +75,7 @@ bool parseText(QByteArrayView data, Node &root, QString *error)
             break;
         case TokenType::Open:
             if (open.size() > MaxDepth) {
-                return fail(error, QStringLiteral("sections nested too deeply on line %1").arg(tokens.line()));
+                return fail(error, i18n("sections nested too deeply on line %1", tokens.line()));
             }
             entry.isSection = true;
             open.back()->children.push_back(std::move(entry));
@@ -85,7 +86,7 @@ bool parseText(QByteArrayView data, Node &root, QString *error)
         case TokenType::Close:
         case TokenType::End:
         case TokenType::Conditional:
-            return fail(error, QStringLiteral("\"%1\" has no value (line %2)").arg(entry.key).arg(tokens.line()));
+            return fail(error, i18n("\"%1\" has no value (line %2)", entry.key, tokens.line()));
         }
     }
 }
@@ -97,7 +98,7 @@ bool readTextFile(const QString &path, Node &root, QString *error, qint64 maxByt
         return fail(error, file.errorString());
     }
     if (file.size() > maxBytes) {
-        return fail(error, QStringLiteral("file is larger than %1 MB").arg(maxBytes / MiB));
+        return fail(error, i18n("file is larger than %1 MB", maxBytes / MiB));
     }
     const QByteArray data = file.readAll();
     QString problem;

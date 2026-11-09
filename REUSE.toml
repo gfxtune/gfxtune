@@ -26,3 +26,11 @@ SPDX-FileCopyrightText = [
     "2013 Diego Gutierrez <diegog@unizar.es>",
 ]
 SPDX-License-Identifier = "MIT"
+
+# The translation template and translations; their gettext headers carry a
+# placeholder copyright line.
+[[annotations]]
+path = "po/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 gfxtune contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"

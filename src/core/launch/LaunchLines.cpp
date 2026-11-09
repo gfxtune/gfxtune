@@ -8,6 +8,7 @@
 #include "vdf/TextVdf.h"
 #include "vdf/TextVdfEdit.h"
 
+#include <KLocalizedString>
 #include <QFileInfo>
 
 #include <algorithm>
@@ -89,7 +90,7 @@ bool syncLaunchLines(const QString &localConfigPath, const QSet<quint32> &wanted
         return true;
     }
     if (!QFileInfo::exists(localConfigPath)) {
-        return fail(error, QStringLiteral("Steam has not created %1 yet").arg(localConfigPath));
+        return fail(error, i18n("Steam has not created %1 yet", localConfigPath));
     }
     QList<vdf::ValueEdit> edits;
     for (const LineChange &change : changes) {

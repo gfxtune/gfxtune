@@ -22,6 +22,8 @@ tests=(
     # A virtual screen with KDE's look, for the window and screenshots.
     xorg-server-xvfb xdotool imagemagick dbus breeze breeze-icons plasma-integration noto-fonts
     gdb python python-pytest python-pillow
+    # Checks of the installed menu entry and icon.
+    desktop-file-utils librsvg
 )
 games=(
     # What the system tests run games through, as on a gaming PC.
@@ -29,7 +31,7 @@ games=(
     # Builds the Windows test programs that run under Proton.
     mingw-w64-gcc
 )
-checks=(clang reuse groff)
+checks=(clang reuse groff gettext)
 
 # pacman runs its install hooks in a sandbox that cuts them off from the
 # network, which a container does not allow; they need no network anyway.
@@ -55,6 +57,13 @@ for group in "${groups[@]}"; do
     esac
 done
 pacman -Syu --noconfirm --needed "${packages[@]}"
+
+# The translation tests need a locale other than C: gettext does not
+# translate in the C locale.
+if [[ " ${groups[*]} " == *" tests "* ]] && ! locale -a | grep -qi '^en_US\.utf-\?8$'; then
+    sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+    locale-gen
+fi
 
 # makepkg refuses to run as root: an ordinary user builds the package.
 if ! id builder >/dev/null 2>&1; then

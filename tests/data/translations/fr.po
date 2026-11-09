@@ -1,0 +1,26 @@
+# A few of gfxtune's texts in French, for tst_translations: enough to show
+# that a catalog reaches the C++ code, plurals and the window.
+msgid ""
+msgstr ""
+"Project-Id-Version: gfxtune\n"
+"PO-Revision-Date: 2026-11-09 00:00+0000\n"
+"Last-Translator: gfxtune contributors\n"
+"Language-Team: French\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#, kde-format
+msgid "Frame rate cap %1"
+msgstr "Limite d'images %1"
+
+#, kde-format
+msgid "1 change"
+msgid_plural "%1 changes"
+msgstr[0] "%1 modification"
+msgstr[1] "%1 modifications"
+
+msgid "All Games"
+msgstr "Tous les jeux"

@@ -26,6 +26,8 @@ FILES = {
     "/usr/bin/gfxtune-run",
     str(LAYER),
     "/usr/share/applications/gfxtune.desktop",
+    "/usr/share/icons/hicolor/scalable/apps/gfxtune.svg",
+    "/usr/share/icons/hicolor/16x16/apps/gfxtune.svg",
     "/usr/share/gfxtune/remove-launch-lines",
     "/usr/share/libalpm/hooks/gfxtune.hook",
     "/usr/share/licenses/gfxtune/NOTICE.md",
@@ -72,6 +74,30 @@ def test_the_layer_loads_only_when_asked():
     assert Path(layer["library_path"]) == LAYER
     assert layer["enable_environment"] == {"GFXTUNE_FILTERS": "1"}
     assert layer["disable_environment"] == {"DISABLE_GFXTUNE_FILTERS": "1"}
+
+
+def test_the_menu_entry_follows_the_desktop_entry_spec():
+    if not shutil.which("desktop-file-validate"):
+        pytest.skip("desktop-file-validate is not installed")
+    result = run("desktop-file-validate", "/usr/share/applications/gfxtune.desktop")
+    assert result.returncode == 0 and not result.stdout.strip(), result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("size", [16, 22, 48, 256])
+def test_the_icon_renders_from_the_icon_theme(size, tmp_path):
+    # The size a desktop asks for picks the file, as the icon theme spec says.
+    if not shutil.which("rsvg-convert"):
+        pytest.skip("rsvg-convert is not installed")
+    source = "/usr/share/icons/hicolor/16x16/apps/gfxtune.svg" if size == 16 else "/usr/share/icons/hicolor/scalable/apps/gfxtune.svg"
+    png = tmp_path / "icon.png"
+    run("rsvg-convert", "-w", str(size), "-h", str(size), source, "-o", str(png), check=True)
+    from PIL import Image
+    image = Image.open(png).convert("RGBA")
+    assert image.size == (size, size)
+    # Something is drawn, and the gauge's blue is in it.
+    pixels = list(zip(*[iter(image.tobytes())] * 4))
+    assert sum(1 for p in pixels if p[3] > 0) > size * size // 2
+    assert any(b > 180 and b > r + 60 for r, g, b, a in pixels if a > 200)
 
 
 # ---- Removal ----------------------------------------------------------

@@ -5,6 +5,7 @@
 
 #include "shared/Sizes.h"
 
+#include <KLocalizedString>
 #include <QDir>
 #include <QFile>
 #include <QHash>
@@ -84,7 +85,7 @@ QString marketingName(quint16 deviceId, quint8 revision, const QStringList &name
             }
         }
     }
-    return QStringLiteral("AMD graphics card %1:%2").arg(device, rev);
+    return i18n("AMD graphics card %1:%2", device, rev);
 }
 
 GpuScan findGpus(const QString &sysRoot, const QStringList &nameTables)
@@ -208,25 +209,25 @@ std::optional<QStringList> throttleReasons(const QByteArray &gpuMetrics, std::op
     };
     QStringList reasons;
     if (any(0, 7)) {
-        reasons << QStringLiteral("power limit");
+        reasons << i18n("power limit");
     }
     if (any(16, 23)) {
-        reasons << QStringLiteral("current limit");
+        reasons << i18n("current limit");
     }
     if (any(32, 33) || any(35, 35)) {
-        reasons << QStringLiteral("GPU temperature");
+        reasons << i18n("GPU temperature");
     }
     if (any(TempHotspot, TempHotspot)) {
-        reasons << QStringLiteral("hotspot temperature");
+        reasons << i18n("hotspot temperature");
     }
     if (any(34, 34)) {
-        reasons << QStringLiteral("memory temperature");
+        reasons << i18n("memory temperature");
     }
     if (any(37, 47)) {
-        reasons << QStringLiteral("board temperature");
+        reasons << i18n("board temperature");
     }
     if (any(56, 57)) {
-        reasons << QStringLiteral("reliability limit");
+        reasons << i18n("reliability limit");
     }
     return reasons;
 }

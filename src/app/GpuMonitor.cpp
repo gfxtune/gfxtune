@@ -6,6 +6,7 @@
 #include "performance/Performance.h"
 #include "steam/RunningGames.h"
 
+#include <KLocalizedString>
 #include <QDir>
 #include <QtMath>
 
@@ -26,7 +27,7 @@ QString missing()
 template<typename T>
 QString whole(const std::optional<T> &value, const QString &unit)
 {
-    return value ? QStringLiteral("%1 %2").arg(qRound(double(*value))).arg(unit) : missing();
+    return value ? i18nc("a reading and its unit", "%1 %2", qRound(double(*value)), unit) : missing();
 }
 
 void push(QList<qreal> &history, const std::optional<double> &value)
@@ -196,7 +197,7 @@ QString GpuMonitor::heldBackBy() const
         return missing();
     }
     if (m_reading.heldBackBy->isEmpty()) {
-        return QStringLiteral("Nothing");
+        return i18n("Nothing");
     }
     QString words = m_reading.heldBackBy->join(QStringLiteral(", "));
     words[0] = words[0].toUpper();
@@ -205,17 +206,17 @@ QString GpuMonitor::heldBackBy() const
 
 QString GpuMonitor::cpuTemperature() const
 {
-    return m_cpuTemperature ? QStringLiteral("%1 °C").arg(qRound(*m_cpuTemperature)) : missing();
+    return m_cpuTemperature ? i18n("%1 °C", qRound(*m_cpuTemperature)) : missing();
 }
 
 QString GpuMonitor::cpuClock() const
 {
-    return m_cpuClock ? QStringLiteral("%1 GHz").arg(double(*m_cpuClock) / 1000.0, 0, 'f', 2) : missing();
+    return m_cpuClock ? ki18n("%1 GHz").subs(double(*m_cpuClock) / 1000.0, 0, 'f', 2).toString() : missing();
 }
 
 QString GpuMonitor::gameFps() const
 {
-    return m_gameAppId != 0 ? QStringLiteral("%1 FPS").arg(qRound(m_gameFps)) : missing();
+    return m_gameAppId != 0 ? i18n("%1 FPS", qRound(m_gameFps)) : missing();
 }
 
 QString GpuMonitor::gameFrameTime() const
@@ -223,7 +224,7 @@ QString GpuMonitor::gameFrameTime() const
     if (m_gameAppId == 0 || m_gameFrameMs <= 0) {
         return missing();
     }
-    return QStringLiteral("%1 ms · slowest %2 ms").arg(m_gameFrameMs, 0, 'f', 1).arg(m_gameFrameMsMax, 0, 'f', 1);
+    return ki18n("%1 ms · slowest %2 ms").subs(m_gameFrameMs, 0, 'f', 1).subs(m_gameFrameMsMax, 0, 'f', 1).toString();
 }
 
 QString GpuMonitor::gameVideoMemory() const
@@ -232,7 +233,7 @@ QString GpuMonitor::gameVideoMemory() const
         return missing();
     }
     constexpr double GiB = 1024.0 * 1024.0 * 1024.0;
-    return QStringLiteral("%1 GB").arg(double(*m_gameVideoMemory) / GiB, 0, 'f', 1);
+    return ki18n("%1 GB").subs(double(*m_gameVideoMemory) / GiB, 0, 'f', 1).toString();
 }
 
 // The frame rate graph reaches the fastest second, in steps of 30.
@@ -247,35 +248,40 @@ qreal GpuMonitor::fpsHigh() const
 
 QString GpuMonitor::temperature() const
 {
-    return whole(m_reading.edgeTemp, QStringLiteral("°C"));
+    return whole(m_reading.edgeTemp, i18nc("unit", "°C"));
 }
 QString GpuMonitor::hotspot() const
 {
-    return whole(m_reading.hotspotTemp, QStringLiteral("°C"));
+    return whole(m_reading.hotspotTemp, i18nc("unit", "°C"));
 }
 QString GpuMonitor::memoryTemperature() const
 {
-    return whole(m_reading.memoryTemp, QStringLiteral("°C"));
+    return whole(m_reading.memoryTemp, i18nc("unit", "°C"));
 }
 QString GpuMonitor::load() const
 {
-    return whole(m_reading.load, QStringLiteral("%"));
+    return whole(m_reading.load, i18nc("unit", "%"));
 }
 QString GpuMonitor::memoryLoad() const
 {
-    return whole(m_reading.memoryLoad, QStringLiteral("%"));
+    return whole(m_reading.memoryLoad, i18nc("unit", "%"));
 }
 QString GpuMonitor::coreClock() const
 {
-    return whole(m_reading.coreClock, QStringLiteral("MHz"));
+    return whole(m_reading.coreClock, i18nc("unit", "MHz"));
 }
 QString GpuMonitor::memoryClock() const
 {
-    return whole(m_reading.memoryClock, QStringLiteral("MHz"));
+    return whole(m_reading.memoryClock, i18nc("unit", "MHz"));
 }
 QString GpuMonitor::voltage() const
 {
-    return whole(m_reading.voltage, QStringLiteral("mV"));
+    return whole(m_reading.voltage, i18nc("unit", "mV"));
+}
+
+QString GpuMonitor::cpuLoad() const
+{
+    return m_cpuLoad ? i18nc("processor load in percent", "%1 %", *m_cpuLoad) : missing();
 }
 
 QString GpuMonitor::power() const
@@ -283,8 +289,8 @@ QString GpuMonitor::power() const
     if (!m_reading.power) {
         return missing();
     }
-    const QString now = QString::number(qRound(*m_reading.power));
-    return m_reading.powerLimit ? QStringLiteral("%1 / %2 W").arg(now).arg(qRound(*m_reading.powerLimit)) : now + QStringLiteral(" W");
+    const int now = qRound(*m_reading.power);
+    return m_reading.powerLimit ? i18n("%1 / %2 W", now, qRound(*m_reading.powerLimit)) : i18n("%1 W", now);
 }
 
 QString GpuMonitor::videoMemory() const
@@ -293,9 +299,10 @@ QString GpuMonitor::videoMemory() const
         return missing();
     }
     constexpr double GiB = 1024.0 * 1024.0 * 1024.0;
-    return QStringLiteral("%1 / %2 GB")
-        .arg(double(*m_reading.vramUsed) / GiB, 0, 'f', 1)
-        .arg(double(*m_reading.vramTotal) / GiB, 0, 'f', 1);
+    return ki18n("%1 / %2 GB")
+        .subs(double(*m_reading.vramUsed) / GiB, 0, 'f', 1)
+        .subs(double(*m_reading.vramTotal) / GiB, 0, 'f', 1)
+        .toString();
 }
 
 QString GpuMonitor::fan() const
@@ -304,9 +311,9 @@ QString GpuMonitor::fan() const
         return missing();
     }
     if (m_reading.fanRpm && m_reading.fanPercent) {
-        return QStringLiteral("%1 RPM · %2%").arg(*m_reading.fanRpm).arg(*m_reading.fanPercent);
+        return i18n("%1 RPM · %2%", *m_reading.fanRpm, *m_reading.fanPercent);
     }
-    return m_reading.fanRpm ? QStringLiteral("%1 RPM").arg(*m_reading.fanRpm) : QStringLiteral("%1%").arg(*m_reading.fanPercent);
+    return m_reading.fanRpm ? i18n("%1 RPM", *m_reading.fanRpm) : i18nc("fan speed in percent", "%1%", *m_reading.fanPercent);
 }
 
 // The temperature graph spans the readings with a margin, in steps of ten.

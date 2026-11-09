@@ -5,6 +5,7 @@
 
 // The tokenizer behind TextVdf.cpp and TextVdfEdit.cpp. Internal to vdf/.
 
+#include <KLocalizedString>
 #include <QByteArray>
 #include <QByteArrayView>
 #include <QString>
@@ -125,7 +126,7 @@ private:
             }
             text += c;
         }
-        m_problem = QStringLiteral("text in quotes that starts on line %1 never ends").arg(startLine);
+        m_problem = i18n("text in quotes that starts on line %1 never ends", startLine);
         return {TokenType::Invalid, {}};
     }
 
@@ -136,7 +137,7 @@ private:
             ++m_pos;
         }
         if (m_pos >= m_data.size() || m_data[m_pos] != ']') {
-            m_problem = QStringLiteral("unclosed [ on line %1").arg(m_line);
+            m_problem = i18n("unclosed [ on line %1", m_line);
             return {TokenType::Invalid, {}};
         }
         ++m_pos;

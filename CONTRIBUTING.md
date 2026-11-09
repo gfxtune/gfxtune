@@ -69,6 +69,20 @@ skipped there, with the reason, and run on a real system.
 <!-- REUSE-IgnoreEnd -->
 - User-visible changes get a line in [CHANGELOG.md](CHANGELOG.md).
 
+## Translations
+
+gfxtune is translated with KDE's i18n (gettext catalogs). To add a
+language, copy `po/gfxtune.pot` to `po/<language>/gfxtune.po` (for example
+`po/fr/gfxtune.po`), translate it with Lokalize or Poedit, and send it in;
+the build installs every catalog under `po/`.
+
+In the code, every text the window, `gfxtune-run` or the command line shows
+goes through `i18n()` (C++) or `KI18n.i18n()` (QML), as a whole sentence with
+`%1`-style placeholders, never glued from pieces. After changing texts, run
+`ci/build.sh messages` to update `po/gfxtune.pot`; `ci/build.sh checks`
+fails while it is out of date. Log messages and the `--list-games` report
+stay in English: they go into bug reports.
+
 ## Test data
 
 Tests use made-up data only: invented Steam libraries, accounts and games,

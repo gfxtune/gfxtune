@@ -25,6 +25,15 @@ change how settings are stored.
 
 ### Added
 
+- An icon of its own: a performance gauge, drawn to KDE's icon guidelines,
+  with a version redrawn for 16 px.
+- A native game whose files do not say what it draws with is marked as
+  drawing with OpenGL once it has run for a minute with gfxtune's layer in
+  it without showing a Vulkan picture. Its filters and measuring then show
+  as unavailable, and it gets no launch option just for measuring. "Check
+  Again" on its page undoes this.
+- Translations: every text of the window, `gfxtune-run` and the command
+  line can be translated (KDE's i18n); `po/gfxtune.pot` is the template.
 - Problems that do not show in the window (a Steam file that could not be
   read, a settings file that could not be written) are logged; see
   `man gfxtune`.

@@ -9,6 +9,7 @@ import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
 import org.kde.quickcharts as Charts
 import Gfxtune.Backend
+import org.kde.ki18n
 
 // The live readings on the right of the window: the game being measured,
 // the card and the processor.
@@ -78,7 +79,7 @@ QQC2.ScrollView {
         TextMetrics {
             id: labelMetrics
             font: Kirigami.Theme.smallFont
-            text: Math.round(chart.high) + " " + chart.unit
+            text: KI18n.i18nc("a reading and its unit", "%1 %2", Math.round(chart.high), chart.unit)
         }
 
         Repeater {
@@ -102,7 +103,7 @@ QQC2.ScrollView {
                     y: -height / 2
                     font: Kirigami.Theme.smallFont
                     opacity: 0.75
-                    text: Math.round(chart.low + (chart.high - chart.low) * gridLine.index / 2) + " " + chart.unit
+                    text: KI18n.i18nc("a reading and its unit", "%1 %2", Math.round(chart.low + (chart.high - chart.low) * gridLine.index / 2), chart.unit)
                 }
             }
         }
@@ -200,16 +201,16 @@ QQC2.ScrollView {
                 elide: Text.ElideRight
             }
             Readings {
-                Key { text: "Frame rate" }
+                Key { text: KI18n.i18n("Frame rate") }
                 Value { text: panel.monitor.gameFps }
-                Key { text: "Frame time" }
+                Key { text: KI18n.i18n("Frame time") }
                 Value { text: panel.monitor.gameFrameTime }
-                Key { text: "Video memory" }
+                Key { text: KI18n.i18n("Video memory") }
                 Value { text: panel.monitor.gameVideoMemory }
             }
             Caption {
                 Layout.topMargin: Kirigami.Units.largeSpacing
-                text: "Frame rate, last minute"
+                text: KI18n.i18n("Frame rate, last minute")
             }
             HistoryChart {
                 unit: "FPS"
@@ -248,9 +249,9 @@ QQC2.ScrollView {
             Layout.topMargin: Kirigami.Units.gridUnit * 2
             visible: panel.monitor.status !== GpuMonitor.AmdCard
             icon.name: "video-card-inactive"
-            text: panel.monitor.status === GpuMonitor.OtherCards ? "Only AMD cards are supported" : "No graphics card found"
+            text: panel.monitor.status === GpuMonitor.OtherCards ? KI18n.i18n("Only AMD cards are supported") : KI18n.i18n("No graphics card found")
             explanation: panel.monitor.status === GpuMonitor.OtherCards
-                ? "gfxtune reads the sensors of AMD Radeon cards through the amdgpu driver."
+                ? KI18n.i18n("gfxtune reads the sensors of AMD Radeon cards through the amdgpu driver.")
                 : ""
         }
 
@@ -258,7 +259,7 @@ QQC2.ScrollView {
             Layout.fillWidth: true
             Layout.topMargin: Kirigami.Units.largeSpacing
             visible: panel.monitor.status === GpuMonitor.AmdCard && panel.monitor.asleep
-            text: "The card is asleep. gfxtune does not wake it just to read it."
+            text: KI18n.i18n("The card is asleep. gfxtune does not wake it just to read it.")
             wrapMode: Text.Wrap
             opacity: 0.7
         }
@@ -267,31 +268,31 @@ QQC2.ScrollView {
             Layout.topMargin: Kirigami.Units.largeSpacing
             visible: panel.cardShown
 
-            Key { text: "Temperature" }
+            Key { text: KI18n.i18n("Temperature") }
             Value { text: panel.monitor.temperature }
-            Key { text: "Hotspot" }
+            Key { text: KI18n.i18n("Hotspot") }
             Value { text: panel.monitor.hotspot }
-            Key { text: "Memory temperature" }
+            Key { text: KI18n.i18n("Memory temperature") }
             Value { text: panel.monitor.memoryTemperature }
-            Key { text: "Power" }
+            Key { text: KI18n.i18n("Power") }
             Value { text: panel.monitor.power }
-            Key { text: "GPU load" }
+            Key { text: KI18n.i18n("GPU load") }
             Value { text: panel.monitor.load }
-            Key { text: "Memory load" }
+            Key { text: KI18n.i18n("Memory load") }
             Value { text: panel.monitor.memoryLoad }
-            Key { text: "Video memory" }
+            Key { text: KI18n.i18n("Video memory") }
             Value { text: panel.monitor.videoMemory }
-            Key { text: "Core clock" }
+            Key { text: KI18n.i18n("Core clock") }
             Value { text: panel.monitor.coreClock }
-            Key { text: "Memory clock" }
+            Key { text: KI18n.i18n("Memory clock") }
             Value { text: panel.monitor.memoryClock }
-            Key { text: "Fan" }
+            Key { text: KI18n.i18n("Fan") }
             Value { text: panel.monitor.fan }
-            Key { text: "Voltage" }
+            Key { text: KI18n.i18n("Voltage") }
             Value { text: panel.monitor.voltage }
             Key {
                 Layout.alignment: Qt.AlignTop
-                text: "Held back by"
+                text: KI18n.i18n("Held back by")
             }
             Value {
                 objectName: "heldBackBy"
@@ -308,7 +309,7 @@ QQC2.ScrollView {
             spacing: Kirigami.Units.smallSpacing
 
             Caption {
-                text: "Temperature, last minute"
+                text: KI18n.i18n("Temperature, last minute")
             }
             HistoryChart {
                 unit: "°C"
@@ -325,19 +326,19 @@ QQC2.ScrollView {
 
                 LegendEntry {
                     swatch: panel.mainColor
-                    name: "Temperature"
+                    name: KI18n.i18n("Temperature")
                     value: panel.monitor.temperature
                 }
                 LegendEntry {
                     swatch: panel.hotspotColor
-                    name: "Hotspot"
+                    name: KI18n.i18n("Hotspot")
                     value: panel.monitor.hotspot
                 }
             }
 
             Caption {
                 Layout.topMargin: Kirigami.Units.largeSpacing
-                text: "Power, last minute"
+                text: KI18n.i18n("Power, last minute")
             }
             HistoryChart {
                 unit: "W"
@@ -348,7 +349,7 @@ QQC2.ScrollView {
             }
             LegendEntry {
                 swatch: panel.mainColor
-                name: "Power"
+                name: KI18n.i18n("Power")
                 value: panel.monitor.power
             }
         }
@@ -362,11 +363,11 @@ QQC2.ScrollView {
         Readings {
             objectName: "cpuReadings"
 
-            Key { text: "Load" }
+            Key { text: KI18n.i18n("Load") }
             Value { text: panel.monitor.cpuLoad }
-            Key { text: "Temperature" }
+            Key { text: KI18n.i18n("Temperature") }
             Value { text: panel.monitor.cpuTemperature }
-            Key { text: "Clock" }
+            Key { text: KI18n.i18n("Clock") }
             Value { text: panel.monitor.cpuClock }
         }
     }

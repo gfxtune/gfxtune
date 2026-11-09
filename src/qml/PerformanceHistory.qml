@@ -8,6 +8,7 @@ import QtQuick.Layouts
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
 import Gfxtune.Backend
+import org.kde.ki18n
 
 // The game's measured sessions, newest first: the frame rates and the card's
 // readings, the newest few unless all are asked for. A table while its
@@ -26,14 +27,14 @@ ColumnLayout {
     readonly property int rowCount: expanded ? sessions.length : Math.min(sessions.length, collapsedCount)
     // The columns, with the key of each in a session row.
     readonly property var columns: [
-        {title: "Date", key: "date"},
-        {title: "Played", key: "played"},
-        {title: "Average FPS", key: "averageFps"},
-        {title: "1% low", key: "low1"},
-        {title: "0.1% low", key: "low01"},
-        {title: "Temperature", key: "temperature"},
-        {title: "Hotspot (max)", key: "hotspot"},
-        {title: "Power", key: "power"}
+        {title: KI18n.i18n("Date"), key: "date"},
+        {title: KI18n.i18n("Played"), key: "played"},
+        {title: KI18n.i18n("Average FPS"), key: "averageFps"},
+        {title: KI18n.i18n("1% low"), key: "low1"},
+        {title: KI18n.i18n("0.1% low"), key: "low01"},
+        {title: KI18n.i18n("Temperature"), key: "temperature"},
+        {title: KI18n.i18n("Hotspot (max)"), key: "hotspot"},
+        {title: KI18n.i18n("Power"), key: "power"}
     ]
     // The table while it fits. The width it needs is measured while it
     // shows, so the list can tell when there is room for it again.
@@ -68,7 +69,7 @@ ColumnLayout {
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.Wrap
         opacity: 0.7
-        text: "No sessions yet. Each time the game runs for 20 seconds or more with performance measuring on, it appears here."
+        text: KI18n.i18n("No sessions yet. Each time the game runs for 20 seconds or more with performance measuring on, it appears here.")
     }
 
     GridLayout {
@@ -128,7 +129,7 @@ ColumnLayout {
                     wrapMode: Text.Wrap
                     font.features: { "tnum": 1 }
                     text: entry.session !== null
-                        ? "%1 FPS average · 1% low %2 · 0.1% low %3".arg(entry.session.averageFps).arg(entry.session.low1).arg(entry.session.low01)
+                        ? KI18n.i18n("%1 FPS average · 1% low %2 · 0.1% low %3", entry.session.averageFps, entry.session.low1, entry.session.low01)
                         : ""
                 }
                 QQC2.Label {
@@ -138,7 +139,7 @@ ColumnLayout {
                     opacity: 0.7
                     font.features: { "tnum": 1 }
                     text: entry.session !== null
-                        ? history.joined([entry.session.temperature, "hotspot " + entry.session.hotspot, entry.session.power])
+                        ? history.joined([entry.session.temperature, KI18n.i18n("hotspot %1", entry.session.hotspot), entry.session.power])
                         : ""
                 }
             }
@@ -151,13 +152,13 @@ ColumnLayout {
 
         QQC2.Button {
             visible: history.sessions.length > history.collapsedCount
-            text: history.expanded ? "Show Fewer" : "Show All %1".arg(history.sessions.length)
+            text: history.expanded ? KI18n.i18n("Show Fewer") : KI18n.i18n("Show All %1", history.sessions.length)
             icon.name: history.expanded ? "collapse" : "expand"
             flat: true
             onClicked: history.expanded = !history.expanded
         }
         QQC2.Button {
-            text: "Clear History"
+            text: KI18n.i18n("Clear History")
             icon.name: "edit-clear-history"
             flat: true
             onClicked: clearDialog.open()
@@ -166,8 +167,8 @@ ColumnLayout {
 
     Kirigami.PromptDialog {
         id: clearDialog
-        title: "Clear this game's performance history?"
-        subtitle: "The sessions listed here are removed. A session still running stays, and new ones are measured as before."
+        title: KI18n.i18n("Clear this game's performance history?")
+        subtitle: KI18n.i18n("The sessions listed here are removed. A session still running stays, and new ones are measured as before.")
         standardButtons: Kirigami.Dialog.Ok | Kirigami.Dialog.Cancel
         onAccepted: history.editor.clearSessions()
     }

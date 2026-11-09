@@ -9,6 +9,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QLocale>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -78,6 +79,40 @@ private:
     }
 
 private Q_SLOTS:
+    // A game seen drawing with OpenGL: the layer stays out, so gfxtune-run
+    // has nothing to do in it for measuring alone, and its page says why.
+    void remembersAGameSeenDrawingWithOpenGl()
+    {
+        QTemporaryDir dir;
+        const SettingsStore store(dir.filePath(QStringLiteral("gfxtune")));
+        GameFacts facts;
+        facts.openGlSeen = true;
+        QVERIFY(store.saveFacts(7, facts));
+        QVERIFY(store.loadFacts(7).openGlSeen);
+        QVERIFY(!store.loadFacts(7).openGlOnly);
+
+        GameSettings s; // measuring is on by default
+        QVERIFY(!layerWanted(s, facts));
+        QVERIFY(!needsGfxtuneRun(s, facts));
+        s.anisotropicFiltering = 8; // applied from outside the game, still
+        QVERIFY(needsGfxtuneRun(s, facts));
+
+        Game g = game(Runtime::Native, {});
+        g.openGlSeen = true;
+        QVERIFY(factsOf(g).openGlSeen);
+        const Availability a = availabilityFor(g, GameSettings{}, SystemInfo{});
+        QVERIFY(!a.filters.available);
+        QVERIFY(!a.measurePerformance.available);
+        QVERIFY(a.measurePerformance.note.contains(QLatin1String("OpenGL")));
+        // Only a native game: under Proton the game draws through DXVK.
+        g.runtime = Runtime::Proton;
+        QVERIFY(!factsOf(g).openGlSeen);
+
+        facts.openGlSeen = false;
+        QVERIFY(store.saveFacts(7, facts));
+        QVERIFY(!store.loadFacts(7).openGlSeen);
+    }
+
     void namesRoundTrip()
     {
         for (int i = 0; i <= int(VerticalSync::Adaptive); ++i) {
@@ -936,7 +971,11 @@ private Q_SLOTS:
         QVERIFY(!a.filtersLocked);
 
         g.antiCheat = {QStringLiteral("Easy Anti-Cheat"), QStringLiteral("BattlEye")};
+        // The names listed the way the user's language lists things.
+        const QLocale previous;
+        QLocale::setDefault(QLocale(QLocale::English, QLocale::UnitedStates));
         a = availabilityFor(g, GameSettings{}, system);
+        QLocale::setDefault(previous);
         QVERIFY(a.filters.available);
         QVERIFY(a.filtersLocked);
         QVERIFY(a.filtersWarning.startsWith(QLatin1String("Hollow Orbit ships Easy Anti-Cheat and BattlEye.")));

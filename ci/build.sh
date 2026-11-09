@@ -11,8 +11,10 @@
 #                         settings (CachyOS's in its container), tests included
 #   ci/build.sh lint      QML lint, after a debug build
 #   ci/build.sh tidy      build with clang, warnings as errors, then clang-tidy
-#   ci/build.sh checks    licence information (REUSE), C++ formatting, manual pages
+#   ci/build.sh checks    licence information (REUSE), C++ formatting, manual pages,
+#                         and that po/gfxtune.pot has every text
 #   ci/build.sh format    formats the C++ code as .clang-format says
+#   ci/build.sh messages  writes po/gfxtune.pot, the template for translations
 set -euo pipefail
 
 source_dir=$(cd "$(dirname "$0")/.." && pwd)
@@ -34,6 +36,20 @@ export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$(jobs)}
 cpp_files() {
     find "$source_dir/src" "$source_dir/tests" \( -name '*.cpp' -o -name '*.h' -o -name '*.c' \) \
         -not -path '*/third_party/*' -print0
+}
+
+# Every text the window, gfxtune-run and the command line show, for
+# translators (KDE's i18n keywords; QML files read as C, as KDE does).
+# Without line numbers, so the template only changes when a text does.
+extract_messages() {
+    local files
+    mapfile -t files < <(cd "$source_dir" && find src \( -name '*.cpp' -o -name '*.h' -o -name '*.qml' \) \
+        -not -path 'src/layer/*' | sort)
+    (cd "$source_dir" && xgettext --from-code=UTF-8 -C --kde -ci18n \
+        -ki18n:1 -ki18nc:1c,2 -ki18np:1,2 -ki18ncp:1c,2,3 -kki18n:1 -kki18nc:1c,2 -kki18np:1,2 -kki18ncp:1c,2,3 \
+        -kxi18n:1 -kxi18nc:1c,2 -kxi18np:1,2 -kxi18ncp:1c,2,3 -kI18N_NOOP:1 -kI18NC_NOOP:1c,2 \
+        --add-location=file --package-name=gfxtune --copyright-holder="gfxtune contributors" \
+        -o "$1" "${files[@]}")
 }
 
 configure_and_test() {
@@ -81,6 +97,15 @@ tidy)
 checks)
     reuse --root "$source_dir" lint
     cpp_files | xargs -0 clang-format --dry-run --Werror
+    # The translation template must list today's texts.
+    template=$(mktemp)
+    extract_messages "$template"
+    if ! diff <(grep -v '^"POT-Creation-Date' "$template") <(grep -v '^"POT-Creation-Date' "$source_dir/po/gfxtune.pot") >/dev/null; then
+        echo "po/gfxtune.pot is out of date: run ci/build.sh messages" >&2
+        rm -f "$template"
+        exit 1
+    fi
+    rm -f "$template"
     # groff's own checks of the manual pages: any warning fails.
     for page in "$source_dir"/doc/*.1; do
         warnings=$(sed 's/@PROJECT_VERSION@/0/' "$page" | groff -man -ww -z -rCHECKSTYLE=3 2>&1)
@@ -93,8 +118,11 @@ checks)
 format)
     cpp_files | xargs -0 clang-format -i
     ;;
+messages)
+    extract_messages "$source_dir/po/gfxtune.pot"
+    ;;
 *)
-    echo "usage: $0 debug|asan|package|lint|tidy|checks|format" >&2
+    echo "usage: $0 debug|asan|package|lint|tidy|checks|format|messages" >&2
     exit 2
     ;;
 esac

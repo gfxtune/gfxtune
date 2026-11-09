@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 gfxtune contributors -->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <title>gfxtune</title>
+  <defs>
+    <linearGradient id="gfxtune-base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4b5157"/>
+      <stop offset="1" stop-color="#2b2f33"/>
+    </linearGradient>
+    <linearGradient id="gfxtune-hub" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dde3e7"/>
+    </linearGradient>
+  </defs>
+  <!-- Base and its shadow -->
+  <rect x="1" y="2" width="14" height="14" rx="1.5" fill="#000000" fill-opacity="0.14"/>
+  <rect x="1" y="1" width="14" height="14" rx="1.5" fill="url(#gfxtune-base)"/>
+  <rect x="2" y="2" width="12" height="1" fill="#ffffff" fill-opacity="0.09"/>
+  <!-- The gauge: unlit segments, then the lit ones from deep to bright blue -->
+  <g fill="#1b1e21"><path d="M13.44 8.7A5.5 5.5 0 0 1 12.76 12.25L10.86 11.15A3.3 3.3 0 0 0 11.26 9.02Z"/></g>
+  <g>
+    <path fill="#22719f" d="M3.24 12.25A5.5 5.5 0 0 1 2.56 8.7L4.74 9.02A3.3 3.3 0 0 0 5.14 11.15Z"/>
+    <path fill="#2f98cc" d="M2.84 7.58A5.5 5.5 0 0 1 5.15 4.8L6.29 6.68A3.3 3.3 0 0 0 4.91 8.35Z"/>
+    <path fill="#3daee9" d="M6.19 4.31A5.5 5.5 0 0 1 9.81 4.31L9.09 6.38A3.3 3.3 0 0 0 6.91 6.38Z"/>
+    <path fill="#71c9f4" d="M10.85 4.8A5.5 5.5 0 0 1 13.16 7.58L11.09 8.35A3.3 3.3 0 0 0 9.71 6.68Z"/>
+  </g>
+  <!-- Needle and hub, with their shadow -->
+  <path d="M12.5 8.83L7.7 9.7L6.88 10.92L8.3 11.3Z" fill="#000000" fill-opacity="0.3"/>
+  <circle cx="8" cy="10.5" r="1.4" fill="#000000" fill-opacity="0.3"/>
+  <path d="M12.5 7.83L7.7 8.7L6.88 9.92L8.3 10.3Z" fill="#ffffff"/>
+  <circle cx="8" cy="9.5" r="1.4" fill="url(#gfxtune-hub)"/>
+</svg>

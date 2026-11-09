@@ -4,10 +4,13 @@
 #include "Commands.h"
 
 #include "launch/LaunchLines.h"
+#include "settings/SettingsStore.h"
 #include "steam/SteamProcess.h"
 
 #include "steam/RunningGames.h"
 #include "steam/SteamLibrary.h"
+
+#include <KLocalizedString>
 
 namespace gfxtune
 {
@@ -34,6 +37,7 @@ QString fsr4Words(Fsr4Support support)
 
 } // namespace
 
+// In English on purpose, like log messages: it goes into bug reports.
 int listGames(QTextStream &out)
 {
     const SteamScan scan = scanSteam(ScanOptions::fromEnvironment());
@@ -49,6 +53,7 @@ int listGames(QTextStream &out)
     }
 
     const QSet<quint32> running = runningSteamApps();
+    const settings::SettingsStore store(settings::SettingsStore::defaultBaseDir());
     out << '\n' << scan.games.size() << (scan.games.size() == 1 ? " game\n" : " games\n");
     for (const Game &game : scan.games) {
         out << '\n' << game.appId << "  " << game.name << (running.contains(game.appId) ? "  [running]" : "") << '\n';
@@ -58,7 +63,12 @@ int listGames(QTextStream &out)
         }
         out << "    runs as:   " << runsAs << '\n';
         const QString apis = apiNames(game.apis);
-        out << "    graphics:  " << (apis.isEmpty() ? QStringLiteral("not detected") : apis + QStringLiteral(" (from its files)")) << '\n';
+        if (game.runtime == Runtime::Native && store.loadFacts(game.appId).openGlSeen) {
+            out << "    graphics:  OpenGL (seen when it last ran)\n";
+        } else {
+            out << "    graphics:  " << (apis.isEmpty() ? QStringLiteral("not detected") : apis + QStringLiteral(" (from its files)"))
+                << '\n';
+        }
         QStringList fsr;
         if (game.fsr31Dx12) {
             fsr << QStringLiteral("DirectX 12");
@@ -102,20 +112,20 @@ int removeLaunchLines(QTextStream &out)
     options.inspectGameFiles = false;
     const SteamScan scan = scanSteam(options);
     if (!scan.steamFound || scan.localConfigPath.isEmpty()) {
-        out << "No Steam account found; nothing to remove.\n";
+        out << i18n("No Steam account found; nothing to remove.") << '\n';
         return 0;
     }
     if (isSteamRunning()) {
-        out << "Steam is running. Close Steam, then run this again: Steam rewrites its settings when it exits.\n";
+        out << i18n("Steam is running. Close Steam, then run this again: Steam rewrites its settings when it exits.") << '\n';
         return 1;
     }
     QList<launch::LineChange> done;
     QString error;
     if (!launch::syncLaunchLines(scan.localConfigPath, {}, &done, &error)) {
-        out << "Could not update Steam's launch options: " << error << '\n';
+        out << i18n("Could not update Steam's launch options: %1", error) << '\n';
         return 1;
     }
-    out << "Removed gfxtune-run from " << done.size() << (done.size() == 1 ? " game.\n" : " games.\n");
+    out << i18np("Removed gfxtune-run from 1 game.", "Removed gfxtune-run from %1 games.", done.size()) << '\n';
     return 0;
 }
 

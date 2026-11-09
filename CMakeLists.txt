@@ -16,6 +16,10 @@ option(BUILD_TESTING "Build the tests" ON)
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Concurrent Gui Qml Quick QuickControls2 Widgets)
 qt_standard_project_setup(REQUIRES 6.8)
+# Translations: KDE's i18n, with its QML module (KI18n.i18n() in QML).
+find_package(KF6I18n 6.21 REQUIRED)
+# Every i18n() call looks its text up in gfxtune's own catalog.
+add_compile_definitions(TRANSLATION_DOMAIN="gfxtune")
 # All QML modules in one folder, so build tools find each other's types.
 set(QT_QML_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/qml)
 
@@ -30,6 +34,7 @@ endif()
 
 add_subdirectory(src)
 add_subdirectory(doc)
+ki18n_install(po)
 
 if(BUILD_TESTING)
     enable_testing()

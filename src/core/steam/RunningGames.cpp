@@ -8,6 +8,8 @@
 #include <QDir>
 #include <QFile>
 
+#include <unistd.h>
+
 namespace gfxtune::steam
 {
 
@@ -69,6 +71,36 @@ QHash<quint32, qint64> steamGameReapers(const QString &procRoot)
         }
     }
     return apps;
+}
+
+std::optional<QDateTime> processStartTime(qint64 pid, const QString &procRoot)
+{
+    // "btime <seconds>": when the system booted.
+    std::optional<qint64> bootTime;
+    for (const QByteArray &line : readSmallFile(procRoot + QStringLiteral("/stat"), 64 * KiB).split('\n')) {
+        if (line.startsWith("btime ")) {
+            bool ok = false;
+            const qint64 value = line.mid(6).trimmed().toLongLong(&ok);
+            if (ok) {
+                bootTime = value;
+            }
+        }
+    }
+    // Field 22 of /proc/<pid>/stat, counted after the name in brackets
+    // (which may hold spaces): ticks between boot and the process's start.
+    const QByteArray stat = readSmallFile(procRoot + QStringLiteral("/%1/stat").arg(pid), 4096);
+    const qsizetype close = stat.lastIndexOf(')');
+    const long ticksPerSecond = sysconf(_SC_CLK_TCK);
+    if (!bootTime || close < 0 || ticksPerSecond <= 0) {
+        return std::nullopt;
+    }
+    const QList<QByteArray> fields = stat.mid(close + 2).split(' ');
+    bool ok = false;
+    const qint64 ticks = fields.size() > 19 ? fields.at(19).toLongLong(&ok) : 0;
+    if (!ok) {
+        return std::nullopt;
+    }
+    return QDateTime::fromMSecsSinceEpoch(*bootTime * 1000 + ticks * 1000 / ticksPerSecond);
 }
 
 QList<qint64> processTree(qint64 root, const QString &procRoot)

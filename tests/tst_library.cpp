@@ -362,6 +362,66 @@ private Q_SLOTS:
         QVERIFY(launch::hasHelper(options.value(1003)));
     }
 
+    void learnsThatAGameDrawsWithOpenGl()
+    {
+        Setup setup;
+        GameLibrary library(setup.steam.options(), &setup.store, nullptr, setup.proc.path());
+        library.setPollInterval(100);
+        GameSettingsEditor editor(&library, &setup.store, SystemInfo{true}, nullptr, 50);
+        library.start();
+        QVERIFY(waitUntilIdle(library));
+        QCOMPARE(library.game(1003)->runtime, steam::Runtime::Native);
+        // Measured by default, so it has the line.
+        QTRY_VERIFY_WITH_TIMEOUT(launch::hasHelper(library.game(1003)->launchOptions), 8000);
+
+        // Steam started the game through gfxtune-run, with the layer in it.
+        const QDateTime now = QDateTime::currentDateTime();
+        const QDateTime boot = now.addSecs(-3600);
+        QVERIFY(test::writeFile(setup.proc.filePath(s("stat")), "btime " + QByteArray::number(boot.toSecsSinceEpoch()) + "\n"));
+        const auto startGame = [&](const char *pid, const QDateTime &started) {
+            const QString dir = setup.proc.filePath(s(pid));
+            const qint64 ticks = boot.secsTo(started) * sysconf(_SC_CLK_TCK);
+            launch::LaunchPlan plan;
+            plan.layer = true;
+            plan.applied = {s("Performance measuring")};
+            return launch::writeLastLaunch(setup.store.baseDir(), 1003, plan, started.addSecs(1))
+                && test::writeFile(dir + s("/comm"), "reaper\n")
+                && test::writeFile(dir + s("/cmdline"), QByteArray("reaper\0SteamLaunch\0AppId=1003\0--\0./stonewake\0", 45))
+                && test::writeFile(dir + s("/stat"),
+                                   QByteArray(pid) + " (reaper) S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 " + QByteArray::number(ticks)
+                                       + " 0 0\n");
+        };
+
+        // Two minutes in, and the layer never saw a Vulkan picture.
+        QVERIFY(startGame("4400", now.addSecs(-120)));
+        QTRY_VERIFY_WITH_TIMEOUT(library.game(1003)->openGlSeen, 5000);
+        QVERIFY(setup.store.loadFacts(1003).openGlSeen);
+        editor.setAppId(1003);
+        QVERIFY(editor.graphicsSeen());
+        QVERIFY(editor.graphics().contains(s("OpenGL")));
+        QVERIFY(!editor.filtersAvailable());
+        // Measuring cannot reach it: no line just for that.
+        QVERIFY(!library.wantsLaunchLine(1003));
+        QTRY_VERIFY_WITH_TIMEOUT(!launch::hasHelper(library.game(1003)->launchOptions), 8000);
+
+        // Check Again: forgotten, and the line is back for its next start.
+        // The run going on now is not judged again.
+        editor.checkGraphicsAgain();
+        QTRY_VERIFY_WITH_TIMEOUT(!library.game(1003)->openGlSeen, 5000);
+        QVERIFY(!editor.graphicsSeen());
+        QTRY_VERIFY_WITH_TIMEOUT(launch::hasHelper(library.game(1003)->launchOptions), 8000);
+        QTest::qWait(500);
+        QVERIFY(!library.game(1003)->openGlSeen);
+
+        // The next start shows Vulkan frames (measured): nothing to learn.
+        QVERIFY(QDir(setup.proc.filePath(s("4400"))).removeRecursively());
+        QVERIFY(startGame("4401", now.addSecs(-90)));
+        QVERIFY(test::writeFile(setup.store.baseDir() + s("/performance/1003/live"), "time=1\nfps=144\n"));
+        QTest::qWait(1000);
+        QVERIFY(!library.game(1003)->openGlSeen);
+        QVERIFY(!setup.store.loadFacts(1003).openGlSeen);
+    }
+
     void offersTheLineToCopyWhileSteamIsOpen()
     {
         Setup setup;
@@ -726,6 +786,7 @@ private Q_SLOTS:
         const QDateTime started = QDateTime::currentDateTime().addSecs(-60);
         launch::LaunchPlan plan;
         plan.applied = {s("In-game filters")};
+        plan.filters = true;
         QVERIFY(launch::writeLastLaunch(setup.store.baseDir(), 1003, plan, started));
         const auto writeReport = [&](qint64 time, const char *state, const char *detail) {
             return test::writeFile(launch::filterReportPath(setup.store.baseDir(), 1003),
@@ -762,9 +823,17 @@ private Q_SLOTS:
 
         // Nothing to say when the filters were not part of the launch.
         plan.applied = {s("Anisotropic filtering 8×")};
+        plan.filters = false;
         QVERIFY(launch::writeLastLaunch(setup.store.baseDir(), 1003, plan, QDateTime::currentDateTime()));
         reselect();
         QVERIFY(editor.lastLaunchFilters().isEmpty());
+
+        // A record from gfxtune 0.4.2 or older has only the words, in English.
+        QVERIFY(test::writeFile(launch::lastLaunchPath(setup.store.baseDir(), 1003),
+                                "[launch]\ntime=" + QDateTime::currentDateTimeUtc().toString(Qt::ISODate).toUtf8()
+                                    + "\napplied=In-game filters, Performance measuring\n"));
+        reselect();
+        QVERIFY(!editor.lastLaunchFilters().isEmpty());
     }
 };
 

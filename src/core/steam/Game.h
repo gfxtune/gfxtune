@@ -63,6 +63,9 @@ struct Game {
     bool fsr31Vulkan = false;
     // Anti-cheat the game ships or Steam lists (Valve Anti-Cheat), by name.
     QStringList antiCheat;
+    // gfxtune's own record, not Steam's: the game ran for a minute without
+    // showing a Vulkan picture (see settings::GameFacts::openGlSeen).
+    bool openGlSeen = false;
 
     // The launch options currently set in Steam for this game.
     QString launchOptions;

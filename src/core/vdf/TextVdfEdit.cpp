@@ -8,6 +8,7 @@
 #include "TextVdfTokenizer.h"
 #include "shared/Sizes.h"
 
+#include <KLocalizedString>
 #include <QFile>
 #include <QHash>
 #include <QSaveFile>
@@ -62,17 +63,17 @@ bool buildIndex(QByteArrayView data, Index &index, QString *error)
         const Token key = next();
         switch (key.type) {
         case TokenType::End:
-            return path.isEmpty() || fail(error, QStringLiteral("file ends inside a section"));
+            return path.isEmpty() || fail(error, i18n("file ends inside a section"));
         case TokenType::Invalid:
             return fail(error, tokens.problem());
         case TokenType::Close:
             if (path.isEmpty()) {
-                return fail(error, QStringLiteral("unexpected } on line %1").arg(tokens.line()));
+                return fail(error, i18n("unexpected } on line %1", tokens.line()));
             }
             path.removeLast();
             continue;
         case TokenType::Open:
-            return fail(error, QStringLiteral("{ without a name on line %1").arg(tokens.line()));
+            return fail(error, i18n("{ without a name on line %1", tokens.line()));
         case TokenType::Conditional:
         case TokenType::String:
             break;
@@ -87,7 +88,7 @@ bool buildIndex(QByteArrayView data, Index &index, QString *error)
         } else if (value.type == TokenType::Invalid) {
             return fail(error, tokens.problem());
         } else {
-            return fail(error, QStringLiteral("\"%1\" has no value (line %2)").arg(name).arg(tokens.line()));
+            return fail(error, i18n("\"%1\" has no value (line %2)", name, tokens.line()));
         }
     }
 }
@@ -390,7 +391,7 @@ bool editTextFile(const QString &path, const QList<ValueEdit> &edits, QString *e
         return fail(error, in.errorString());
     }
     if (in.size() > MaxFileBytes) {
-        return fail(error, QStringLiteral("file is unexpectedly large"));
+        return fail(error, i18n("file is unexpectedly large"));
     }
     const QByteArray original = in.readAll();
     const QFileDevice::Permissions permissions = in.permissions();
@@ -414,7 +415,7 @@ bool editTextFile(const QString &path, const QList<ValueEdit> &edits, QString *e
     Node actual;
     QString problem;
     if (!parseText(changed, actual, &problem) || !sameTree(expected, actual)) {
-        return fail(error, QStringLiteral("the edited file did not read back as expected; nothing was written"));
+        return fail(error, i18n("the edited file did not read back as expected; nothing was written"));
     }
 
     QSaveFile out(path);

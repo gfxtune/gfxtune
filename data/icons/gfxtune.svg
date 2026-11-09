@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- SPDX-FileCopyrightText: 2026 gfxtune contributors -->
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <title>gfxtune</title>
+  <defs>
+    <linearGradient id="gfxtune-base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4b5157"/>
+      <stop offset="1" stop-color="#2b2f33"/>
+    </linearGradient>
+    <linearGradient id="gfxtune-hub" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dde3e7"/>
+    </linearGradient>
+  </defs>
+  <!-- Base and its shadow -->
+  <rect x="4" y="5" width="40" height="40" rx="3" fill="#000000" fill-opacity="0.14"/>
+  <rect x="4" y="4" width="40" height="40" rx="3" fill="url(#gfxtune-base)"/>
+  <rect x="5" y="5" width="38" height="1" fill="#ffffff" fill-opacity="0.09"/>
+  <!-- The gauge: unlit segments, then the lit ones from deep to bright blue -->
+  <g fill="#1b1e21"><path d="M37.54 21.04A15 15 0 0 1 39 27.3L34.5 27.36A10.5 10.5 0 0 0 33.48 22.98Z"/><path d="M38.94 28.87A15 15 0 0 1 36.99 35L33.09 32.75A10.5 10.5 0 0 0 34.46 28.46Z"/></g>
+  <g>
+    <path fill="#1d5f8c" d="M11.01 35A15 15 0 0 1 9.06 28.87L13.54 28.46A10.5 10.5 0 0 0 14.91 32.75Z"/>
+    <path fill="#22719f" d="M9 27.3A15 15 0 0 1 10.46 21.04L14.52 22.98A10.5 10.5 0 0 0 13.5 27.36Z"/>
+    <path fill="#2884b5" d="M11.21 19.66A15 15 0 0 1 15.67 15.03L18.17 18.77A10.5 10.5 0 0 0 15.05 22.01Z"/>
+    <path fill="#2f98cc" d="M17.02 14.23A15 15 0 0 1 23.21 12.52L23.45 17.01A10.5 10.5 0 0 0 19.11 18.21Z"/>
+    <path fill="#3daee9" d="M24.79 12.52A15 15 0 0 1 30.98 14.23L28.89 18.21A10.5 10.5 0 0 0 24.55 17.01Z"/>
+    <path fill="#71c9f4" d="M32.33 15.03A15 15 0 0 1 36.79 19.66L32.95 22.01A10.5 10.5 0 0 0 29.83 18.77Z"/>
+  </g>
+  <!-- Needle and hub, with their shadow -->
+  <path d="M35.25 21.6L23.01 26.88L21.44 30.07L24.99 30.12Z" fill="#000000" fill-opacity="0.3"/>
+  <circle cx="24" cy="28.5" r="3.2" fill="#000000" fill-opacity="0.3"/>
+  <path d="M35.25 20.6L23.01 25.88L21.44 29.07L24.99 29.12Z" fill="#ffffff"/>
+  <circle cx="24" cy="27.5" r="3.2" fill="url(#gfxtune-hub)"/>
+  <circle cx="24" cy="27.5" r="1.1" fill="#2b2f33"/>
+</svg>

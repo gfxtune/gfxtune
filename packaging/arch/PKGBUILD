@@ -16,7 +16,7 @@ license=('GPL-3.0-or-later')
 # broke the Steam file readers. A 30-line program without gfxtune's code
 # shows it; -fno-ipa-cp or -fno-thread-jumps hide it. check() catches it.
 options=('!debug' '!lto')
-depends=('qt6-base' 'qt6-declarative' 'kirigami' 'kquickcharts' 'qqc2-desktop-style' 'libdrm')
+depends=('qt6-base' 'qt6-declarative' 'kirigami' 'kquickcharts' 'qqc2-desktop-style' 'ki18n' 'libdrm')
 makedepends=('cmake' 'glslang' 'vulkan-headers' 'vulkan-icd-loader')
 optdepends=('gamescope: run games in gamescope, with upscaling and frame caps for any game'
             'proton-cachyos: the FSR 4 upgrade and other Proton features')

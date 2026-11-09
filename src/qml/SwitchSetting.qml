@@ -4,6 +4,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Gfxtune.Backend
+import org.kde.ki18n
 
 // An on/off setting, with the button that puts it back to the global value
 // when the game changed it.
@@ -27,6 +28,6 @@ RowLayout {
     BackToBase {
         editor: row.editor
         setting: row.setting
-        value: row.editor.baseValues[row.setting] ? "On" : "Off"
+        value: row.editor.baseValues[row.setting] ? KI18n.i18n("On") : KI18n.i18n("Off")
     }
 }

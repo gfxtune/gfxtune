@@ -6,6 +6,7 @@ import QtQuick.Layouts
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
 import Gfxtune.Backend
+import org.kde.ki18n
 
 // The settings page, for All Games or for one game.
 QQC2.ScrollView {
@@ -67,19 +68,19 @@ QQC2.ScrollView {
 
             Kirigami.Separator {
                 Kirigami.FormData.isSection: true
-                Kirigami.FormData.label: "Image"
+                Kirigami.FormData.label: KI18n.i18n("Image")
             }
             ChoiceSetting {
-                Kirigami.FormData.label: "Anisotropic filtering:"
+                Kirigami.FormData.label: KI18n.i18n("Anisotropic filtering:")
                 editor: pane.editor
                 setting: "anisotropicFiltering"
                 controlEnabled: pane.editor.anisotropicAvailable
                 model: [
-                    {text: "Game decides", value: 0},
-                    {text: "2×", value: 2},
-                    {text: "4×", value: 4},
-                    {text: "8×", value: 8},
-                    {text: "16×", value: 16}
+                    {text: KI18n.i18n("Game decides"), value: 0},
+                    {text: KI18n.i18n("2×"), value: 2},
+                    {text: KI18n.i18n("4×"), value: 4},
+                    {text: KI18n.i18n("8×"), value: 8},
+                    {text: KI18n.i18n("16×"), value: 16}
                 ]
                 value: pane.editor.anisotropicFiltering
                 onPicked: value => pane.editor.anisotropicFiltering = value
@@ -88,22 +89,22 @@ QQC2.ScrollView {
                 text: pane.editor.anisotropicNote
             }
             ChoiceSetting {
-                Kirigami.FormData.label: "Texture detail:"
+                Kirigami.FormData.label: KI18n.i18n("Texture detail:")
                 editor: pane.editor
                 setting: "lodBias"
                 controlName: "lodBias"
                 controlEnabled: pane.editor.lodBiasAvailable
                 // Hundredths of a mip level, added to the game's own bias.
                 model: [
-                    {text: "Game decides", value: 0},
-                    {text: "Sharper (−0.25)", value: -25},
-                    {text: "Sharper (−0.5)", value: -50},
-                    {text: "Sharper (−0.75)", value: -75},
-                    {text: "Sharper (−1)", value: -100},
-                    {text: "Sharper (−1.5)", value: -150},
-                    {text: "Sharpest (−2)", value: -200},
-                    {text: "Softer (+0.5)", value: 50},
-                    {text: "Softer (+1)", value: 100}
+                    {text: KI18n.i18n("Game decides"), value: 0},
+                    {text: KI18n.i18n("Sharper (−0.25)"), value: -25},
+                    {text: KI18n.i18n("Sharper (−0.5)"), value: -50},
+                    {text: KI18n.i18n("Sharper (−0.75)"), value: -75},
+                    {text: KI18n.i18n("Sharper (−1)"), value: -100},
+                    {text: KI18n.i18n("Sharper (−1.5)"), value: -150},
+                    {text: KI18n.i18n("Sharpest (−2)"), value: -200},
+                    {text: KI18n.i18n("Softer (+0.5)"), value: 50},
+                    {text: KI18n.i18n("Softer (+1)"), value: 100}
                 ]
                 value: pane.editor.lodBias
                 onPicked: value => pane.editor.lodBias = value
@@ -114,10 +115,10 @@ QQC2.ScrollView {
 
             Kirigami.Separator {
                 Kirigami.FormData.isSection: true
-                Kirigami.FormData.label: "Frame pacing"
+                Kirigami.FormData.label: KI18n.i18n("Frame pacing")
             }
             RowLayout {
-                Kirigami.FormData.label: "Frame rate cap:"
+                Kirigami.FormData.label: KI18n.i18n("Frame rate cap:")
 
                 SettingSwitch {
                     enabled: pane.editor.frameCapAvailable
@@ -144,24 +145,24 @@ QQC2.ScrollView {
                 BackToBase {
                     editor: pane.editor
                     setting: "frameCap"
-                    value: pane.editor.baseValues.frameCapEnabled ? pane.editor.baseValues.frameCap + " FPS" : "Off"
+                    value: pane.editor.baseValues.frameCapEnabled ? KI18n.i18n("%1 FPS", pane.editor.baseValues.frameCap) : KI18n.i18n("Off")
                 }
             }
             Note {
                 text: pane.editor.frameCapNote
             }
             ChoiceSetting {
-                Kirigami.FormData.label: "Vertical sync:"
+                Kirigami.FormData.label: KI18n.i18n("Vertical sync:")
                 editor: pane.editor
                 setting: "verticalSync"
                 controlName: "verticalSync"
                 controlEnabled: pane.editor.verticalSyncAvailable
                 model: [
-                    {text: "Game decides", value: 0},
-                    {text: "Off (may tear)", value: 1},
-                    {text: "On", value: 2},
-                    {text: "Fast (no tearing)", value: 3},
-                    {text: "Adaptive", value: 4}
+                    {text: KI18n.i18n("Game decides"), value: 0},
+                    {text: KI18n.i18n("Off (may tear)"), value: 1},
+                    {text: KI18n.i18n("On"), value: 2},
+                    {text: KI18n.i18n("Fast (no tearing)"), value: 3},
+                    {text: KI18n.i18n("Adaptive"), value: 4}
                 ]
                 value: pane.editor.verticalSync
                 onPicked: value => pane.editor.verticalSync = value
@@ -172,18 +173,18 @@ QQC2.ScrollView {
 
             Kirigami.Separator {
                 Kirigami.FormData.isSection: true
-                Kirigami.FormData.label: "Upscaling"
+                Kirigami.FormData.label: KI18n.i18n("Upscaling")
             }
             ChoiceSetting {
-                Kirigami.FormData.label: "FSR 4:"
+                Kirigami.FormData.label: KI18n.i18n("FSR 4:")
                 editor: pane.editor
                 setting: "fsr4"
                 controlName: "fsr4"
                 controlEnabled: pane.editor.fsr4Available
                 model: [
                     {text: pane.editor.fsr4ProtonChoice, value: 0},
-                    {text: "On", value: 1},
-                    {text: "Off (keep FSR 3.1)", value: 2}
+                    {text: KI18n.i18n("On"), value: 1},
+                    {text: KI18n.i18n("Off (keep FSR 3.1)"), value: 2}
                 ]
                 value: pane.editor.fsr4
                 onPicked: value => pane.editor.fsr4 = value
@@ -194,7 +195,7 @@ QQC2.ScrollView {
 
             Kirigami.Separator {
                 Kirigami.FormData.isSection: true
-                Kirigami.FormData.label: "In-game filters"
+                Kirigami.FormData.label: KI18n.i18n("In-game filters")
             }
             FormWarning {
                 objectName: "filtersWarning"
@@ -202,7 +203,7 @@ QQC2.ScrollView {
                 text: pane.editor.filtersWarning
                 actions: [
                     Kirigami.Action {
-                        text: "I Accept the Risk"
+                        text: KI18n.i18n("I Accept the Risk")
                         icon.name: "security-medium"
                         onTriggered: pane.editor.acceptFiltersRisk()
                     }
@@ -210,28 +211,28 @@ QQC2.ScrollView {
             }
             SwitchSetting {
                 id: filters
-                Kirigami.FormData.label: "Filters:"
+                Kirigami.FormData.label: KI18n.i18n("Filters:")
                 editor: pane.editor
                 setting: "filtersEnabled"
                 controlName: "filtersSwitch"
                 controlEnabled: pane.editor.filtersAvailable && !pane.editor.filtersLocked
-                text: value ? "On" : "Off"
+                text: value ? KI18n.i18n("On") : KI18n.i18n("Off")
                 // Locked by anti-cheat, nothing is drawn whatever is saved.
                 value: pane.editor.filtersEnabled && controlEnabled
                 onPicked: value => pane.editor.filtersEnabled = value
             }
             Note {
                 visible: filters.controlEnabled
-                text: "Changes show in the game within a second while it runs. Switch off to compare with the original picture."
+                text: KI18n.i18n("Changes show in the game within a second while it runs. Switch off to compare with the original picture.")
             }
             ChoiceSetting {
-                Kirigami.FormData.label: "Anti-aliasing:"
+                Kirigami.FormData.label: KI18n.i18n("Anti-aliasing:")
                 editor: pane.editor
                 setting: "antiAliasing"
                 controlName: "antiAliasing"
                 controlEnabled: filters.controlEnabled
                 model: [
-                    {text: "Off", value: 0},
+                    {text: KI18n.i18n("Off"), value: 0},
                     {text: "SMAA", value: 1}
                 ]
                 value: pane.editor.antiAliasing
@@ -239,22 +240,22 @@ QQC2.ScrollView {
             }
             Note {
                 visible: filters.controlEnabled && pane.editor.antiAliasing !== 0
-                text: "Smooths jagged edges in the finished picture. Costs a little performance and can soften small text."
+                text: KI18n.i18n("Smooths jagged edges in the finished picture. Costs a little performance and can soften small text.")
             }
             SliderSetting {
-                Kirigami.FormData.label: "Sharpening:"
+                Kirigami.FormData.label: KI18n.i18n("Sharpening:")
                 editor: pane.editor
                 setting: "filterSharpening"
                 controlName: "filterSharpening"
                 controlEnabled: filters.controlEnabled
                 from: 0
                 to: 100
-                describe: v => v === 0 ? "Off" : v + " %"
+                describe: v => v === 0 ? KI18n.i18n("Off") : KI18n.i18nc("percent", "%1 %", v)
                 value: pane.editor.filterSharpening
                 onPicked: value => pane.editor.filterSharpening = value
             }
             SliderSetting {
-                Kirigami.FormData.label: "Brightness:"
+                Kirigami.FormData.label: KI18n.i18n("Brightness:")
                 editor: pane.editor
                 setting: "filterBrightness"
                 controlEnabled: filters.controlEnabled
@@ -264,7 +265,7 @@ QQC2.ScrollView {
                 onPicked: value => pane.editor.filterBrightness = value
             }
             SliderSetting {
-                Kirigami.FormData.label: "Contrast:"
+                Kirigami.FormData.label: KI18n.i18n("Contrast:")
                 editor: pane.editor
                 setting: "filterContrast"
                 controlEnabled: filters.controlEnabled
@@ -274,7 +275,7 @@ QQC2.ScrollView {
                 onPicked: value => pane.editor.filterContrast = value
             }
             SliderSetting {
-                Kirigami.FormData.label: "Gamma:"
+                Kirigami.FormData.label: KI18n.i18n("Gamma:")
                 editor: pane.editor
                 setting: "filterGamma"
                 controlEnabled: filters.controlEnabled
@@ -285,7 +286,7 @@ QQC2.ScrollView {
                 onPicked: value => pane.editor.filterGamma = value
             }
             SliderSetting {
-                Kirigami.FormData.label: "Saturation:"
+                Kirigami.FormData.label: KI18n.i18n("Saturation:")
                 editor: pane.editor
                 setting: "filterSaturation"
                 controlEnabled: filters.controlEnabled
@@ -295,7 +296,7 @@ QQC2.ScrollView {
                 onPicked: value => pane.editor.filterSaturation = value
             }
             SliderSetting {
-                Kirigami.FormData.label: "Vibrance:"
+                Kirigami.FormData.label: KI18n.i18n("Vibrance:")
                 editor: pane.editor
                 setting: "filterVibrance"
                 controlEnabled: filters.controlEnabled
@@ -305,19 +306,19 @@ QQC2.ScrollView {
                 onPicked: value => pane.editor.filterVibrance = value
             }
             SliderSetting {
-                Kirigami.FormData.label: "Colour temperature:"
+                Kirigami.FormData.label: KI18n.i18n("Colour temperature:")
                 editor: pane.editor
                 setting: "filterTemperature"
                 controlEnabled: filters.controlEnabled
                 from: -100
                 to: 100
-                describe: v => v === 0 ? "Neutral" : (v > 0 ? "Warmer " : "Cooler ") + Math.abs(v)
+                describe: v => v === 0 ? KI18n.i18n("Neutral") : v > 0 ? KI18n.i18n("Warmer %1", v) : KI18n.i18n("Cooler %1", -v)
                 value: pane.editor.filterTemperature
                 onPicked: value => pane.editor.filterTemperature = value
             }
             QQC2.Button {
                 enabled: filters.controlEnabled && !pane.editor.filterColoursNeutral
-                text: "Reset Colours"
+                text: KI18n.i18n("Reset Colours")
                 icon.name: "edit-undo"
                 flat: true
                 onClicked: pane.editor.resetFilterColours()
@@ -331,7 +332,7 @@ QQC2.ScrollView {
                 Kirigami.FormData.label: "gamescope"
             }
             SwitchSetting {
-                Kirigami.FormData.label: "Run in gamescope:"
+                Kirigami.FormData.label: KI18n.i18n("Run in gamescope:")
                 editor: pane.editor
                 setting: "gamescope"
                 controlEnabled: pane.editor.gamescopeAvailable
@@ -343,29 +344,29 @@ QQC2.ScrollView {
             }
             FormWarning {
                 visible: pane.editor.gamescope
-                text: "gamescope can lower performance and add input latency. Turn it off if the game feels slower."
+                text: KI18n.i18n("gamescope can lower performance and add input latency. Turn it off if the game feels slower.")
             }
             ChoiceSetting {
-                Kirigami.FormData.label: "Render resolution:"
+                Kirigami.FormData.label: KI18n.i18n("Render resolution:")
                 editor: pane.editor
                 setting: "renderScale"
                 controlEnabled: pane.gamescopeUsable
                 model: [
-                    {text: "Supersampling (200%)", value: 200},
-                    {text: "Supersampling (150%)", value: 150},
-                    {text: "Supersampling (125%)", value: 125},
-                    {text: "Native (100%)", value: 100},
-                    {text: "Ultra quality (77%)", value: 77},
-                    {text: "Quality (67%)", value: 67},
-                    {text: "Balanced (59%)", value: 59},
-                    {text: "Performance (50%)", value: 50},
-                    {text: "Ultra performance (33%)", value: 33}
+                    {text: KI18n.i18n("Supersampling (200%)"), value: 200},
+                    {text: KI18n.i18n("Supersampling (150%)"), value: 150},
+                    {text: KI18n.i18n("Supersampling (125%)"), value: 125},
+                    {text: KI18n.i18n("Native (100%)"), value: 100},
+                    {text: KI18n.i18n("Ultra quality (77%)"), value: 77},
+                    {text: KI18n.i18n("Quality (67%)"), value: 67},
+                    {text: KI18n.i18n("Balanced (59%)"), value: 59},
+                    {text: KI18n.i18n("Performance (50%)"), value: 50},
+                    {text: KI18n.i18n("Ultra performance (33%)"), value: 33}
                 ]
                 value: pane.editor.renderScale
                 onPicked: value => pane.editor.renderScale = value
             }
             ChoiceSetting {
-                Kirigami.FormData.label: "Upscaler:"
+                Kirigami.FormData.label: KI18n.i18n("Upscaler:")
                 editor: pane.editor
                 setting: "upscaleFilter"
                 controlEnabled: pane.upscaling
@@ -373,15 +374,15 @@ QQC2.ScrollView {
                     {text: "FSR 1", value: 0},
                     {text: "NIS", value: 1},
                     {text: "Snapdragon GSR", value: 2},
-                    {text: "Linear", value: 3},
-                    {text: "Nearest neighbor", value: 4},
-                    {text: "Pixel art", value: 5}
+                    {text: KI18n.i18n("Linear"), value: 3},
+                    {text: KI18n.i18n("Nearest neighbor"), value: 4},
+                    {text: KI18n.i18n("Pixel art"), value: 5}
                 ]
                 value: pane.editor.upscaleFilter
                 onPicked: value => pane.editor.upscaleFilter = value
             }
             RowLayout {
-                Kirigami.FormData.label: "Upscaler sharpness:"
+                Kirigami.FormData.label: KI18n.i18n("Upscaler sharpness:")
 
                 QQC2.Slider {
                     id: sharpnessSlider
@@ -400,26 +401,26 @@ QQC2.ScrollView {
                 }
                 QQC2.Label {
                     enabled: sharpnessSlider.enabled
-                    text: pane.editor.sharpness + " / 20"
+                    text: KI18n.i18n("%1 / 20", pane.editor.sharpness)
                     font.features: { "tnum": 1 }
                 }
                 BackToBase {
                     editor: pane.editor
                     setting: "sharpness"
-                    value: pane.editor.baseValues.sharpness + " / 20"
+                    value: KI18n.i18n("%1 / 20", pane.editor.baseValues.sharpness)
                 }
             }
             ChoiceSetting {
-                Kirigami.FormData.label: "Scaling:"
+                Kirigami.FormData.label: KI18n.i18n("Scaling:")
                 editor: pane.editor
                 setting: "scalingMode"
                 controlEnabled: pane.gamescopeUsable
                 model: [
-                    {text: "Automatic", value: 0},
-                    {text: "Whole multiples (sharp pixels)", value: 1},
-                    {text: "Fit, keep shape", value: 2},
-                    {text: "Fill, crop edges", value: 3},
-                    {text: "Stretch", value: 4}
+                    {text: KI18n.i18n("Automatic"), value: 0},
+                    {text: KI18n.i18n("Whole multiples (sharp pixels)"), value: 1},
+                    {text: KI18n.i18n("Fit, keep shape"), value: 2},
+                    {text: KI18n.i18n("Fill, crop edges"), value: 3},
+                    {text: KI18n.i18n("Stretch"), value: 4}
                 ]
                 value: pane.editor.scalingMode
                 onPicked: value => pane.editor.scalingMode = value
@@ -427,10 +428,10 @@ QQC2.ScrollView {
 
             Kirigami.Separator {
                 Kirigami.FormData.isSection: true
-                Kirigami.FormData.label: "Launch"
+                Kirigami.FormData.label: KI18n.i18n("Launch")
             }
             SwitchSetting {
-                Kirigami.FormData.label: "GameMode:"
+                Kirigami.FormData.label: KI18n.i18n("GameMode:")
                 editor: pane.editor
                 setting: "gameMode"
                 controlName: "gameMode"
@@ -442,7 +443,7 @@ QQC2.ScrollView {
                 text: pane.editor.gameModeNote
             }
             SwitchSetting {
-                Kirigami.FormData.label: "MangoHud:"
+                Kirigami.FormData.label: KI18n.i18n("MangoHud:")
                 editor: pane.editor
                 setting: "mangoHud"
                 controlName: "mangoHud"
@@ -456,10 +457,10 @@ QQC2.ScrollView {
 
             Kirigami.Separator {
                 Kirigami.FormData.isSection: true
-                Kirigami.FormData.label: "Performance"
+                Kirigami.FormData.label: KI18n.i18n("Performance")
             }
             SwitchSetting {
-                Kirigami.FormData.label: "Measure performance:"
+                Kirigami.FormData.label: KI18n.i18n("Measure performance:")
                 editor: pane.editor
                 setting: "measurePerformance"
                 controlName: "measurePerformance"
@@ -498,9 +499,9 @@ QQC2.ScrollView {
             Layout.alignment: Qt.AlignHCenter
             Layout.bottomMargin: Kirigami.Units.gridUnit
             objectName: "resetButton"
-            text: pane.editor.global ? "Reset Global Settings to Defaults"
-                : pane.editor.usesGlobal ? "Use Global Settings for Everything"
-                : "Clear This Game's Changes"
+            text: pane.editor.global ? KI18n.i18n("Reset Global Settings to Defaults")
+                : pane.editor.usesGlobal ? KI18n.i18n("Use Global Settings for Everything")
+                : KI18n.i18n("Clear This Game's Changes")
             icon.name: "edit-undo"
             enabled: pane.editor.customized
             onClicked: pane.editor.resetToDefaults()

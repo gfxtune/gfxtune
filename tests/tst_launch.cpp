@@ -178,6 +178,8 @@ private Q_SLOTS:
         QCOMPARE(envValue(plan, QStringLiteral("GFXTUNE_FILTERS_SETTINGS")), c.filterSettingsPath);
         QCOMPARE(envValue(plan, QStringLiteral("GFXTUNE_FILTERS_REPORT")), c.filterReportPath);
         QVERIFY(plan.applied.contains(QStringLiteral("In-game filters")));
+        QVERIFY(plan.layer);
+        QVERIFY(plan.filters);
 
         // Only when a filter is on as the game starts, or for measuring.
         s.filters.enabled = false;
@@ -678,9 +680,65 @@ private Q_SLOTS:
         QCOMPARE(read->applied, plan.applied);
         QCOMPARE(read->keptFromSteam, plan.keptFromSteam);
         QCOMPARE(read->notApplied, plan.notApplied);
+        QVERIFY(!read->layer);
+        plan.layer = true;
+        QVERIFY(writeLastLaunch(dir.path(), 7, plan, when));
+        QVERIFY(readLastLaunch(dir.path(), 7)->layer);
 
         QVERIFY(test::writeFile(lastLaunchPath(dir.path(), 8), "[launch]\ntime=yesterday\n"));
         QVERIFY(!readLastLaunch(dir.path(), 8));
+    }
+
+    void decidesAGameDrawsWithoutVulkan()
+    {
+        const QDateTime started = QDateTime::fromSecsSinceEpoch(1'700'000'000);
+        LastLaunch launch;
+        launch.time = started.addSecs(2); // gfxtune-run runs just after Steam's reaper
+        launch.layer = true;
+        const QDateTime minuteLater = started.addSecs(LearningSeconds);
+        QVERIFY(showedNoVulkanPicture(launch, started, minuteLater, false));
+        // A picture was seen; not a minute yet.
+        QVERIFY(!showedNoVulkanPicture(launch, started, minuteLater, true));
+        QVERIFY(!showedNoVulkanPicture(launch, started, minuteLater.addSecs(-1), false));
+        // The record of another start, before or after this one.
+        LastLaunch other = launch;
+        other.time = started.addSecs(-3600);
+        QVERIFY(!showedNoVulkanPicture(other, started, minuteLater, false));
+        other.time = started.addSecs(LearningSeconds + 1);
+        QVERIFY(!showedNoVulkanPicture(other, started, minuteLater, false));
+        // The layer was not in the game, so it could not have seen anything.
+        LastLaunch withoutLayer = launch;
+        withoutLayer.layer = false;
+        QVERIFY(!showedNoVulkanPicture(withoutLayer, started, minuteLater, false));
+    }
+
+    void seesAVulkanPictureInTheLayersFiles()
+    {
+        QTemporaryDir dir;
+        const QString base = dir.path();
+        const QDateTime launched = QDateTime::currentDateTime().addSecs(-30);
+        QVERIFY(!sawVulkanPicture(base, 7, launched));
+
+        // The filter report, written when the game made its swapchain.
+        const auto report = [&](const QDateTime &time) {
+            return test::writeFile(filterReportPath(base, 7),
+                                   "time=" + QByteArray::number(time.toSecsSinceEpoch()) + "\nstate=running\ndetail=x\n");
+        };
+        QVERIFY(report(launched.addSecs(-600))); // from an earlier start
+        QVERIFY(!sawVulkanPicture(base, 7, launched));
+        QVERIFY(report(launched.addSecs(5)));
+        QVERIFY(sawVulkanPicture(base, 7, launched));
+        QVERIFY(QFile::remove(filterReportPath(base, 7)));
+
+        // Measuring only: the recorder's file of the last second.
+        const QString live = base + QStringLiteral("/performance/7/live");
+        QVERIFY(test::writeFile(live, "time=1\nfps=60\n"));
+        QVERIFY(sawVulkanPicture(base, 7, launched));
+        QFile file(live);
+        QVERIFY(file.open(QIODevice::ReadWrite));
+        QVERIFY(file.setFileTime(launched.addSecs(-600), QFileDevice::FileModificationTime));
+        file.close();
+        QVERIFY(!sawVulkanPicture(base, 7, launched));
     }
 
     void detectsTheUsersSteam()

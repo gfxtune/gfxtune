@@ -106,7 +106,12 @@ struct GameSettings {
 struct GameFacts {
     QStringList antiCheat;
     bool openGlOnly = false; // a native game whose files only point to OpenGL
+    // A native game that ran for a minute with gfxtune's layer in it without
+    // showing a Vulkan picture: it draws with OpenGL. Learned at a launch,
+    // until the user asks gfxtune to check again.
+    bool openGlSeen = false;
 
+    bool drawsWithOpenGl() const { return openGlOnly || openGlSeen; }
     bool operator==(const GameFacts &) const = default;
 };
 
@@ -120,7 +125,7 @@ inline bool layerAllowed(const GameSettings &s, const GameFacts &facts)
 
 inline bool layerWanted(const GameSettings &s, const GameFacts &facts)
 {
-    return (s.filters.active() || s.measurePerformance) && layerAllowed(s, facts) && !facts.openGlOnly;
+    return (s.filters.active() || s.measurePerformance) && layerAllowed(s, facts) && !facts.drawsWithOpenGl();
 }
 
 // Whether gfxtune-run has anything to do when the game starts: a setting

@@ -5,6 +5,7 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
 import Gfxtune.Backend
+import org.kde.ki18n
 
 // Next to a setting changed for this game: what it would be otherwise, from
 // the global settings (or without gfxtune), one click away.
@@ -24,6 +25,6 @@ QQC2.ToolButton {
     display: QQC2.AbstractButton.TextBesideIcon
     QQC2.ToolTip.visible: hovered
     QQC2.ToolTip.delay: Kirigami.Units.toolTipDelay
-    QQC2.ToolTip.text: editor.usesGlobal ? "Use the global setting for this game" : "Leave this setting to the game"
+    QQC2.ToolTip.text: editor.usesGlobal ? KI18n.i18n("Use the global setting for this game") : KI18n.i18n("Leave this setting to the game")
     onClicked: editor.useBase(setting)
 }

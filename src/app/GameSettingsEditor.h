@@ -40,6 +40,8 @@ class GameSettingsEditor : public QObject
     Q_PROPERTY(QString gameName READ gameName NOTIFY gameChanged)
     Q_PROPERTY(QString runsAs READ runsAs NOTIFY gameChanged)
     Q_PROPERTY(QString graphics READ graphics NOTIFY gameChanged)
+    // gfxtune saw the game draw with OpenGL rather than read it from its files.
+    Q_PROPERTY(bool graphicsSeen READ graphicsSeen NOTIFY gameChanged)
     Q_PROPERTY(QUrl cover READ cover NOTIFY gameChanged)
 
     Q_PROPERTY(int anisotropicFiltering READ anisotropicFiltering WRITE setAnisotropicFiltering NOTIFY settingsChanged)
@@ -137,6 +139,9 @@ public:
     QString gameName() const;
     QString runsAs() const;
     QString graphics() const;
+    bool graphicsSeen() const;
+    // Forgets what gfxtune saw the game draw with; its next start decides again.
+    Q_INVOKABLE void checkGraphicsAgain();
     QUrl cover() const;
 
     int anisotropicFiltering() const { return m_settings.anisotropicFiltering; }
@@ -174,7 +179,7 @@ public:
     void setUsesGlobal(bool on);
     QStringList changedSettings() const;
     QVariantMap baseValues() const;
-    QString baseName() const { return m_profile.usesGlobal ? QStringLiteral("Global") : QStringLiteral("Without gfxtune"); }
+    QString baseName() const;
     // Back to the global (or default) value for one setting.
     Q_INVOKABLE void useBase(const QString &setting);
 
