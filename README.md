@@ -6,6 +6,8 @@ Graphics settings for all games and for each game, in-game filters, performance 
 
 **Status: early development.**
 
+![A game's page: its settings next to the card's live readings while it runs](docs/screenshots/game.png)
+
 On Windows, the GPU driver panel lets you set sharpening, anti-aliasing, frame caps and similar options for all games and for each game. Linux has the same building blocks (Mesa, DXVK, Proton, gamescope), but they are environment variables and config files spread across several projects. gfxtune puts them in one window: choose settings for all games, change what you want for a single game, and they apply the next time the game starts.
 
 ## What works so far
@@ -32,6 +34,8 @@ Unchecking "Use the global settings" on a game's page takes the game out of them
 
 The button at the bottom of a game's page drops all of its changes; on the All Games page it puts the global settings back to gfxtune's defaults.
 
+![The All Games page, in KDE's light colours](docs/screenshots/all-games.png)
+
 ## How settings reach a game
 
 gfxtune adds `gfxtune-run` to the Steam launch options of every installed game it has something to do in, right before `%command%`. Anything already there stays where it was: `gamemoderun %command% -dx12` becomes `gamemoderun gfxtune-run %command% -dx12`. Performance measuring is on for all games by default, so that is every game, except those where it has nothing to do: a native game that draws only with OpenGL, where the filters and measuring cannot go, with nothing else set, and a game taken out of the global settings without changes of its own.
@@ -49,6 +53,8 @@ The frame cap uses one limiter, never two at once: gfxtune's layer (below) when 
 ## In-game filters and measuring
 
 The filters are drawn by a small Vulkan layer that ships with gfxtune. When a game starts with a filter or performance measuring switched on, `gfxtune-run` asks Vulkan to load the layer into that game, and only that game; nothing else ever loads it. Just before each frame is shown, the layer copies the picture and draws it back filtered: anti-aliasing first (SMAA 1x, by Jimenez et al.), then sharpening and colour. It reads the global settings file and the game's own while the game runs, so moving a slider, on the game's page or on the All Games page, changes the picture within a second, and the Filters switch turns them off for comparing without losing the values.
+
+![A game's measured sessions and what its last start applied](docs/screenshots/performance.png)
 
 For measuring, the layer reads the clock once per frame and counts the frame time into a histogram, in 0.1 ms steps up to 100 ms; pauses of a second or more, such as loading screens, are left out. The 1% and 0.1% lows are the frame rates that the slowest 1% and 0.1% of frames fall below. A background thread writes the last second for the card panel every second, and the whole session with the card's average temperature and power every five seconds. Sessions shorter than 20 seconds are dropped, and each game keeps its newest 50.
 

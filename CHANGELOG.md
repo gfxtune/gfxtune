@@ -9,6 +9,9 @@ change how settings are stored.
 
 ### Fixed
 
+- Choosing another game or All Games kept the page scrolled where the last
+  one was; each now opens at the top.
+
 - A frame cap for a native game that neither gfxtune's layer nor gamescope
   reaches (a game with anti-cheat whose risk is not accepted, without
   gamescope) was listed under the last launch as applied, although nothing

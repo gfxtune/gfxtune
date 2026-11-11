@@ -194,6 +194,47 @@ private Q_SLOTS:
         QVERIFY(!editor.customized());
     }
 
+    void opensEveryPageAtTheTop()
+    {
+        test::FakeSteam steam;
+        steam.build();
+        writeRealCovers(steam);
+        QTemporaryDir config;
+        QTemporaryDir proc;
+        settings::SettingsStore store(config.filePath(QStringLiteral("gfxtune")));
+        GameLibrary library(steam.options(), &store, nullptr, proc.path());
+        GameSettingsEditor editor(&library, &store, settings::SystemInfo{true});
+        QTemporaryDir sys;
+        GpuMonitor gpu(sys.path());
+
+        Window w(library, editor, gpu);
+        QVERIFY(w.window);
+        w.window->show();
+        library.start();
+        QVERIFY(QTest::qWaitFor([&] { return library.loaded() && !library.scanning(); }, 10000));
+        editor.setAppId(1001);
+
+        QQuickItem *pane = findItem(w.window->contentItem(), QStringLiteral("gameSettingsPane"));
+        QVERIFY(pane);
+        auto *view = pane->property("contentItem").value<QQuickItem *>();
+        QVERIFY(view);
+        QTRY_VERIFY(view->property("contentHeight").toReal() > view->height() + 300);
+        const auto position = [view] { return view->property("contentY").toReal(); };
+
+        // A rescan, as when Steam's files change, keeps the place.
+        view->setProperty("contentY", 300);
+        library.refresh();
+        QVERIFY(QTest::qWaitFor([&] { return !library.scanning(); }, 10000));
+        QCOMPARE(position(), 300.0);
+
+        editor.setAppId(1002);
+        QTRY_COMPARE(position(), 0.0);
+        view->setProperty("contentY", 300);
+        editor.selectGlobal();
+        QTRY_COMPARE(position(), 0.0);
+        QVERIFY(w.warnings.isEmpty());
+    }
+
     void locksTheFiltersBehindTheWarning()
     {
         test::FakeSteam steam;

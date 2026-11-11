@@ -29,6 +29,23 @@ QQC2.ScrollView {
         type: Kirigami.MessageType.Warning
     }
 
+    // Another game, or All Games, opens at the top of its page; a rescan of
+    // the library keeps the place.
+    property string shownPage: ""
+    Connections {
+        target: pane.editor
+        function onGameChanged() {
+            const page = pane.editor.global ? "global" : String(pane.editor.appId);
+            if (page !== pane.shownPage) {
+                pane.shownPage = page;
+                const view = pane.contentItem as Flickable;
+                if (view) {
+                    view.contentY = 0;
+                }
+            }
+        }
+    }
+
     leftPadding: mirrored ? barWidth : 0
     rightPadding: mirrored ? 0 : barWidth
     contentWidth: availableWidth

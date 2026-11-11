@@ -34,3 +34,9 @@ path = "po/**"
 precedence = "override"
 SPDX-FileCopyrightText = "2026 gfxtune contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Screenshots of gfxtune with a made-up Steam library and card.
+[[annotations]]
+path = "docs/screenshots/**"
+SPDX-FileCopyrightText = "2026 gfxtune contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
