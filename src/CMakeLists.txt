@@ -66,6 +66,7 @@ qt_add_qml_module(gfxtune_ui
         qml/Note.qml
         qml/PageHeader.qml
         qml/PerformanceHistory.qml
+        qml/SettingRow.qml
         qml/SettingSwitch.qml
         qml/SliderSetting.qml
         qml/SwitchSetting.qml

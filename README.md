@@ -87,7 +87,7 @@ Settings are plain text files in `~/.config/gfxtune/`: `global.ini` for all game
 ## Installing on Arch Linux and CachyOS
 
 ```
-git clone <this repository>
+git clone https://github.com/gfxtune/gfxtune.git
 cd gfxtune/packaging/arch
 makepkg -si
 ```

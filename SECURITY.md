@@ -3,8 +3,8 @@
 ## Reporting a vulnerability
 
 Please report security problems privately, through GitHub's
-"Report a vulnerability" button on the repository's Security tab, not in a
-public issue. Say what is affected, how it can be triggered, and what an
+[Report a vulnerability](https://github.com/gfxtune/gfxtune/security/advisories/new)
+form on the repository's Security tab, not in a public issue. Say what is affected, how it can be triggered, and what an
 attacker gains. You will get an answer within a week; gfxtune is maintained
 by volunteers.
 

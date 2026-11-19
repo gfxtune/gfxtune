@@ -5,7 +5,24 @@ All notable changes to gfxtune. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may
 change how settings are stored.
 
-## Unreleased (0.4.3)
+## Unreleased (0.4.4)
+
+### Changed
+
+- The project's home is now the gfxtune organisation on GitHub:
+  <https://github.com/gfxtune/gfxtune>.
+
+### Fixed
+
+- In the smallest window, the settings page was wider than the space for
+  it: notes and the right end of some settings were cut off. The button
+  that puts a setting back to its global value now goes under the setting
+  when the two do not fit side by side, and the lines under a game's name
+  wrap.
+- The launch line to copy, when longer than its box, showed its end; it
+  now shows its start.
+
+## 0.4.3 - 2026-11-11
 
 ### Fixed
 

@@ -59,13 +59,19 @@ ColumnLayout {
                 wrapMode: Text.Wrap
             }
             QQC2.Label {
+                Layout.fillWidth: true
                 text: header.editor.runsAs
+                wrapMode: Text.Wrap
             }
             RowLayout {
                 spacing: Kirigami.Units.smallSpacing
 
+                // Wraps when the page is narrow; the button stays right after it.
                 QQC2.Label {
+                    Layout.fillWidth: true
+                    Layout.maximumWidth: Math.ceil(implicitWidth)
                     text: header.editor.graphics
+                    wrapMode: Text.Wrap
                     opacity: 0.7
                 }
                 QQC2.Button {

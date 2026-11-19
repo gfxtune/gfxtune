@@ -58,10 +58,14 @@ ColumnLayout {
     }
 
     QQC2.TextField {
+        objectName: "launchLine"
         Layout.fillWidth: true
         visible: status.showsLine
         readOnly: true
         text: status.editor.launchLine
         font.family: "monospace"
+        // A line longer than the box shows its start, not its end.
+        onTextChanged: cursorPosition = 0
+        Component.onCompleted: cursorPosition = 0
     }
 }

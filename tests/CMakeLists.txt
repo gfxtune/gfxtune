@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 gfxtune contributors
 
-find_package(Qt6 REQUIRED COMPONENTS Test)
+find_package(Qt6 REQUIRED COMPONENTS QuickTest Test)
 
 add_library(gfxtune_test_support STATIC
     support/Fixtures.cpp
@@ -60,7 +60,7 @@ add_test(NAME layer COMMAND tst_layer)
 
 # The window itself, drawn off screen.
 qt_add_executable(tst_window tst_window.cpp)
-target_link_libraries(tst_window PRIVATE gfxtune_test_support gfxtune_ui gfxtune_uiplugin Qt6::Widgets KF6::I18nQml)
+target_link_libraries(tst_window PRIVATE gfxtune_test_support gfxtune_ui gfxtune_uiplugin Qt6::QuickTest Qt6::Widgets KF6::I18nQml)
 add_test(NAME window COMMAND tst_window)
 
 # Translations, with a small French catalog built here.

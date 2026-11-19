@@ -134,16 +134,21 @@ QQC2.ScrollView {
                 Kirigami.FormData.isSection: true
                 Kirigami.FormData.label: KI18n.i18n("Frame pacing")
             }
-            RowLayout {
+            SettingRow {
                 Kirigami.FormData.label: KI18n.i18n("Frame rate cap:")
+                editor: pane.editor
+                setting: "frameCap"
+                baseValue: pane.editor.baseValues.frameCapEnabled ? KI18n.i18n("%1 FPS", pane.editor.baseValues.frameCap) : KI18n.i18n("Off")
 
                 SettingSwitch {
+                    objectName: "frameCapSwitch"
                     enabled: pane.editor.frameCapAvailable
                     value: pane.editor.frameCapEnabled
                     onPicked: value => pane.editor.frameCapEnabled = value
                 }
                 QQC2.SpinBox {
                     id: capBox
+                    objectName: "frameCap"
                     wheelEnabled: false // scrolling the page must not edit it
                     enabled: pane.editor.frameCapAvailable && pane.editor.frameCapEnabled
                     from: 10
@@ -158,11 +163,6 @@ QQC2.ScrollView {
                 QQC2.Label {
                     text: "FPS"
                     enabled: capBox.enabled
-                }
-                BackToBase {
-                    editor: pane.editor
-                    setting: "frameCap"
-                    value: pane.editor.baseValues.frameCapEnabled ? KI18n.i18n("%1 FPS", pane.editor.baseValues.frameCap) : KI18n.i18n("Off")
                 }
             }
             Note {
@@ -398,11 +398,15 @@ QQC2.ScrollView {
                 value: pane.editor.upscaleFilter
                 onPicked: value => pane.editor.upscaleFilter = value
             }
-            RowLayout {
+            SettingRow {
                 Kirigami.FormData.label: KI18n.i18n("Upscaler sharpness:")
+                editor: pane.editor
+                setting: "sharpness"
+                baseValue: KI18n.i18n("%1 / 20", pane.editor.baseValues.sharpness)
 
                 QQC2.Slider {
                     id: sharpnessSlider
+                    objectName: "upscalerSharpness"
                     wheelEnabled: false // scrolling the page must not edit it
                     enabled: pane.upscaling && pane.editor.upscaleFilter === 0
                     Layout.preferredWidth: Kirigami.Units.gridUnit * 10
@@ -420,11 +424,6 @@ QQC2.ScrollView {
                     enabled: sharpnessSlider.enabled
                     text: KI18n.i18n("%1 / 20", pane.editor.sharpness)
                     font.features: { "tnum": 1 }
-                }
-                BackToBase {
-                    editor: pane.editor
-                    setting: "sharpness"
-                    value: KI18n.i18n("%1 / 20", pane.editor.baseValues.sharpness)
                 }
             }
             ChoiceSetting {
