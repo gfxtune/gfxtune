@@ -124,6 +124,6 @@ Bug reports, tests on other cards and games, translations and code are welcome; 
 
 ## License
 
-GPL-3.0-or-later. See [LICENSE](LICENSE). The sharpening filter follows AMD FidelityFX CAS, and the anti-aliasing is SMAA, both under the MIT licence; see [NOTICE.md](NOTICE.md).
+GPL-3.0-or-later. See [LICENSE](LICENSE). The sharpening filter follows AMD FidelityFX CAS, and the anti-aliasing is SMAA, both under the MIT licence; see [NOTICE.md](NOTICE.md). The AppStream file is CC0-1.0 and the AUR package's PKGBUILD is 0BSD, as their ecosystems expect; every file says which licence it is under ([REUSE](https://reuse.software)).
 
 AMD, Radeon and FSR are trademarks of Advanced Micro Devices, Inc. gfxtune is an independent project and is not affiliated with or endorsed by AMD.

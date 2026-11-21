@@ -33,7 +33,7 @@ a virtual screen and the tools the system tests start games with. Then:
 | `ci/build.sh asan` | The same with AddressSanitizer and UndefinedBehaviorSanitizer |
 | `ci/build.sh lint` | `qmllint` on every QML file, after a debug build |
 | `ci/build.sh tidy` | Build with clang, warnings as errors, then `clang-tidy` (`.clang-tidy`) |
-| `ci/build.sh checks` | Licence information (`reuse lint`) and C++ formatting |
+| `ci/build.sh checks` | Licence information (`reuse lint`), C++ formatting, the manual pages, the AppStream file and the translation template |
 | `ci/build.sh format` | Formats the C++ code as `.clang-format` says |
 | `ci/build.sh package` | The Arch package with CachyOS's own build flags, tests included |
 | `ci/system-tests.sh` | Builds and installs the package, then the system tests |

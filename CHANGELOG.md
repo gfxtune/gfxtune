@@ -5,7 +5,18 @@ All notable changes to gfxtune. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may
 change how settings are stored.
 
-## Unreleased (0.4.4)
+## 0.5.0 - 2026-11-19
+
+The first release: settings for all Steam games and for each game,
+in-game filters and performance measuring through gfxtune's own Vulkan
+layer, and a live panel with the graphics card's readings, for CachyOS.
+
+### Added
+
+- An AppStream file, so software centres such as Discover show gfxtune
+  with its description, screenshots and releases.
+
+## 0.4.4 - 2026-11-18
 
 ### Changed
 

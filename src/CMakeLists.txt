@@ -95,6 +95,8 @@ install(TARGETS gfxtune gfxtune-run RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 add_subdirectory(layer)
 install(FILES ${PROJECT_SOURCE_DIR}/data/gfxtune.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+# What software centres such as Discover show about gfxtune.
+install(FILES ${PROJECT_SOURCE_DIR}/data/io.github.gfxtune.gfxtune.metainfo.xml DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo)
 # The icon, drawn on KDE's 48 px grid, and redrawn for 16 px where the gauge's
 # segments would blur together.
 install(FILES ${PROJECT_SOURCE_DIR}/data/icons/gfxtune.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)

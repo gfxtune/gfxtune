@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: CC0-1.0 -->
+<!-- SPDX-FileCopyrightText: 2026 gfxtune contributors -->
+<component type="desktop-application">
+  <id>io.github.gfxtune.gfxtune</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later AND MIT</project_license>
+
+  <name>gfxtune</name>
+  <summary>Graphics and game tuning for Steam games</summary>
+  <developer id="io.github.gfxtune">
+    <name>gfxtune contributors</name>
+  </developer>
+
+  <description>
+    <p>
+      gfxtune puts the graphics options of Mesa, DXVK, VKD3D-Proton, Proton and gamescope in one window, for all
+      your Steam games at once and for each game on its own. Settings apply the next time a game starts, and the
+      in-game filters change while it runs. Made for CachyOS and AMD Radeon cards.
+    </p>
+    <ul>
+      <li>Anisotropic filtering, texture detail, vertical sync, an exact frame rate cap and FSR 4, for all games or per game</li>
+      <li>gamescope with upscaling, or drawing the game larger than the screen and scaling it down</li>
+      <li>In-game filters drawn by gfxtune's own Vulkan layer: SMAA anti-aliasing, sharpening and colour</li>
+      <li>Performance measuring for every play session: average frame rate and 1% and 0.1% lows</li>
+      <li>The graphics card's temperatures, power, clocks and load, live</li>
+      <li>GameMode and MangoHud, switched on for all games or per game</li>
+    </ul>
+    <p>
+      gfxtune changes only the launch options of the games it has something to do in, and only while Steam is
+      closed. In games with anti-cheat, the in-game filters and measuring stay off until you accept the risk on the
+      game's page.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">gfxtune.desktop</launchable>
+  <provides>
+    <binary>gfxtune</binary>
+    <binary>gfxtune-run</binary>
+  </provides>
+  <translation type="gettext">gfxtune</translation>
+
+  <url type="homepage">https://github.com/gfxtune/gfxtune</url>
+  <url type="bugtracker">https://github.com/gfxtune/gfxtune/issues</url>
+  <url type="vcs-browser">https://github.com/gfxtune/gfxtune</url>
+  <url type="contribute">https://github.com/gfxtune/gfxtune/blob/main/CONTRIBUTING.md</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>A game's settings next to the graphics card's live readings</caption>
+      <image type="source" width="1368" height="756">https://raw.githubusercontent.com/gfxtune/gfxtune/main/docs/screenshots/game.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>The settings for all games</caption>
+      <image type="source" width="1368" height="756">https://raw.githubusercontent.com/gfxtune/gfxtune/main/docs/screenshots/all-games.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>A game's measured play sessions and what its last start applied</caption>
+      <image type="source" width="1368" height="756">https://raw.githubusercontent.com/gfxtune/gfxtune/main/docs/screenshots/performance.png</image>
+    </screenshot>
+  </screenshots>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#b3dff6</color>
+    <color type="primary" scheme_preference="dark">#16405c</color>
+  </branding>
+
+  <content_rating type="oars-1.1"/>
+
+  <recommends>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </recommends>
+
+  <keywords>
+    <keyword>game</keyword>
+    <keyword>gaming</keyword>
+    <keyword>graphics</keyword>
+    <keyword>steam</keyword>
+    <keyword>proton</keyword>
+    <keyword>gamescope</keyword>
+    <keyword>fps</keyword>
+    <keyword>gpu</keyword>
+  </keywords>
+
+  <releases>
+    <release version="0.5.0" date="2026-11-19" type="stable">
+      <url type="details">https://github.com/gfxtune/gfxtune/releases/tag/v0.5.0</url>
+      <description>
+        <p>The first release.</p>
+        <ul>
+          <li>Settings for all games and per game, applied through each game's Steam launch options</li>
+          <li>In-game filters and performance measuring through gfxtune's Vulkan layer</li>
+          <li>A live panel with the graphics card's and the processor's readings</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+</component>

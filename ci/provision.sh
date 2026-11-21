@@ -22,8 +22,8 @@ tests=(
     # A virtual screen with KDE's look, for the window and screenshots.
     xorg-server-xvfb xdotool imagemagick dbus breeze breeze-icons plasma-integration noto-fonts
     gdb python python-pytest python-pillow
-    # Checks of the installed menu entry and icon.
-    desktop-file-utils librsvg
+    # Checks of the installed menu entry, icon and software centre entry.
+    desktop-file-utils librsvg appstream
 )
 games=(
     # What the system tests run games through, as on a gaming PC.
@@ -31,7 +31,7 @@ games=(
     # Builds the Windows test programs that run under Proton.
     mingw-w64-gcc
 )
-checks=(clang reuse groff gettext)
+checks=(clang reuse groff gettext appstream)
 
 # pacman runs its install hooks in a sandbox that cuts them off from the
 # network, which a container does not allow; they need no network anyway.

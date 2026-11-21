@@ -14,6 +14,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+from xml.etree import ElementTree
 
 import pytest
 
@@ -21,11 +22,13 @@ from lab import FakeSteam, SteamGame, eventually
 
 LAYER = Path("/usr/lib/gfxtune/libVkLayer_gfxtune.so")
 MANIFEST = Path("/usr/share/vulkan/implicit_layer.d/gfxtune_filters.json")
+METAINFO = Path("/usr/share/metainfo/io.github.gfxtune.gfxtune.metainfo.xml")
 FILES = {
     "/usr/bin/gfxtune",
     "/usr/bin/gfxtune-run",
     str(LAYER),
     "/usr/share/applications/gfxtune.desktop",
+    str(METAINFO),
     "/usr/share/icons/hicolor/scalable/apps/gfxtune.svg",
     "/usr/share/icons/hicolor/16x16/apps/gfxtune.svg",
     "/usr/share/gfxtune/remove-launch-lines",
@@ -81,6 +84,25 @@ def test_the_menu_entry_follows_the_desktop_entry_spec():
         pytest.skip("desktop-file-validate is not installed")
     result = run("desktop-file-validate", "/usr/share/applications/gfxtune.desktop")
     assert result.returncode == 0 and not result.stdout.strip(), result.stdout + result.stderr
+
+
+def test_software_centres_find_the_app_its_menu_entry_and_icon(tmp_path):
+    # validate-tree checks the entry together with the menu entry and icon it
+    # names, as a software centre reads them; only gfxtune's files go in.
+    if not shutil.which("appstreamcli"):
+        pytest.skip("appstreamcli is not installed")
+    for path in FILES:
+        if any(part in path for part in ("/metainfo/", "/applications/", "/icons/")):
+            target = tmp_path / path.lstrip("/")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(path, target)
+    result = run("appstreamcli", "validate-tree", "--no-net", "--pedantic", str(tmp_path))
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_the_software_centre_entry_lists_this_release_first():
+    releases = [release.get("version") for release in ElementTree.parse(METAINFO).getroot().iter("release")]
+    assert releases and releases[0] == installed_version(), releases
 
 
 @pytest.mark.parametrize("size", [16, 22, 48, 256])

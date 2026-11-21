@@ -6,7 +6,7 @@
 # Remove with:       sudo pacman -R gfxtune
 
 pkgname=gfxtune
-pkgver=0.4.4
+pkgver=0.5.0
 pkgrel=1
 pkgdesc='Graphics and game tuning for Steam games, with in-game filters and GPU readings'
 url='https://github.com/gfxtune/gfxtune'
@@ -17,9 +17,14 @@ license=('GPL-3.0-or-later')
 # broke the Steam file readers. A 30-line program without gfxtune's code
 # shows it; -fno-ipa-cp or -fno-thread-jumps hide it. check() catches it.
 options=('!debug' '!lto')
-depends=('qt6-base' 'qt6-declarative' 'kirigami' 'kquickcharts' 'qqc2-desktop-style' 'ki18n' 'libdrm')
+# kquickcharts, qqc2-desktop-style (QML) and libdrm (its list of card names)
+# are used at run time, where namcap cannot see them.
+depends=('bash' 'glibc' 'hicolor-icon-theme' 'kirigami' 'ki18n' 'kquickcharts' 'libdrm' 'libgcc' 'libstdc++'
+         'qqc2-desktop-style' 'qt6-base' 'qt6-declarative')
 makedepends=('cmake' 'glslang' 'vulkan-headers' 'vulkan-icd-loader')
 optdepends=('gamescope: run games in gamescope, with upscaling and frame caps for any game'
+            'gamemode: switch GameMode on for games'
+            'mangohud: switch MangoHud on for games'
             'proton-cachyos: the FSR 4 upgrade and other Proton features')
 
 _source() {

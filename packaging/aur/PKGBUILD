@@ -1,0 +1,52 @@
+# Maintainer: gfxtune contributors <https://github.com/gfxtune/gfxtune/issues>
+# SPDX-License-Identifier: 0BSD
+# SPDX-FileCopyrightText: 2026 gfxtune contributors
+#
+# The AUR package, built from a release's source download on GitHub.
+# packaging/arch/PKGBUILD builds from a checkout instead. Package sources
+# are licensed 0BSD, as Arch Linux's are.
+#
+# For a new release: set pkgver, run `updpkgsums` once the release's tag is
+# on GitHub, then `makepkg --printsrcinfo > .SRCINFO`, and push both to the
+# AUR repository.
+
+pkgname=gfxtune
+pkgver=0.5.0
+pkgrel=1
+pkgdesc='Graphics and game tuning for Steam games, with in-game filters and GPU readings'
+arch=('x86_64')
+url='https://github.com/gfxtune/gfxtune'
+license=('GPL-3.0-or-later' 'MIT')
+# kquickcharts, qqc2-desktop-style (QML) and libdrm (its list of card names)
+# are used at run time, where namcap cannot see them.
+depends=('bash' 'glibc' 'hicolor-icon-theme' 'kirigami' 'ki18n' 'kquickcharts' 'libdrm' 'libgcc' 'libstdc++'
+         'qqc2-desktop-style' 'qt6-base' 'qt6-declarative')
+makedepends=('cmake' 'glslang' 'vulkan-headers' 'vulkan-icd-loader')
+optdepends=('gamescope: run games in gamescope, with upscaling and frame caps for any game'
+            'gamemode: switch GameMode on for games'
+            'mangohud: switch MangoHud on for games'
+            'proton-cachyos: the FSR 4 upgrade and other Proton features')
+# No link-time optimisation: GCC 16.2 with LTO (CachyOS's default) turns
+# Qt's QStringView::compare() in a loop into a jump to unrelated code, which
+# broke the Steam file readers. check() catches it.
+options=('!debug' '!lto')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cmake -S "$pkgname-$pkgver" -B build -DCMAKE_BUILD_TYPE=None -DCMAKE_INSTALL_PREFIX=/usr -Wno-dev
+  cmake --build build
+}
+
+check() {
+  # Tests that need a Vulkan device skip themselves where there is none.
+  QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+  cd "$pkgname-$pkgver"
+  install -Dm644 packaging/arch/gfxtune.hook "$pkgdir/usr/share/libalpm/hooks/gfxtune.hook"
+  install -Dm755 packaging/arch/remove-launch-lines "$pkgdir/usr/share/gfxtune/remove-launch-lines"
+  install -Dm644 NOTICE.md "$pkgdir/usr/share/licenses/$pkgname/NOTICE.md"
+}

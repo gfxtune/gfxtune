@@ -12,7 +12,7 @@
 #   ci/build.sh lint      QML lint, after a debug build
 #   ci/build.sh tidy      build with clang, warnings as errors, then clang-tidy
 #   ci/build.sh checks    licence information (REUSE), C++ formatting, manual pages,
-#                         and that po/gfxtune.pot has every text
+#                         the AppStream file, and that po/gfxtune.pot has every text
 #   ci/build.sh format    formats the C++ code as .clang-format says
 #   ci/build.sh messages  writes po/gfxtune.pot, the template for translations
 set -euo pipefail
@@ -106,6 +106,9 @@ checks)
         exit 1
     fi
     rm -f "$template"
+    # The software centre entry, with AppStream's strictest checks; links are
+    # checked where it is installed, not here.
+    appstreamcli validate --no-net --pedantic "$source_dir"/data/*.metainfo.xml
     # groff's own checks of the manual pages: any warning fails.
     for page in "$source_dir"/doc/*.1; do
         warnings=$(sed 's/@PROJECT_VERSION@/0/' "$page" | groff -man -ww -z -rCHECKSTYLE=3 2>&1)

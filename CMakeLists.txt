@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 gfxtune contributors
 
 cmake_minimum_required(VERSION 3.24)
-project(gfxtune VERSION 0.4.4 LANGUAGES CXX)
+project(gfxtune VERSION 0.5.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -34,7 +34,12 @@ endif()
 
 add_subdirectory(src)
 add_subdirectory(doc)
-ki18n_install(po)
+# Translations, once there are any: without one, ki18n_install() would
+# still install an empty locale folder.
+file(GLOB translations ${PROJECT_SOURCE_DIR}/po/*/*.po)
+if(translations)
+    ki18n_install(po)
+endif()
 
 if(BUILD_TESTING)
     enable_testing()
