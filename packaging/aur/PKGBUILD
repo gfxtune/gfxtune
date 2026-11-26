@@ -31,7 +31,7 @@ optdepends=('gamescope: run games in gamescope, with upscaling and frame caps fo
 # broke the Steam file readers. check() catches it.
 options=('!debug' '!lto')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('49222c079ad6134e9d41053aa6fdfb05a21f48a2c1983d172c0d1a489b90d2e6')
 
 build() {
   cmake -S "$pkgname-$pkgver" -B build -DCMAKE_BUILD_TYPE=None -DCMAKE_INSTALL_PREFIX=/usr -Wno-dev
