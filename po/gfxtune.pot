@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gfxtune\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-09 20:04+0000\n"
+"POT-Creation-Date: 2026-11-28 03:30+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -383,6 +383,43 @@ msgstr ""
 
 #: src/core/launch/LaunchPlan.cpp
 #, kde-format
+msgid ""
+"Frame generation: this game draws with OpenGL, which lsfg-vk cannot reach"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "Frame generation: locked until the anti-cheat risk is accepted"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "Frame generation: lsfg-vk is not installed"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid ""
+"Frame generation: Lossless Scaling's frame generation file was not found"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "Frame generation: its settings file could not be written"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "Frame generation %1× (lsfg-vk)"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
+msgid "Vertical sync: lsfg-vk keeps it on while it generates frames"
+msgstr ""
+
+#: src/core/launch/LaunchPlan.cpp
+#, kde-format
 msgid "Vertical sync: %1"
 msgstr ""
 
@@ -446,6 +483,40 @@ msgstr ""
 #: src/core/launch/LaunchPlan.cpp
 #, kde-format
 msgid "gamescope: drawn at %1×%2, shown at %3×%4 with %5"
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"Needs lsfg-vk, which is not installed. On CachyOS: sudo pacman -S lsfg-vk"
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"Needs Lossless Scaling from Steam, a paid app, switched to its lsfg-vk "
+"branch."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"Switch Lossless Scaling to its lsfg-vk branch: in Steam, Lossless Scaling, "
+"Properties, Betas."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"Lossless Scaling's frame generation file is missing; let Steam finish "
+"updating it."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid ""
+"By lsfg-vk (lsfg-vk.dev), installed separately, with Lossless Scaling's "
+"frame generation. Turning it off takes effect the next time the game starts."
 msgstr ""
 
 #: src/core/settings/Availability.cpp
@@ -625,6 +696,27 @@ msgstr ""
 
 #: src/core/settings/Availability.cpp
 #, kde-format
+msgid "This game draws with OpenGL, which lsfg-vk cannot reach."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "Locked until you accept the risk under In-game filters."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgctxt "%1 is who makes it"
+msgid "Only works if the game draws with Vulkan or DirectX. %1"
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgid "lsfg-vk keeps vertical sync on while it generates frames."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
 msgid "This game's Steam launch options already start gamescope."
 msgstr ""
 
@@ -673,11 +765,6 @@ msgstr ""
 msgid ""
 "Frame rate, frame times and the card's readings while you play, kept for "
 "each session. It reads the clock once per frame and nothing more."
-msgstr ""
-
-#: src/core/settings/Availability.cpp
-#, kde-format
-msgid "Locked until you accept the risk under In-game filters."
 msgstr ""
 
 #: src/core/settings/Availability.cpp
@@ -779,6 +866,12 @@ msgstr ""
 msgid ""
 "Supersampling: games draw bigger than the screen and are scaled down "
 "smoothly; the upscaler and its sharpness are not used."
+msgstr ""
+
+#: src/core/settings/Availability.cpp
+#, kde-format
+msgctxt "%1 is who makes it, %2 the note about anti-cheat"
+msgid "Reaches games that draw with Vulkan or DirectX. %1 %2"
 msgstr ""
 
 #: src/core/settings/Availability.cpp
@@ -1077,6 +1170,53 @@ msgstr ""
 
 #: src/qml/GameSettingsPane.qml
 #, kde-format
+msgid "Frame generation"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Frame generation:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "2× (one generated frame per drawn frame)"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "3×"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Flow scale:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgctxt "percent"
+msgid "%1 %"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid ""
+"The resolution at which motion is followed: lower is faster and less precise."
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "Performance mode:"
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
+msgid "A much lighter model, for weaker graphics cards or high frame rates."
+msgstr ""
+
+#: src/qml/GameSettingsPane.qml
+#, kde-format
 msgid "I Accept the Risk"
 msgstr ""
 
@@ -1107,12 +1247,6 @@ msgstr ""
 #: src/qml/GameSettingsPane.qml
 #, kde-format
 msgid "Sharpening:"
-msgstr ""
-
-#: src/qml/GameSettingsPane.qml
-#, kde-format
-msgctxt "percent"
-msgid "%1 %"
 msgstr ""
 
 #: src/qml/GameSettingsPane.qml
@@ -1616,7 +1750,10 @@ msgstr ""
 #, kde-format
 msgid ""
 "Graphics and game tuning for Steam games on CachyOS.\n"
-"Licensed under the GNU GPL, version 3 or later."
+"Licensed under the GNU GPL, version 3 or later.\n"
+"\n"
+"Frame generation by lsfg-vk (lsfg-vk.dev), by PancakeTAS, licensed under CC "
+"BY-NC-ND 4.0 and installed separately."
 msgstr ""
 
 #: src/qml/PageHeader.qml

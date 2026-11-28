@@ -5,6 +5,27 @@ All notable changes to gfxtune. The format follows
 [Semantic Versioning](https://semver.org/); before 1.0, a minor version may
 change how settings are stored.
 
+## Unreleased (0.6.0)
+
+### Added
+
+- Frame generation through lsfg-vk, for all games or per game: 2×, 3× or
+  4×, with lsfg-vk's flow scale and performance mode, which change in a
+  running game within a second or two. lsfg-vk and Lossless Scaling (on
+  its lsfg-vk branch) are installed separately; a game's page says which
+  is missing. gfxtune writes lsfg-vk's settings to a file of its own and
+  leaves the user's lsfg-vk settings alone.
+- `gfxtune --list-games` says whether lsfg-vk is installed, and which
+  branch and file of Lossless Scaling it found.
+
+### Changed
+
+- gfxtune's Vulkan layer is registered in `/etc/vulkan/implicit_layer.d`
+  instead of `/usr/share/vulkan/implicit_layer.d`. Vulkan reads `/etc`
+  first, so the layer sits closest to the game and caps and measures the
+  frames the game draws, before lsfg-vk adds generated ones.
+- Lossless Scaling is never listed as a game.
+
 ## 0.5.0 - 2026-11-19
 
 The first release: settings for all Steam games and for each game,

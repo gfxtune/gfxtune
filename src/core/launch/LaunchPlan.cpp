@@ -3,10 +3,14 @@
 
 #include "LaunchPlan.h"
 
+#include "framegen/LsfgVk.h"
+
 #include <KLocalizedString>
 #include <QRegularExpression>
 #include <QtMath>
 
+#include <algorithm>
+#include <iterator>
 #include <utility>
 
 namespace gfxtune::launch
@@ -19,6 +23,10 @@ using settings::VerticalSync;
 
 namespace
 {
+
+// lsfg-vk's own ways of choosing its settings: set in a game's launch
+// options, they win over gfxtune's.
+constexpr const char *LsfgVkVariables[] = {"LSFGVK_PROFILE", "LSFGVK_CONFIG", "LSFGVK_ENV", "DISABLE_LSFGVK"};
 
 // Vulkan present modes as Mesa's MESA_VK_WSI_PRESENT_MODE names them.
 QString presentMode(VerticalSync mode)
@@ -97,6 +105,7 @@ public:
         addLayer();
         addAnisotropicFiltering();
         addTextureDetail();
+        addFrameGeneration();
         addVerticalSync();
         addFrameCap();
         addFsr4();
@@ -223,10 +232,46 @@ private:
         }
     }
 
+    // lsfg-vk is installed by the user and loads into every Vulkan game; it
+    // only acts when told to. gfxtune points it at a settings file of its
+    // own for this game, which the window keeps up to date while the game
+    // runs, and leaves the user's own lsfg-vk settings alone.
+    void addFrameGeneration()
+    {
+        if (m_s.frameGeneration <= 0) {
+            return;
+        }
+        if (m_context.facts.drawsWithOpenGl()) {
+            m_plan.notApplied.append(i18n("Frame generation: this game draws with OpenGL, which lsfg-vk cannot reach"));
+        } else if (!settings::frameGenerationWanted(m_s, m_context.facts)) {
+            m_plan.notApplied.append(i18n("Frame generation: locked until the anti-cheat risk is accepted"));
+        } else if (!m_context.lsfgVkInstalled) {
+            m_plan.notApplied.append(i18n("Frame generation: lsfg-vk is not installed"));
+        } else if (m_context.lsfgDll.isEmpty()) {
+            m_plan.notApplied.append(i18n("Frame generation: Lossless Scaling's frame generation file was not found"));
+        } else if (m_context.lsfgConfigPath.isEmpty()) {
+            m_plan.notApplied.append(i18n("Frame generation: its settings file could not be written"));
+        } else if (const auto own = std::ranges::find_if(
+                       LsfgVkVariables, [this](const char *name) { return m_context.environment.contains(QLatin1String(name)); });
+                   own != std::end(LsfgVkVariables)) {
+            keep(QLatin1String(*own));
+        } else {
+            m_plan.environment.append({QStringLiteral("LSFGVK_CONFIG"), m_context.lsfgConfigPath});
+            m_plan.environment.append({QStringLiteral("LSFGVK_PROFILE"), QLatin1String(framegen::ProfileName)});
+            m_plan.frameGeneration = true;
+            m_plan.applied.append(i18n("Frame generation %1× (lsfg-vk)", m_s.frameGeneration));
+        }
+    }
+
     void addVerticalSync()
     {
         const VerticalSync mode = m_s.verticalSync;
         if (mode == VerticalSync::GameDefault) {
+            return;
+        }
+        if (m_plan.frameGeneration) {
+            // Its frame pacing needs vertical sync, which it sets itself.
+            m_plan.notApplied.append(i18n("Vertical sync: lsfg-vk keeps it on while it generates frames"));
             return;
         }
         const bool vulkan = set(QStringLiteral("MESA_VK_WSI_PRESENT_MODE"), presentMode(mode));

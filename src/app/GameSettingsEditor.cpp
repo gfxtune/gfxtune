@@ -16,6 +16,7 @@
 #include <QLocale>
 #include <QVariantMap>
 
+#include <algorithm>
 #include <utility>
 
 namespace gfxtune
@@ -28,7 +29,7 @@ GameSettingsEditor::GameSettingsEditor(GameLibrary *library, settings::SettingsS
     : QObject(parent)
     , m_library(library)
     , m_store(store)
-    , m_system(system)
+    , m_system(std::move(system))
 {
     m_saveTimer.setSingleShot(true);
     m_saveTimer.setInterval(saveDelayMs);
@@ -331,6 +332,28 @@ void GameSettingsEditor::setMangoHud(bool on)
     edit(QStringLiteral("mangoHud"), [on](GameSettings &s) { s.mangoHud = on; });
 }
 
+void GameSettingsEditor::setFrameGeneration(int multiplier)
+{
+    if (m_availability.frameGeneration.available && settings::offered(GameSettings::FrameGenerationMultipliers, multiplier)) {
+        edit(QStringLiteral("frameGeneration"), [multiplier](GameSettings &s) { s.frameGeneration = multiplier; });
+    }
+}
+
+void GameSettingsEditor::setFlowScale(int percent)
+{
+    if (m_availability.frameGeneration.available) {
+        edit(QStringLiteral("flowScale"),
+             [percent](GameSettings &s) { s.flowScale = std::clamp(percent, int(GameSettings::MinFlowScale), 100); });
+    }
+}
+
+void GameSettingsEditor::setFrameGenerationPerformance(bool on)
+{
+    if (m_availability.frameGeneration.available) {
+        edit(QStringLiteral("frameGenerationPerformance"), [on](GameSettings &s) { s.frameGenerationPerformance = on; });
+    }
+}
+
 QVariantList GameSettingsEditor::sessions() const
 {
     // Readings of 0 could not be taken.
@@ -511,6 +534,9 @@ QVariantMap GameSettingsEditor::baseValues() const
         {QStringLiteral("measurePerformance"), b.measurePerformance},
         {QStringLiteral("gameMode"), b.gameMode},
         {QStringLiteral("mangoHud"), b.mangoHud},
+        {QStringLiteral("frameGeneration"), b.frameGeneration},
+        {QStringLiteral("flowScale"), b.flowScale},
+        {QStringLiteral("frameGenerationPerformance"), b.frameGenerationPerformance},
     };
 }
 
@@ -619,6 +645,7 @@ void GameSettingsEditor::load()
 
 void GameSettingsEditor::updateAvailability()
 {
+    m_system.losslessScaling = m_library->lastScan().losslessScaling;
     if (m_global) {
         m_availability = settings::availabilityForAll(m_settings, m_system);
     } else if (const steam::Game *game = m_library->game(m_appId)) {

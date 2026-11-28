@@ -3,6 +3,7 @@
 
 #include "GameLibrary.h"
 #include "GameSettingsEditor.h"
+#include "framegen/LsfgVk.h"
 #include "launch/LastLaunch.h"
 #include "launch/LaunchLine.h"
 #include "launch/LaunchLines.h"
@@ -584,7 +585,7 @@ private Q_SLOTS:
         QVERIFY(editor.changedSettings().isEmpty());
         QCOMPARE(editor.baseName(), s("Global"));
         QCOMPARE(editor.baseValues().value(s("anisotropicFiltering")).toInt(), 16);
-        QCOMPARE(editor.baseValues().size(), 23);
+        QCOMPARE(editor.baseValues().size(), 26);
         editor.setAnisotropicFiltering(4);
         editor.setFrameCap(90);
         QCOMPARE(editor.changedSettings(), (QStringList{s("anisotropicFiltering"), s("frameCap")}));
@@ -834,6 +835,73 @@ private Q_SLOTS:
                                     + "\napplied=In-game filters, Performance measuring\n"));
         reselect();
         QVERIFY(!editor.lastLaunchFilters().isEmpty());
+    }
+
+    // The window keeps gfxtune-run's lsfg-vk files current: lsfg-vk reloads
+    // a file while the game runs, so a change reaches the game.
+    void keepsFrameGenerationFilesCurrent()
+    {
+        Setup setup;
+        setup.steam.losslessScaling(setup.steam.lib2, s("lsfg-vk"), s("lsfg-vk.dll"));
+        GameLibrary library(setup.steam.options(), &setup.store, nullptr, setup.proc.path());
+        SystemInfo system{};
+        system.lsfgVkInstalled = true;
+        GameSettingsEditor editor(&library, &setup.store, system, nullptr, 50);
+        library.start();
+        QVERIFY(waitUntilIdle(library));
+        const QString base = setup.store.baseDir();
+        const QString dll = setup.steam.lib2 + s("/steamapps/common/Lossless Scaling/lsfg-vk.dll");
+        // Noted for gfxtune-run, which does not read Steam's files.
+        QCOMPARE(framegen::readDllNote(base), dll);
+
+        editor.setAppId(1003);
+        QVERIFY(editor.frameGenerationAvailable());
+        editor.setFrameGeneration(2);
+        editor.flush();
+        // gfxtune-run writes the file when the game starts.
+        const QString path = framegen::configPath(base, 1003);
+        QVERIFY(framegen::writeConfig(path, framegen::configText(setup.store.load(1003), dll)));
+        editor.setFrameGeneration(4);
+        editor.setFlowScale(60);
+        editor.flush();
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QByteArray text = file.readAll();
+        QVERIFY2(text.contains("multiplier = 4\nflow_scale = 0.60\n"), text.constData());
+        QVERIFY(text.contains(dll.toUtf8()));
+        file.close();
+
+        // A global change reaches games that follow the global settings.
+        editor.selectGlobal();
+        editor.setFrameGenerationPerformance(true);
+        editor.flush();
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QVERIFY(file.readAll().contains("performance_mode = true"));
+        file.close();
+
+        // Off again: the file stays as it was; gfxtune-run no longer uses it.
+        editor.setAppId(1003);
+        editor.setFrameGeneration(0);
+        editor.flush();
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QVERIFY(file.readAll().contains("multiplier = 4\n"));
+    }
+
+    void refusesFrameGenerationWhereItCannotWork()
+    {
+        Setup setup; // no Lossless Scaling
+        GameLibrary library(setup.steam.options(), &setup.store, nullptr, setup.proc.path());
+        SystemInfo system{};
+        system.lsfgVkInstalled = true;
+        GameSettingsEditor editor(&library, &setup.store, system, nullptr, 50);
+        library.start();
+        QVERIFY(waitUntilIdle(library));
+        QCOMPARE(framegen::readDllNote(setup.store.baseDir()), QString());
+        editor.setAppId(1003);
+        QVERIFY(!editor.frameGenerationAvailable());
+        editor.setFrameGeneration(2);
+        QCOMPARE(editor.frameGeneration(), 0);
+        QVERIFY(editor.frameGenerationNote().contains(s("Lossless Scaling")));
     }
 };
 

@@ -6,7 +6,7 @@
 # Remove with:       sudo pacman -R gfxtune
 
 pkgname=gfxtune
-pkgver=0.5.0
+pkgver=0.6.0
 pkgrel=1
 pkgdesc='Graphics and game tuning for Steam games, with in-game filters and GPU readings'
 url='https://github.com/gfxtune/gfxtune'

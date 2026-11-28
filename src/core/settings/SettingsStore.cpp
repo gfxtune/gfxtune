@@ -148,6 +148,10 @@ void readSettings(Reader &in, GameSettings &s)
     s.scalingMode = in.choice(QStringLiteral("gamescope/scaling"), s.scalingMode);
     s.renderScale = in.oneOf(QStringLiteral("gamescope/render_scale"), s.renderScale, GameSettings::RenderScales);
     s.sharpness = in.number(QStringLiteral("gamescope/sharpness"), s.sharpness, 0, GameSettings::MaxSharpness);
+    s.frameGeneration =
+        in.oneOf(QStringLiteral("frame_generation/multiplier"), s.frameGeneration, GameSettings::FrameGenerationMultipliers);
+    s.flowScale = in.number(QStringLiteral("frame_generation/flow_scale"), s.flowScale, GameSettings::MinFlowScale, 100);
+    s.frameGenerationPerformance = in.flag(QStringLiteral("frame_generation/performance_mode"), s.frameGenerationPerformance);
 
     const auto ranged = [&in](const char *key, int current, const filters::Range &range) {
         return in.number(QStringLiteral("filters/") + QLatin1String(key), current, range.min, range.max);
@@ -185,6 +189,9 @@ QList<std::pair<QString, QVariant>> keyValues(const GameSettings &s)
         {QStringLiteral("gamescope/scaling"), toKey(s.scalingMode)},
         {QStringLiteral("gamescope/render_scale"), s.renderScale},
         {QStringLiteral("gamescope/sharpness"), s.sharpness},
+        {QStringLiteral("frame_generation/multiplier"), s.frameGeneration},
+        {QStringLiteral("frame_generation/flow_scale"), s.flowScale},
+        {QStringLiteral("frame_generation/performance_mode"), s.frameGenerationPerformance},
         {QStringLiteral("filters/enabled"), f.enabled},
         {QStringLiteral("filters/sharpening"), f.sharpening},
         {QStringLiteral("filters/brightness"), f.brightness},

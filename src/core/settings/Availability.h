@@ -5,6 +5,7 @@
 
 #include "GameSettings.h"
 #include "steam/Game.h"
+#include "steam/SteamLibrary.h"
 
 #include <QString>
 
@@ -28,6 +29,8 @@ struct Availability {
     Option measurePerformance;
     Option gameMode;
     Option mangoHud;
+    // lsfg-vk's frame generation, and with it its flow scale and model.
+    Option frameGeneration;
     // The in-game filters as a whole.
     Option filters;
     // Anti-cheat found in the game while the user has not accepted the risk:
@@ -41,6 +44,9 @@ struct SystemInfo {
     bool gameModeInstalled = false;
     bool mangoHudInstalled = false;
     bool mangoAppInstalled = false; // MangoHud for gamescope
+    bool lsfgVkInstalled = false;
+    // From the last Steam scan, not from detect().
+    steam::LosslessScaling losslessScaling{};
 
     // Looks at this computer.
     static SystemInfo detect();

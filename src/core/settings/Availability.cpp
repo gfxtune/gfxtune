@@ -3,6 +3,7 @@
 
 #include "Availability.h"
 
+#include "framegen/LsfgVk.h"
 #include "launch/LaunchLine.h"
 
 #include <KLocalizedString>
@@ -22,6 +23,33 @@ namespace
 // DXVK covers DirectX 9 to 11 and VKD3D-Proton DirectX 12; both can cap the frame rate.
 constexpr auto ProtonApis = GraphicsApi::DirectX9 | GraphicsApi::DirectX10 | GraphicsApi::DirectX11 | GraphicsApi::DirectX12;
 
+// What frame generation needs on this computer, whatever the game: nothing
+// when it is all there.
+QString frameGenerationMissing(const SystemInfo &system)
+{
+    const steam::LosslessScaling &lossless = system.losslessScaling;
+    if (!system.lsfgVkInstalled) {
+        return i18n("Needs lsfg-vk, which is not installed. On CachyOS: sudo pacman -S lsfg-vk");
+    }
+    if (!lossless.installed) {
+        return i18n("Needs Lossless Scaling from Steam, a paid app, switched to its lsfg-vk branch.");
+    }
+    if (lossless.branch != QLatin1String(framegen::LsfgVkBranch)) {
+        return i18n("Switch Lossless Scaling to its lsfg-vk branch: in Steam, Lossless Scaling, Properties, Betas.");
+    }
+    if (lossless.dll.isEmpty()) {
+        return i18n("Lossless Scaling's frame generation file is missing; let Steam finish updating it.");
+    }
+    return {};
+}
+
+QString frameGenerationCredit()
+{
+    return i18n(
+        "By lsfg-vk (lsfg-vk.dev), installed separately, with Lossless Scaling's frame generation. Turning it off takes effect "
+        "the next time the game starts.");
+}
+
 } // namespace
 
 SystemInfo SystemInfo::detect()
@@ -31,6 +59,7 @@ SystemInfo SystemInfo::detect()
     info.gameModeInstalled = !QStandardPaths::findExecutable(QStringLiteral("gamemoderun")).isEmpty();
     info.mangoHudInstalled = !QStandardPaths::findExecutable(QStringLiteral("mangohud")).isEmpty();
     info.mangoAppInstalled = !QStandardPaths::findExecutable(QStringLiteral("mangoapp")).isEmpty();
+    info.lsfgVkInstalled = framegen::layerInstalled(framegen::implicitLayerDirs());
     return info;
 }
 
@@ -164,6 +193,29 @@ Availability availabilityFor(const steam::Game &game, const GameSettings &settin
             game.name, QLocale().createSeparatedList(game.antiCheat));
     }
 
+    // lsfg-vk is a Vulkan layer too: it reaches what the filters reach.
+    const QString missing = frameGenerationMissing(system);
+    if (own.environment.contains(QStringLiteral("LSFGVK_PROFILE")) || own.environment.contains(QStringLiteral("LSFGVK_ENV"))
+        || own.environment.contains(QStringLiteral("LSFGVK_CONFIG")) || own.environment.contains(QStringLiteral("DISABLE_LSFGVK"))) {
+        a.frameGeneration = {false, setInSteam(QStringLiteral("lsfg-vk"))};
+    } else if (game.runtime == Runtime::Unknown) {
+        a.frameGeneration = {false, i18n("gfxtune could not tell how this game runs.")};
+    } else if (openGl && game.runtime != Runtime::Proton) {
+        a.frameGeneration = {false, i18n("This game draws with OpenGL, which lsfg-vk cannot reach.")};
+    } else if (!missing.isEmpty()) {
+        a.frameGeneration = {false, missing};
+    } else if (a.filtersLocked) {
+        a.frameGeneration = {false, i18n("Locked until you accept the risk under In-game filters.")};
+    } else if (openGl || !game.apis) {
+        a.frameGeneration = {
+            true, i18nc("%1 is who makes it", "Only works if the game draws with Vulkan or DirectX. %1", frameGenerationCredit())};
+    } else {
+        a.frameGeneration = {true, frameGenerationCredit()};
+    }
+    if (a.frameGeneration.available && settings.frameGeneration > 0 && a.verticalSync.available) {
+        a.verticalSync = {false, i18n("lsfg-vk keeps vertical sync on while it generates frames.")};
+    }
+
     if (own.gamescope) {
         a.gamescope = {false, i18n("This game's Steam launch options already start gamescope.")};
     } else if (!system.gamescopeInstalled) {
@@ -250,6 +302,15 @@ Availability availabilityForAll(const GameSettings &settings, const SystemInfo &
     } else if (settings.supersampling()) {
         a.gamescope.note = i18n(
             "Supersampling: games draw bigger than the screen and are scaled down smoothly; the upscaler and its sharpness are not used.");
+    }
+    if (const QString missing = frameGenerationMissing(system); !missing.isEmpty()) {
+        a.frameGeneration = {false, missing};
+    } else {
+        a.frameGeneration.note = i18nc("%1 is who makes it, %2 the note about anti-cheat",
+                                       "Reaches games that draw with Vulkan or DirectX. %1 %2", frameGenerationCredit(), antiCheat);
+        if (settings.frameGeneration > 0) {
+            a.verticalSync = {false, i18n("lsfg-vk keeps vertical sync on while it generates frames.")};
+        }
     }
     if (!system.gameModeInstalled) {
         a.gameMode = {false, i18n("GameMode is not installed.")};

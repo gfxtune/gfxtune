@@ -27,7 +27,7 @@ tests=(
 )
 games=(
     # What the system tests run games through, as on a gaming PC.
-    umu-launcher proton-cachyos gamescope mangohud gamemode
+    umu-launcher proton-cachyos gamescope mangohud gamemode lsfg-vk
     # Builds the Windows test programs that run under Proton.
     mingw-w64-gcc
 )

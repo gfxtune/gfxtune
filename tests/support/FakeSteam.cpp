@@ -95,6 +95,21 @@ void FakeSteam::game(const QString &library, quint32 appId, const QString &name,
     QDir().mkpath(library + s("/steamapps/common/") + installDir);
 }
 
+void FakeSteam::losslessScaling(const QString &library, const QString &branch, const QString &dllName)
+{
+    std::vector<Node> state{value(s("appid"), s("993090")), value(s("name"), s("Lossless Scaling")), value(s("StateFlags"), s("4")),
+                            value(s("installdir"), s("Lossless Scaling"))};
+    if (!branch.isEmpty()) {
+        state.push_back(section(s("MountedConfig"), {value(s("BetaKey"), branch)}));
+    }
+    text(library + s("/steamapps/appmanifest_993090.acf"), file({section(s("AppState"), std::move(state))}));
+    const QString folder = library + s("/steamapps/common/Lossless Scaling");
+    QDir().mkpath(folder);
+    if (!dllName.isEmpty()) {
+        QVERIFY(writeFile(folder + QLatin1Char('/') + dllName, "MZ"));
+    }
+}
+
 void FakeSteam::build()
 {
     text(root + s("/steamapps/libraryfolders.vdf"),

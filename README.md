@@ -18,6 +18,7 @@ On Windows, the GPU driver panel lets you set sharpening, anti-aliasing, frame c
 - In-game filters: anti-aliasing (SMAA), sharpening (AMD FidelityFX CAS) and colour (brightness, contrast, gamma, saturation, vibrance, colour temperature), adjustable while the game runs
 - Performance measuring: average frame rate, 1% and 0.1% lows, and the card's temperature and power for every play session
 - GameMode and MangoHud, switched on for all games or per game when they are installed
+- Frame generation through [lsfg-vk](https://lsfg-vk.dev), for all games or per game: 2×, 3× or 4×, with its flow scale and performance mode, changed while the game runs (lsfg-vk and Lossless Scaling are installed separately; see below)
 - A read-only panel with the card's temperatures, power, clocks, load and what holds it back, the processor's load, temperature and clock, and the frame rate and video memory of the game being played
 
 Still to come: visual effects for the in-game filters, and an in-game overlay of gfxtune's own (MangoHud can be switched on meanwhile).
@@ -63,6 +64,14 @@ Vulkan games are reached directly, and DirectX games under Proton through DXVK a
 Some native games load their graphics library only while they run, so their files do not say what they draw with. When such a game runs for a minute with the layer in it and never shows a Vulkan picture, gfxtune notes that it draws with OpenGL (gfxtune has to be open while it runs to see this). From then on its filters and measuring show as unavailable, and it gets no launch option for measuring alone. If all the game showed in that minute was a launcher, "Check Again" next to its graphics on its page lets the next start decide again.
 
 The layer runs inside the game, as MangoHud or vkBasalt do. No bans are known for this kind of layer, but nobody can promise there will never be one. In a game that ships anti-cheat (gfxtune looks for Easy Anti-Cheat, BattlEye and others in its folder, and for Valve Anti-Cheat in Steam's data) the filters and measuring stay locked until you accept that risk for that game. If an update adds anti-cheat to a game that already had filters, they stay locked, with their values kept, until you accept the risk for it. Setting `DISABLE_GFXTUNE_FILTERS=1` in a game's launch options keeps the layer out of it whatever its settings say.
+
+## Frame generation
+
+gfxtune can switch on frame generation through lsfg-vk, PancakeTAS's Vulkan layer that runs Lossless Scaling's frame generation on Linux. gfxtune includes neither. Install lsfg-vk (`sudo pacman -S lsfg-vk` on CachyOS), buy Lossless Scaling on Steam, and switch it to its `lsfg-vk` branch (in Steam: Lossless Scaling, Properties, Betas). A game's page says which of these is missing.
+
+When a game starts with frame generation on, `gfxtune-run` writes lsfg-vk's settings for that game into a file of gfxtune's own, `~/.config/gfxtune/lsfg-vk/APPID/conf.toml`, and points lsfg-vk at it; your own lsfg-vk settings are left alone. lsfg-vk follows that file while the game runs, so the multiplier, flow scale and performance mode change in the game within a second or two of changing them in gfxtune. Switching frame generation off takes effect the next time the game starts. If a game's own launch options choose lsfg-vk's settings (`LSFGVK_PROFILE`, `LSFGVK_CONFIG`, `LSFGVK_ENV` or `DISABLE_LSFGVK`), they win.
+
+lsfg-vk keeps vertical sync on while it generates frames, so gfxtune's vertical sync setting steps aside. gfxtune's own layer sits closer to the game than lsfg-vk's: its manifest is in `/etc/vulkan/implicit_layer.d`, which Vulkan reads before `/usr/share`. The frame cap and measuring therefore count the frames the game draws: with 2× and a cap of 60, the screen shows 120. Like the filters, frame generation stays off in games with anti-cheat until you accept the risk, and does not reach games that draw with OpenGL. If Lossless Scaling's file is missing when a game starts, `gfxtune-run` leaves frame generation out, since lsfg-vk would then stop the game from showing a picture.
 
 ## Removing gfxtune-run from Steam
 
@@ -124,6 +133,6 @@ Bug reports, tests on other cards and games, translations and code are welcome; 
 
 ## License
 
-GPL-3.0-or-later. See [LICENSE](LICENSE). The sharpening filter follows AMD FidelityFX CAS, and the anti-aliasing is SMAA, both under the MIT licence; see [NOTICE.md](NOTICE.md). The AppStream file is CC0-1.0 and the AUR package's PKGBUILD is 0BSD, as their ecosystems expect; every file says which licence it is under ([REUSE](https://reuse.software)).
+GPL-3.0-or-later. See [LICENSE](LICENSE). The sharpening filter follows AMD FidelityFX CAS, and the anti-aliasing is SMAA, both under the MIT licence; see [NOTICE.md](NOTICE.md). The AppStream file is CC0-1.0 and the AUR package's PKGBUILD is 0BSD, as their ecosystems expect; every file says which licence it is under ([REUSE](https://reuse.software)). lsfg-vk, which frame generation uses, is by PancakeTAS under CC BY-NC-ND 4.0; gfxtune does not include or change it, and only sets its documented options.
 
 AMD, Radeon and FSR are trademarks of Advanced Micro Devices, Inc. gfxtune is an independent project and is not affiliated with or endorsed by AMD.

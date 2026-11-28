@@ -6,6 +6,7 @@
 #include "AppInfo.h"
 #include "Covers.h"
 #include "GameFiles.h"
+#include "framegen/LsfgVk.h"
 #include "vdf/TextVdf.h"
 
 #include <QDir>
@@ -34,6 +35,7 @@ struct Manifest {
     quint32 appId = 0;
     QString name;
     QString buildId;
+    QString betaKey; // the Steam branch installed, empty for the default one
     QString libraryPath;
     QString installPath;
 };
@@ -143,6 +145,13 @@ void readManifests(const QString &library, std::vector<Manifest> &apps, QHash<qu
         if (app.name.isEmpty()) {
             if (const vdf::Node *userConfig = state->child(u"UserConfig")) {
                 app.name = userConfig->valueOf(u"name");
+            }
+        }
+        // MountedConfig is what is installed; UserConfig what was chosen,
+        // which can still be downloading.
+        for (const char16_t *config : {u"MountedConfig", u"UserConfig"}) {
+            if (const vdf::Node *section = state->child(config); section && app.betaKey.isEmpty()) {
+                app.betaKey = section->valueOf(u"BetaKey");
             }
         }
         const QString installDir = state->valueOf(u"installdir");
@@ -485,11 +494,31 @@ struct ScanContext {
     QHash<QString, Fsr4Support> fsr4ByTool; // each tool's files read once
 };
 
+// The file with Lossless Scaling's frame generation, which lsfg-vk loads:
+// the lsfg-vk branch's own, or the program's from before it.
+LosslessScaling findLosslessScaling(const Manifest &app)
+{
+    LosslessScaling found;
+    found.installed = true;
+    found.branch = app.betaKey;
+    for (const char *name : {"lsfg-vk.dll", "Lossless.dll"}) {
+        const QString path = app.installPath + QLatin1Char('/') + QLatin1String(name);
+        if (QFileInfo(path).isFile()) {
+            found.dll = path;
+            break;
+        }
+    }
+    return found;
+}
+
 // Why an installed app is not listed as a game, or nothing if it is.
 QString reasonToSkip(const Manifest &app, const vdf::Node *info, const QSet<quint32> &listed)
 {
     if (app.appId == SteamworksRedistAppId) {
         return QStringLiteral("Steam's shared redistributables, not a game");
+    }
+    if (app.appId == framegen::LosslessScalingAppId) {
+        return QStringLiteral("Lossless Scaling, which lsfg-vk uses for frame generation, not a game");
     }
     if (listed.contains(app.appId)) {
         return QStringLiteral("installed in two libraries; listed once");
@@ -599,6 +628,12 @@ SteamScan scanSteam(const ScanOptions &options)
         scan.localConfigPath = userConfig + QStringLiteral("/localconfig.vdf");
         context.launchOptions = readLaunchOptions(scan.localConfigPath, scan.warnings);
         addIfExists(scan.watchPaths, userConfig);
+    }
+
+    for (const Manifest &app : apps) {
+        if (app.appId == framegen::LosslessScalingAppId) {
+            scan.losslessScaling = findLosslessScaling(app);
+        }
     }
 
     QSet<quint32> listed;

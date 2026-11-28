@@ -59,6 +59,9 @@ class GameSettingsEditor : public QObject
     Q_PROPERTY(bool measurePerformance READ measurePerformance WRITE setMeasurePerformance NOTIFY settingsChanged)
     Q_PROPERTY(bool gameMode READ gameMode WRITE setGameMode NOTIFY settingsChanged)
     Q_PROPERTY(bool mangoHud READ mangoHud WRITE setMangoHud NOTIFY settingsChanged)
+    Q_PROPERTY(int frameGeneration READ frameGeneration WRITE setFrameGeneration NOTIFY settingsChanged)
+    Q_PROPERTY(int flowScale READ flowScale WRITE setFlowScale NOTIFY settingsChanged)
+    Q_PROPERTY(bool frameGenerationPerformance READ frameGenerationPerformance WRITE setFrameGenerationPerformance NOTIFY settingsChanged)
     // A game's own changes, or global settings away from the defaults.
     Q_PROPERTY(bool customized READ customized NOTIFY settingsChanged)
     // On a game's page: whether it follows the global settings; the
@@ -105,6 +108,8 @@ class GameSettingsEditor : public QObject
     Q_PROPERTY(QString gameModeNote READ gameModeNote NOTIFY availabilityChanged)
     Q_PROPERTY(bool mangoHudAvailable READ mangoHudAvailable NOTIFY availabilityChanged)
     Q_PROPERTY(QString mangoHudNote READ mangoHudNote NOTIFY availabilityChanged)
+    Q_PROPERTY(bool frameGenerationAvailable READ frameGenerationAvailable NOTIFY availabilityChanged)
+    Q_PROPERTY(QString frameGenerationNote READ frameGenerationNote NOTIFY availabilityChanged)
     Q_PROPERTY(QString filtersWarning READ filtersWarning NOTIFY availabilityChanged)
 
     Q_PROPERTY(QString problem READ problem NOTIFY problemChanged)
@@ -174,6 +179,12 @@ public:
     void setGameMode(bool on);
     bool mangoHud() const { return m_settings.mangoHud; }
     void setMangoHud(bool on);
+    int frameGeneration() const { return m_settings.frameGeneration; }
+    void setFrameGeneration(int multiplier);
+    int flowScale() const { return m_settings.flowScale; }
+    void setFlowScale(int percent);
+    bool frameGenerationPerformance() const { return m_settings.frameGenerationPerformance; }
+    void setFrameGenerationPerformance(bool on);
     bool customized() const;
     bool usesGlobal() const { return m_profile.usesGlobal; }
     void setUsesGlobal(bool on);
@@ -227,6 +238,8 @@ public:
     QString gameModeNote() const { return m_availability.gameMode.note; }
     bool mangoHudAvailable() const { return m_availability.mangoHud.available; }
     QString mangoHudNote() const { return m_availability.mangoHud.note; }
+    bool frameGenerationAvailable() const { return m_availability.frameGeneration.available; }
+    QString frameGenerationNote() const { return m_availability.frameGeneration.note; }
 
     QString problem() const { return m_problem; }
 

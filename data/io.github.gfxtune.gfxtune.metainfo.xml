@@ -25,6 +25,7 @@
       <li>Performance measuring for every play session: average frame rate and 1% and 0.1% lows</li>
       <li>The graphics card's temperatures, power, clocks and load, live</li>
       <li>GameMode and MangoHud, switched on for all games or per game</li>
+      <li>Frame generation through lsfg-vk, which is installed separately with Lossless Scaling</li>
     </ul>
     <p>
       gfxtune changes only the launch options of the games it has something to do in, and only while Steam is
@@ -84,6 +85,11 @@
   </keywords>
 
   <releases>
+    <release version="0.6.0" date="2026-11-27" type="development">
+      <description>
+        <p>Frame generation through lsfg-vk, for all games or per game, changed while the game runs.</p>
+      </description>
+    </release>
     <release version="0.5.0" date="2026-11-19" type="stable">
       <url type="details">https://github.com/gfxtune/gfxtune/releases/tag/v0.5.0</url>
       <description>

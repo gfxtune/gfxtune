@@ -46,6 +46,12 @@ struct LaunchContext {
     bool gameModeInstalled = false;
     bool mangoHudInstalled = false;
     bool mangoAppInstalled = false; // MangoHud for gamescope
+    bool lsfgVkInstalled = false;
+    // Lossless Scaling's frame generation file, checked to be there: without
+    // it lsfg-vk makes the game fail to create its swapchain.
+    QString lsfgDll;
+    // gfxtune's lsfg-vk settings file for this game, once written.
+    QString lsfgConfigPath;
 };
 
 struct LaunchPlan {
@@ -55,8 +61,9 @@ struct LaunchPlan {
     QStringList applied;
     QStringList keptFromSteam; // left alone because the launch options set it
     QStringList notApplied;    // with the reason
-    bool filters = false;      // the in-game filters will be drawn
-    bool layer = false;        // gfxtune's Vulkan layer was asked for
+    bool filters = false;         // the in-game filters will be drawn
+    bool layer = false;           // gfxtune's Vulkan layer was asked for
+    bool frameGeneration = false; // lsfg-vk was asked to generate frames
 };
 
 bool needsScreen(const settings::GameSettings &settings);

@@ -21,7 +21,7 @@ import pytest
 from lab import FakeSteam, SteamGame, eventually
 
 LAYER = Path("/usr/lib/gfxtune/libVkLayer_gfxtune.so")
-MANIFEST = Path("/usr/share/vulkan/implicit_layer.d/gfxtune_filters.json")
+MANIFEST = Path("/etc/vulkan/implicit_layer.d/gfxtune_filters.json")
 METAINFO = Path("/usr/share/metainfo/io.github.gfxtune.gfxtune.metainfo.xml")
 FILES = {
     "/usr/bin/gfxtune",

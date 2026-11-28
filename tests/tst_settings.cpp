@@ -50,6 +50,9 @@ GameSettings sample()
     s.measurePerformance = false;
     s.gameMode = true;
     s.mangoHud = true;
+    s.frameGeneration = 3;
+    s.flowScale = 70;
+    s.frameGenerationPerformance = true;
     return s;
 }
 
@@ -164,6 +167,7 @@ private Q_SLOTS:
         QVERIFY(text.contains("[performance]\nmeasure=false"));
         QVERIFY(text.contains("gamemode=true"));
         QVERIFY(text.contains("mangohud=true"));
+        QVERIFY(text.contains("[frame_generation]\nflow_scale=70\nmultiplier=3\nperformance_mode=true"));
         // Nothing left behind by the atomic write.
         QCOMPARE(QDir(dir.filePath(QStringLiteral("gfxtune/games"))).entryList(QDir::Files), QStringList{QStringLiteral("1091.ini")});
     }
@@ -199,6 +203,7 @@ private Q_SLOTS:
                                 "[filters]\nenabled=maybe\nsharpening=500\ncontrast=x\ngamma=150\nanti_aliasing=fxaa\n"
                                 "[performance]\nmeasure=often\n"
                                 "[launch]\ngamemode=1\nmangohud=true\n"
+                                "[frame_generation]\nmultiplier=5\nflow_scale=10\nperformance_mode=perhaps\n"
                                 "[other]\nunknown_key=1\nlod_bias=-50\n"));
         QStringList warnings;
         const GameSettings loaded = store.load(7, &warnings);
@@ -222,9 +227,13 @@ private Q_SLOTS:
         QCOMPARE(loaded.measurePerformance, true);
         QCOMPARE(loaded.gameMode, false);
         QVERIFY(loaded.mangoHud);
+        // lsfg-vk's multipliers gfxtune offers, and its smallest flow scale.
+        QCOMPARE(loaded.frameGeneration, defaults.frameGeneration);
+        QCOMPARE(loaded.flowScale, defaults.flowScale);
+        QCOMPARE(loaded.frameGenerationPerformance, defaults.frameGenerationPerformance);
         // A key in the wrong section is not read.
         QCOMPARE(loaded.lodBias, 0);
-        QCOMPARE(warnings.size(), 13);
+        QCOMPARE(warnings.size(), 16);
     }
 
     void survivesGarbageFiles()
@@ -1159,6 +1168,78 @@ private Q_SLOTS:
         QCOMPARE(steam::listedCovers(&info),
                  (QStringList{hash + QStringLiteral("/library_capsule.jpg"), QStringLiteral("library_600x900_schinese.jpg"),
                               hash + QStringLiteral("/library_capsule_2x.jpg")}));
+    }
+
+    // Frame generation needs lsfg-vk and Lossless Scaling on its lsfg-vk
+    // branch; the page says which is missing, in the order to fix them.
+    void saysWhatFrameGenerationNeeds()
+    {
+        SystemInfo system;
+        GameSettings s;
+        const Game proton = game(Runtime::Proton, GraphicsApi::DirectX12);
+        const auto note = [&] { return availabilityFor(proton, s, system).frameGeneration; };
+        QVERIFY(!note().available);
+        QVERIFY(note().note.contains(QLatin1String("sudo pacman -S lsfg-vk")));
+        system.lsfgVkInstalled = true;
+        QVERIFY(note().note.contains(QLatin1String("Needs Lossless Scaling")));
+        system.losslessScaling.installed = true;
+        system.losslessScaling.dll = QStringLiteral("/lib/Lossless Scaling/Lossless.dll");
+        QVERIFY(note().note.contains(QLatin1String("Switch Lossless Scaling to its lsfg-vk branch")));
+        system.losslessScaling.branch = QStringLiteral("lsfg-vk");
+        system.losslessScaling.dll.clear();
+        QVERIFY(note().note.contains(QLatin1String("let Steam finish updating it")));
+        system.losslessScaling.dll = QStringLiteral("/lib/Lossless Scaling/lsfg-vk.dll");
+        QVERIFY(note().available);
+        QVERIFY(note().note.startsWith(QLatin1String("By lsfg-vk (lsfg-vk.dev)")));
+
+        // Where lsfg-vk cannot work, or the user set it up themselves.
+        QVERIFY(!availabilityFor(game(Runtime::Unknown, {}), s, system).frameGeneration.available);
+        const Option openGl = availabilityFor(game(Runtime::Native, GraphicsApi::OpenGL), s, system).frameGeneration;
+        QVERIFY(!openGl.available);
+        QVERIFY(openGl.note.contains(QLatin1String("OpenGL")));
+        const Option guess = availabilityFor(game(Runtime::Proton, {}), s, system).frameGeneration;
+        QVERIFY(guess.available);
+        QVERIFY(guess.note.startsWith(QLatin1String("Only works if the game draws with Vulkan or DirectX.")));
+        Game own = proton;
+        own.launchOptions = QStringLiteral("LSFGVK_PROFILE=mine %command%");
+        QVERIFY(!availabilityFor(own, s, system).frameGeneration.available);
+        Game locked = proton;
+        locked.antiCheat = {QStringLiteral("Easy Anti-Cheat")};
+        QVERIFY(availabilityFor(locked, s, system).frameGeneration.note.contains(QLatin1String("Locked")));
+        s.filtersRiskAccepted = true;
+        QVERIFY(availabilityFor(locked, s, system).frameGeneration.available);
+    }
+
+    void leavesVerticalSyncToLsfgVk()
+    {
+        SystemInfo system;
+        system.lsfgVkInstalled = true;
+        system.losslessScaling = {true, QStringLiteral("lsfg-vk"), QStringLiteral("/x/lsfg-vk.dll")};
+        GameSettings s;
+        const Game proton = game(Runtime::Proton, GraphicsApi::DirectX11);
+        QVERIFY(availabilityFor(proton, s, system).verticalSync.available);
+        s.frameGeneration = 2;
+        const Option vsync = availabilityFor(proton, s, system).verticalSync;
+        QVERIFY(!vsync.available);
+        QVERIFY(vsync.note.contains(QLatin1String("lsfg-vk")));
+        QVERIFY(!availabilityForAll(s, system).verticalSync.available);
+        // Without lsfg-vk the setting does nothing, and vertical sync stays.
+        system.lsfgVkInstalled = false;
+        QVERIFY(availabilityFor(proton, s, system).verticalSync.available);
+        QVERIFY(!availabilityForAll(s, system).frameGeneration.available);
+        QVERIFY(availabilityForAll(s, system).verticalSync.available);
+    }
+
+    void holdsBackFromAntiCheatForGlobalFrameGeneration()
+    {
+        GameFacts facts;
+        facts.antiCheat = {QStringLiteral("BattlEye")};
+        GameSettings global;
+        global.measurePerformance = false;
+        QVERIFY(!holdsBackForAntiCheat(global, GameProfile{}, facts));
+        global.frameGeneration = 2;
+        QVERIFY(holdsBackForAntiCheat(global, GameProfile{}, facts));
+        QVERIFY(!addsItselfTo(global, GameProfile{}, facts));
     }
 };
 

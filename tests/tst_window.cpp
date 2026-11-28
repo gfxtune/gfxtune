@@ -680,6 +680,9 @@ private Q_SLOTS:
         test::FakeSteam steam;
         steam.build();
         writeRealCovers(steam);
+        if (installed) {
+            steam.losslessScaling(steam.lib2, QStringLiteral("lsfg-vk"), QStringLiteral("lsfg-vk.dll"));
+        }
         QTemporaryDir config;
         QTemporaryDir proc;
         settings::SettingsStore store(config.filePath(QStringLiteral("gfxtune")));
@@ -726,7 +729,8 @@ private Q_SLOTS:
 
         GameLibrary library(steam.options(), &store, nullptr, proc.path());
         library.setPollInterval(100);
-        GameSettingsEditor editor(&library, &store, installed ? settings::SystemInfo{true, true, true, true} : settings::SystemInfo{});
+        GameSettingsEditor editor(&library, &store,
+                                  installed ? settings::SystemInfo{true, true, true, true, true} : settings::SystemInfo{});
         QTemporaryDir sys;
         test::addCard(sys.path(), 0);
         GpuMonitor gpu(sys.path(), nullptr, 100);
@@ -752,6 +756,8 @@ private Q_SLOTS:
         editor.setFilterSharpening(40);
         editor.setFilterTemperature(-30);
         editor.setAntiAliasing(1);
+        editor.setFrameGeneration(2);
+        editor.setFlowScale(75);
         editor.setAppId(1002);
         editor.setUsesGlobal(false);
         editor.setLodBias(-50);
@@ -806,8 +812,9 @@ private Q_SLOTS:
         QTemporaryDir config;
         QTemporaryDir proc;
         settings::SettingsStore store(config.filePath(QStringLiteral("gfxtune")));
+        steam.losslessScaling(steam.lib2, QStringLiteral("lsfg-vk"), QStringLiteral("lsfg-vk.dll"));
         GameLibrary library(steam.options(), &store, nullptr, proc.path());
-        const settings::SystemInfo system{true, true, true, true};
+        const settings::SystemInfo system{true, true, true, true, true};
         GameSettingsEditor editor(&library, &store, system);
         QTemporaryDir sys;
         test::addCard(sys.path(), 0);
@@ -838,10 +845,14 @@ private Q_SLOTS:
         editor.setScalingMode(int(settings::ScalingMode::Fit));
         editor.setFrameCapEnabled(true);
         editor.setFrameCap(90);
+        editor.setFrameGeneration(3);
+        editor.setFlowScale(50);
         editor.setAppId(1003);
         editor.setAntiAliasing(1);
         editor.setMeasurePerformance(false);
         editor.setMangoHud(true);
+        editor.setFrameGeneration(2);
+        editor.setFrameGenerationPerformance(true);
         editor.setAppId(1005);
         editor.setUsesGlobal(false);
         editor.setFiltersEnabled(false);
@@ -886,7 +897,7 @@ private Q_SLOTS:
                 editor.isGlobal() ? QStringLiteral("All Games — gfxtune") : editor.gameName() + QStringLiteral(" — gfxtune");
             QCOMPARE(w.window->title(), title);
             QStringList wrong;
-            QCOMPARE(findWrongValues(pane, editor, wrong), 23);
+            QCOMPARE(findWrongValues(pane, editor, wrong), 26);
             QVERIFY2(wrong.isEmpty(), qPrintable(QStringLiteral("step %1, %2:\n").arg(step).arg(title) + wrong.join(QLatin1Char('\n'))));
             if (!editor.isGlobal()) {
                 lastSeen.insert(editor.appId(), settingsOf(editor));

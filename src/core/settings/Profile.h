@@ -50,7 +50,8 @@ GameSettings effectiveSettings(const GameSettings &global, const GameProfile &pr
 
 // gfxtune holds back from a game with anti-cheat whose risk was not
 // accepted while a global setting that runs inside games (the filters,
-// measuring) would reach it, even though the layer would stay locked there.
+// measuring, frame generation) would reach it, even though the layer would
+// stay locked there.
 // A change on the game's own page, or the risk accepted, ends that.
 bool holdsBackForAntiCheat(const GameSettings &global, const GameProfile &profile, const GameFacts &facts);
 // Whether gfxtune puts gfxtune-run into the game's launch options by itself:

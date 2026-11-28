@@ -27,6 +27,11 @@ const QList<SettingKind> &settingKinds()
          }},
         {QStringLiteral("verticalSync"), {QStringLiteral("frames/vertical_sync")}, GFXTUNE_COPY(verticalSync)},
         {QStringLiteral("fsr4"), {QStringLiteral("upscaling/fsr4")}, GFXTUNE_COPY(fsr4)},
+        {QStringLiteral("frameGeneration"), {QStringLiteral("frame_generation/multiplier")}, GFXTUNE_COPY(frameGeneration)},
+        {QStringLiteral("flowScale"), {QStringLiteral("frame_generation/flow_scale")}, GFXTUNE_COPY(flowScale)},
+        {QStringLiteral("frameGenerationPerformance"),
+         {QStringLiteral("frame_generation/performance_mode")},
+         GFXTUNE_COPY(frameGenerationPerformance)},
         {QStringLiteral("filtersEnabled"), {QStringLiteral("filters/enabled")}, GFXTUNE_COPY(filters.enabled)},
         {QStringLiteral("antiAliasing"), {QStringLiteral("filters/anti_aliasing")}, GFXTUNE_COPY(filters.antiAliasing)},
         {QStringLiteral("filterSharpening"), {QStringLiteral("filters/sharpening")}, GFXTUNE_COPY(filters.sharpening)},
@@ -103,7 +108,7 @@ GameSettings effectiveSettings(const GameSettings &global, const GameProfile &pr
 bool holdsBackForAntiCheat(const GameSettings &global, const GameProfile &profile, const GameFacts &facts)
 {
     return !facts.antiCheat.isEmpty() && !profile.own.filtersRiskAccepted && profile.usesGlobal && profile.changed.isEmpty()
-        && (global.filters.active() || global.measurePerformance);
+        && (global.filters.active() || global.measurePerformance || global.frameGeneration > 0);
 }
 
 bool addsItselfTo(const GameSettings &global, const GameProfile &profile, const GameFacts &facts)

@@ -20,7 +20,11 @@ sets the matching options of Mesa, DXVK, VKD3D\-Proton and Proton as
 environment variables, starts gamescope, GameMode or MangoHud around the
 game where they are switched on, and then replaces itself with the game.
 When a filter or performance measuring is on, it asks Vulkan to load
-gfxtune's layer into the game, and only that game.
+gfxtune's layer into the game, and only that game. When frame generation
+is on, it writes lsfg\-vk's settings for the game to
+.I ~/.config/gfxtune/lsfg\-vk/APPID/conf.toml
+and points lsfg\-vk at that file, provided lsfg\-vk is installed and
+Lossless Scaling's frame generation file is where gfxtune last found it.
 .PP
 Whatever the game's Steam launch options already set wins: a variable they
 set, or gamescope, GameMode or MangoHud they start, is left as it is.
@@ -43,6 +47,10 @@ are read when it is missing.
 .TP
 .B DISABLE_GFXTUNE_FILTERS=1
 Keeps gfxtune's Vulkan layer out of the game whatever its settings say.
+.TP
+.BR LSFGVK_PROFILE ", " LSFGVK_CONFIG ", " LSFGVK_ENV ", " DISABLE_LSFGVK
+lsfg\-vk's own ways of choosing its settings. Set in the game's launch
+options, they win over gfxtune's frame generation setting.
 .TP
 .B QT_LOGGING_RULES="gfxtune.launch.debug=true"
 Also prints what was applied, to the game's output.

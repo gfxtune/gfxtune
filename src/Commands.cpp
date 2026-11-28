@@ -3,6 +3,7 @@
 
 #include "Commands.h"
 
+#include "framegen/LsfgVk.h"
 #include "launch/LaunchLines.h"
 #include "settings/SettingsStore.h"
 #include "steam/SteamProcess.h"
@@ -50,6 +51,15 @@ int listGames(QTextStream &out)
     out << "Signed-in account: " << (scan.accountId != 0 ? "found" : "not found (launch options unavailable)") << '\n';
     for (const LibraryFolder &library : scan.libraries) {
         out << "Library: " << library.path << (library.available ? "" : "  (not available)") << '\n';
+    }
+    // Frame generation: lsfg-vk and Lossless Scaling, both installed by the user.
+    out << "lsfg-vk: " << (framegen::layerInstalled(framegen::implicitLayerDirs()) ? "installed" : "not installed") << '\n';
+    const LosslessScaling &lossless = scan.losslessScaling;
+    if (!lossless.installed) {
+        out << "Lossless Scaling: not installed\n";
+    } else {
+        out << "Lossless Scaling: branch " << (lossless.branch.isEmpty() ? QStringLiteral("(default)") : lossless.branch) << ", "
+            << (lossless.dll.isEmpty() ? QStringLiteral("no frame generation file") : lossless.dll) << '\n';
     }
 
     const QSet<quint32> running = runningSteamApps();

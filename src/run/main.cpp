@@ -6,6 +6,7 @@
 // replaces itself with the game. Whatever goes wrong, the game still starts.
 
 #include "Logging.h"
+#include "framegen/LsfgVk.h"
 #include "launch/LastLaunch.h"
 #include "launch/LaunchPlan.h"
 #include "performance/Performance.h"
@@ -14,6 +15,7 @@
 #include <KLocalizedString>
 #include <QDateTime>
 #include <QDir>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QProcessEnvironment>
 #include <QScreen>
@@ -119,6 +121,26 @@ int main(int argc, char *argv[])
     const QString performanceDir = performance::performanceDir(store.baseDir(), appId);
     if (gameSettings.measurePerformance && settings::layerWanted(gameSettings, context.facts) && QDir().mkpath(performanceDir)) {
         context.performanceDir = performanceDir;
+    }
+    // lsfg-vk reads gfxtune's settings for the game from a file of its own,
+    // written fresh at every start; the window keeps it current after that.
+    // Only with Lossless Scaling's file there: without it, lsfg-vk makes the
+    // game fail to create its swapchain.
+    if (settings::frameGenerationWanted(gameSettings, facts)) {
+        context.lsfgVkInstalled = framegen::layerInstalled(framegen::implicitLayerDirs());
+        const QString dll = framegen::readDllNote(store.baseDir());
+        if (QFileInfo(dll).isFile()) {
+            context.lsfgDll = dll;
+        }
+        const QString lsfgConfig = framegen::configPath(store.baseDir(), appId);
+        QString error;
+        if (context.lsfgVkInstalled && !context.lsfgDll.isEmpty()) {
+            if (framegen::writeConfig(lsfgConfig, framegen::configText(gameSettings, context.lsfgDll), &error)) {
+                context.lsfgConfigPath = lsfgConfig;
+            } else {
+                qCWarning(lcLaunch) << "Could not write" << lsfgConfig << error;
+            }
+        }
     }
     if (launch::needsScreen(gameSettings) && context.gamescopeInstalled
         && !context.environment.contains(QStringLiteral("GAMESCOPE_WAYLAND_DISPLAY"))) {

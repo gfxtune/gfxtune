@@ -150,7 +150,7 @@ Kirigami.ApplicationWindow {
         id: aboutDialog
         iconName: "gfxtune"
         title: "gfxtune " + Qt.application.version
-        subtitle: KI18n.i18n("Graphics and game tuning for Steam games on CachyOS.\nLicensed under the GNU GPL, version 3 or later.")
+        subtitle: KI18n.i18n("Graphics and game tuning for Steam games on CachyOS.\nLicensed under the GNU GPL, version 3 or later.\n\nFrame generation by lsfg-vk (lsfg-vk.dev), by PancakeTAS, licensed under CC BY-NC-ND 4.0 and installed separately.")
         standardButtons: Kirigami.Dialog.Close
     }
 }

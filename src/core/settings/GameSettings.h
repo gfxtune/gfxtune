@@ -77,6 +77,16 @@ struct GameSettings {
     bool gameMode = false;
     bool mangoHud = false;
 
+    // Frame generation by lsfg-vk, which the user installs: 0 leaves it
+    // alone, otherwise its multiplier (2 shows one generated frame for each
+    // frame the game draws).
+    int frameGeneration = 0;
+    // The resolution, in percent, at which lsfg-vk follows motion: lower is
+    // faster and less precise.
+    int flowScale = 100;
+    // lsfg-vk's lighter frame generation model.
+    bool frameGenerationPerformance = false;
+
     static constexpr int MinFrameCap = 10;
     static constexpr int MaxFrameCap = 1000;
     static constexpr int MaxSharpness = 20;
@@ -86,6 +96,8 @@ struct GameSettings {
     // Native, then the usual upscaler presets: ultra quality, quality,
     // balanced, performance, ultra performance, then supersampling.
     static constexpr std::array RenderScales{100, 77, 67, 59, 50, 33, 125, 150, 200};
+    static constexpr std::array FrameGenerationMultipliers{0, 2, 3, 4};
+    static constexpr int MinFlowScale = 25; // lsfg-vk's lowest
 
     bool isDefault() const { return *this == GameSettings{}; }
     bool supersampling() const { return gamescope && renderScale > 100; }
@@ -128,15 +140,26 @@ inline bool layerWanted(const GameSettings &s, const GameFacts &facts)
     return (s.filters.active() || s.measurePerformance) && layerAllowed(s, facts) && !facts.drawsWithOpenGl();
 }
 
+// lsfg-vk is a Vulkan layer too: it is held back by anti-cheat the same
+// way, and cannot reach a game that draws with OpenGL.
+inline bool frameGenerationWanted(const GameSettings &s, const GameFacts &facts)
+{
+    return s.frameGeneration > 0 && layerAllowed(s, facts) && !facts.drawsWithOpenGl();
+}
+
 // Whether gfxtune-run has anything to do when the game starts: a setting
-// applied from outside the game, or the layer (filters, measuring) where it
-// can go in. Filters locked by anti-cheat, or out of reach in an OpenGL
-// game, do nothing.
+// applied from outside the game, or a layer (filters, measuring, frame
+// generation) where it can go in. Those locked by anti-cheat, or out of
+// reach in an OpenGL game, do nothing.
 inline bool needsGfxtuneRun(const GameSettings &s, const GameFacts &facts)
 {
     GameSettings outside = s;
     outside.filters = filters::Values{}; // the layer's alone
-    return outside.affectsGame() || layerWanted(s, facts);
+    const GameSettings defaults;
+    outside.frameGeneration = defaults.frameGeneration;
+    outside.flowScale = defaults.flowScale;
+    outside.frameGenerationPerformance = defaults.frameGenerationPerformance;
+    return outside.affectsGame() || layerWanted(s, facts) || frameGenerationWanted(s, facts);
 }
 
 QString toKey(VerticalSync value);

@@ -845,6 +845,90 @@ private Q_SLOTS:
         QVERIFY(!syncLaunchLines(path, {1}, nullptr, &error)); // cannot create Steam's file
         QVERIFY(!QFile::exists(path));
     }
+
+    // lsfg-vk is the user's: gfxtune points it at its own settings file for
+    // the game, and only where it can work.
+    void asksLsfgVkForFrameGeneration()
+    {
+        GameSettings s;
+        s.frameGeneration = 3;
+        s.verticalSync = VerticalSync::Off;
+        LaunchContext c = context();
+        c.lsfgVkInstalled = true;
+        c.lsfgDll = QStringLiteral("/games/steamapps/common/Lossless Scaling/lsfg-vk.dll");
+        c.lsfgConfigPath = QStringLiteral("/home/user/.config/gfxtune/lsfg-vk/7/conf.toml");
+        LaunchPlan plan = planLaunch(s, c);
+        QVERIFY(plan.frameGeneration);
+        QCOMPARE(envValue(plan, QStringLiteral("LSFGVK_CONFIG")), c.lsfgConfigPath);
+        QCOMPARE(envValue(plan, QStringLiteral("LSFGVK_PROFILE")), QStringLiteral("gfxtune"));
+        QVERIFY(plan.applied.contains(QStringLiteral("Frame generation 3× (lsfg-vk)")));
+        // lsfg-vk paces its frames with vertical sync, which it turns on itself.
+        QVERIFY(!setsEnv(plan, QStringLiteral("MESA_VK_WSI_PRESENT_MODE")));
+        QVERIFY(!setsEnv(plan, QStringLiteral("vblank_mode")));
+        QVERIFY(plan.notApplied.contains(QStringLiteral("Vertical sync: lsfg-vk keeps it on while it generates frames")));
+
+        // The user's own lsfg-vk choice in the launch options wins.
+        for (const char *own : {"LSFGVK_PROFILE", "LSFGVK_CONFIG", "LSFGVK_ENV", "DISABLE_LSFGVK"}) {
+            LaunchContext mine = c;
+            mine.environment.insert(QLatin1String(own), QStringLiteral("1"));
+            plan = planLaunch(s, mine);
+            QVERIFY2(!plan.frameGeneration && !setsEnv(plan, QStringLiteral("LSFGVK_CONFIG")), own);
+            QVERIFY(plan.keptFromSteam.contains(QLatin1String(own)));
+            QVERIFY(setsEnv(plan, QStringLiteral("MESA_VK_WSI_PRESENT_MODE"))); // vertical sync is gfxtune's again
+        }
+    }
+
+    void saysWhyFramesAreNotGenerated()
+    {
+        GameSettings s;
+        s.frameGeneration = 2;
+        LaunchContext c = context();
+        QVERIFY(planLaunch(s, c).notApplied.contains(QStringLiteral("Frame generation: lsfg-vk is not installed")));
+        c.lsfgVkInstalled = true;
+        QVERIFY(planLaunch(s, c).notApplied.contains(
+            QStringLiteral("Frame generation: Lossless Scaling's frame generation file was not found")));
+        c.lsfgDll = QStringLiteral("/games/steamapps/common/Lossless Scaling/lsfg-vk.dll");
+        QVERIFY(planLaunch(s, c).notApplied.contains(QStringLiteral("Frame generation: its settings file could not be written")));
+        c.lsfgConfigPath = QStringLiteral("/tmp/conf.toml");
+        c.facts.antiCheat = {QStringLiteral("Easy Anti-Cheat")};
+        LaunchPlan plan = planLaunch(s, c);
+        QVERIFY(plan.notApplied.contains(QStringLiteral("Frame generation: locked until the anti-cheat risk is accepted")));
+        QVERIFY(!setsEnv(plan, QStringLiteral("LSFGVK_PROFILE")));
+        s.filtersRiskAccepted = true;
+        QVERIFY(planLaunch(s, c).frameGeneration);
+        c.facts.openGlSeen = true;
+        plan = planLaunch(s, c);
+        QVERIFY(plan.notApplied.contains(QStringLiteral("Frame generation: this game draws with OpenGL, which lsfg-vk cannot reach")));
+        QVERIFY(!plan.frameGeneration);
+        // Off: nothing about frame generation at all.
+        s.frameGeneration = 0;
+        plan = planLaunch(s, c);
+        QVERIFY(!plan.frameGeneration);
+        for (const QString &line : std::as_const(plan.notApplied)) {
+            QVERIFY(!line.startsWith(QLatin1String("Frame generation")));
+        }
+    }
+
+    void startsGfxtuneRunForFrameGenerationOnly()
+    {
+        settings::GameFacts facts;
+        GameSettings s;
+        s.measurePerformance = false;
+        QVERIFY(!settings::needsGfxtuneRun(s, facts));
+        // Its finer settings alone do nothing while it is off.
+        s.flowScale = 50;
+        s.frameGenerationPerformance = true;
+        QVERIFY(!settings::needsGfxtuneRun(s, facts));
+        s.frameGeneration = 2;
+        QVERIFY(settings::needsGfxtuneRun(s, facts));
+        // Held back by anti-cheat and out of reach in OpenGL, like the layer.
+        facts.antiCheat = {QStringLiteral("BattlEye")};
+        QVERIFY(!settings::needsGfxtuneRun(s, facts));
+        s.filtersRiskAccepted = true;
+        QVERIFY(settings::needsGfxtuneRun(s, facts));
+        facts.openGlOnly = true;
+        QVERIFY(!settings::needsGfxtuneRun(s, facts));
+    }
 };
 
 QTEST_GUILESS_MAIN(LaunchTest)

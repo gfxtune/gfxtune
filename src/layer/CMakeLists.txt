@@ -75,5 +75,14 @@ file(GENERATE
     INPUT ${CMAKE_CURRENT_BINARY_DIR}/build-manifest.json.in)
 
 install(TARGETS VkLayer_gfxtune LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gfxtune)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/install/gfxtune_filters.json
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/vulkan/implicit_layer.d)
+# The Vulkan loader reads /etc before /usr/share and ~/.local/share, and
+# the layers it finds first sit closest to the game: from there gfxtune's
+# layer caps and measures the frames the game draws, before lsfg-vk adds
+# generated ones. Within one folder, the order is the file system's.
+# Installs outside /usr keep to the data folder the loader also reads.
+if(CMAKE_INSTALL_FULL_SYSCONFDIR STREQUAL "/etc")
+    set(manifest_dir ${CMAKE_INSTALL_FULL_SYSCONFDIR}/vulkan/implicit_layer.d)
+else()
+    set(manifest_dir ${CMAKE_INSTALL_DATADIR}/vulkan/implicit_layer.d)
+endif()
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/install/gfxtune_filters.json DESTINATION ${manifest_dir})

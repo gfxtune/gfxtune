@@ -45,6 +45,13 @@ struct SkippedApp {
     QString reason;
 };
 
+// Lossless Scaling, whose frame generation lsfg-vk runs.
+struct LosslessScaling {
+    bool installed = false;
+    QString branch; // the Steam branch installed; lsfg-vk needs "lsfg-vk"
+    QString dll;    // its frame generation file, when found
+};
+
 struct SteamScan {
     bool steamFound = false;
     QString steamRoot;
@@ -55,6 +62,7 @@ struct SteamScan {
     QList<LibraryFolder> libraries;
     QList<Game> games; // installed games, sorted by name
     QList<SkippedApp> skipped;
+    LosslessScaling losslessScaling;
     // Problems that did not stop the scan, such as an unreadable file.
     QStringList warnings;
     // Files and folders whose changes mean the scan is out of date.

@@ -108,6 +108,7 @@ private:
     void pollRunning();
     void saveFacts();
     void reloadProfiles();
+    void updateFrameGenerationFiles();
     void syncLaunchLines();
     void learnGraphics(const QHash<quint32, qint64> &reapers);
 

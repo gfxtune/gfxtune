@@ -212,6 +212,56 @@ QQC2.ScrollView {
 
             Kirigami.Separator {
                 Kirigami.FormData.isSection: true
+                Kirigami.FormData.label: KI18n.i18n("Frame generation")
+            }
+            ChoiceSetting {
+                Kirigami.FormData.label: KI18n.i18n("Frame generation:")
+                editor: pane.editor
+                setting: "frameGeneration"
+                controlName: "frameGeneration"
+                controlEnabled: pane.editor.frameGenerationAvailable
+                model: [
+                    {text: KI18n.i18n("Off"), value: 0},
+                    {text: KI18n.i18n("2× (one generated frame per drawn frame)"), value: 2},
+                    {text: KI18n.i18n("3×"), value: 3},
+                    {text: KI18n.i18n("4×"), value: 4}
+                ]
+                value: pane.editor.frameGeneration
+                onPicked: value => pane.editor.frameGeneration = value
+            }
+            Note {
+                text: pane.editor.frameGenerationNote
+            }
+            SliderSetting {
+                Kirigami.FormData.label: KI18n.i18n("Flow scale:")
+                editor: pane.editor
+                setting: "flowScale"
+                controlName: "flowScale"
+                controlEnabled: pane.editor.frameGenerationAvailable && pane.editor.frameGeneration > 0
+                from: 25
+                to: 100
+                describe: v => KI18n.i18nc("percent", "%1 %", v)
+                value: pane.editor.flowScale
+                onPicked: value => pane.editor.flowScale = value
+            }
+            Note {
+                text: KI18n.i18n("The resolution at which motion is followed: lower is faster and less precise.")
+            }
+            SwitchSetting {
+                Kirigami.FormData.label: KI18n.i18n("Performance mode:")
+                editor: pane.editor
+                setting: "frameGenerationPerformance"
+                controlName: "frameGenerationPerformance"
+                controlEnabled: pane.editor.frameGenerationAvailable && pane.editor.frameGeneration > 0
+                value: pane.editor.frameGenerationPerformance
+                onPicked: value => pane.editor.frameGenerationPerformance = value
+            }
+            Note {
+                text: KI18n.i18n("A much lighter model, for weaker graphics cards or high frame rates.")
+            }
+
+            Kirigami.Separator {
+                Kirigami.FormData.isSection: true
                 Kirigami.FormData.label: KI18n.i18n("In-game filters")
             }
             FormWarning {

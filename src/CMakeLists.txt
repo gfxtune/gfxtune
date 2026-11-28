@@ -14,6 +14,7 @@ add_library(gfxtune_core STATIC
     core/launch/LaunchPlan.cpp
     core/binaries/ExecutableImports.cpp
     core/cpu/Cpu.cpp
+    core/framegen/LsfgVk.cpp
     core/gpu/AmdGpu.cpp
     core/performance/Performance.cpp
     core/settings/Availability.cpp

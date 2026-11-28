@@ -4,6 +4,7 @@
 #include "GameLibrary.h"
 
 #include "Logging.h"
+#include "framegen/LsfgVk.h"
 #include "settings/Availability.h"
 
 #include "launch/LastLaunch.h"
@@ -13,6 +14,7 @@
 #include "steam/SteamProcess.h"
 
 #include <KLocalizedString>
+#include <QDir>
 #include <QFileInfo>
 #include <QHash>
 #include <QMutex>
@@ -114,6 +116,11 @@ void GameLibrary::runScan(bool inspect)
 void GameLibrary::scanFinished()
 {
     m_scan = m_future.result();
+    // For gfxtune-run, which does not read Steam's files.
+    QString error;
+    if (!framegen::writeDllNote(m_store->baseDir(), m_scan.losslessScaling.dll, &error)) {
+        qCWarning(lcSettings) << "Could not write" << framegen::dllNotePath(m_store->baseDir()) << error;
+    }
     // gfxtune's own record of games seen drawing with OpenGL.
     for (steam::Game &game : m_scan.games) {
         game.openGlSeen = m_store->loadFacts(game.appId).openGlSeen;
@@ -193,7 +200,32 @@ void GameLibrary::reloadProfiles()
     }
     m_model.setSettingsNotes(notes);
     m_gamesUsingGlobal = usingGlobal;
+    updateFrameGenerationFiles();
     Q_EMIT profilesChanged();
+}
+
+// gfxtune-run writes a game's lsfg-vk file when the game starts, and
+// lsfg-vk follows the file while the game runs: a change made here is
+// written into it. A game set back to off keeps its file as it was, since
+// gfxtune-run no longer points lsfg-vk at it.
+void GameLibrary::updateFrameGenerationFiles()
+{
+    const QString base = m_store->baseDir();
+    const QString dll = framegen::readDllNote(base);
+    const QStringList folders = QDir(base + QStringLiteral("/lsfg-vk")).entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString &folder : folders) {
+        bool ok = false;
+        const quint32 appId = folder.toUInt(&ok);
+        const QString path = framegen::configPath(base, appId);
+        if (!ok || !QFileInfo::exists(path)) {
+            continue;
+        }
+        const settings::GameSettings s = settings::effectiveSettings(m_global, m_profiles.value(appId));
+        QString error;
+        if (s.frameGeneration > 0 && !framegen::writeConfig(path, framegen::configText(s, dll), &error)) {
+            qCWarning(lcSettings) << "Could not write" << path << error;
+        }
+    }
 }
 
 bool GameLibrary::wantsLaunchLine(quint32 appId) const

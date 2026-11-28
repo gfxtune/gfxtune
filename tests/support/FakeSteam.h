@@ -46,6 +46,9 @@ public:
     void text(const QString &path, const vdf::Node &contents);
     void game(const QString &library, quint32 appId, const QString &name, const QString &installDir,
               const QString &stateFlags = QStringLiteral("4"));
+    // Lossless Scaling in `library`, on a Steam branch (empty for the default
+    // one) and with its frame generation file under that name, if any.
+    void losslessScaling(const QString &library, const QString &branch, const QString &dllName);
     void build();
 };
 
